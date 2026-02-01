@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pocket Operations - Drum Pattern Explorer</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; }
+
+        .genre-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #a0a0a0;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .genre-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .genre-btn.active {
+            background: linear-gradient(135deg, #FF6B35, #F7C948);
+            color: #000;
+            border-color: transparent;
+            font-weight: bold;
+        }
+
+        .pattern-btn {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #808080;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 10px;
+            transition: all 0.2s;
+            text-align: left;
+            font-family: inherit;
+        }
+        .pattern-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .pattern-btn.active {
+            background: rgba(78, 205, 196, 0.2);
+            border-color: #4ECDC4;
+            color: #4ECDC4;
+        }
+
+        .step {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(0,0,0,0.3);
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+        .step:hover { transform: scale(1.1); }
+        .step.active { box-shadow: 0 0 10px currentColor; }
+        .step.current {
+            box-shadow: 0 0 15px rgba(255,255,255,0.5);
+            border-color: #fff;
+        }
+
+        .control-btn {
+            background: linear-gradient(135deg, #FF6B35, #e55a2b);
+            border: none;
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.2s;
+            font-family: 'Orbitron', sans-serif;
+        }
+        .control-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(255,107,53,0.4); }
+        .control-btn.stop { background: linear-gradient(135deg, #666, #444); }
+
+        .knob-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        .knob-label { font-size: 10px; color: #808080; text-transform: uppercase; letter-spacing: 1px; }
+        .knob-value { font-size: 18px; font-weight: bold; color: #4ECDC4; font-family: 'Orbitron', sans-serif; }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            background: rgba(255,255,255,0.1);
+            height: 6px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: linear-gradient(135deg, #4ECDC4, #45B7D1);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .inst-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #a0a0a0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 9px;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .inst-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// All patterns from Pocket Operations parsed into data structure
+const PATTERNS = {
+  "Basic Patterns": {
+    "One and Seven & Five and Thirteen": { BD: [1,7], SN: [5,13] },
+    "Boots N' Cats": { BD: [1,9], SN: [5,13], CH: [1,3,5,7,9,11,13,15] },
+    "Tiny House": { OH: [3,7,11,15], BD: [1,5,9,13] },
+    "Good to Go": { BD: [1,4,7,11], SN: [5,13] },
+    "Hip Hop": { BD: [1,3,7,8,15], SN: [5,13], CH: [1,3,5,7,9,11,13,15] }
+  },
+  "Standard Breaks": {
+    "Standard Break 1": { BD: [1,11], SN: [5,13], CH: [1,3,5,7,9,10,11,13,15] },
+    "Standard Break 2": { BD: [1,11], SN: [5,13], CH: [1,3,5,7,8,9,11,15] },
+    "Rolling Break": { BD: [1,8,11], SN: [5,13], CH: [1,3,5,7,9,11,13,15] },
+    "The Unknown Drummer": { BD: [1,4,7,11], SN: [2,5,8,13], CH: [2,3,5,6,8,14], OH: [9,15] }
+  },
+  "Rock": {
+    "Rock 1": { BD: [1,8,9,11], SN: [5,13], CY: [1], CH: [1,3,5,7,9,11,13,15] },
+    "Rock 2": { BD: [1,8,9,11], SN: [5,13], CH: [1,3,5,7,9,11,13,15] },
+    "Rock 3": { BD: [1,8,9,11], SN: [5,13], OH: [15], CH: [1,3,5,7,9,11,13,15] },
+    "Rock 4": { BD: [1,8,9,11], SN: [5,13,15,16], OH: [15], CH: [1,3,5,7,9,11,13,15] }
+  },
+  "Electro": {
+    "Electro 1-A": { SN: [5,13], BD: [1,7] },
+    "Electro 1-B": { SN: [5,13], BD: [1,7,11,15] },
+    "Electro 2-A": { SN: [5,13], BD: [1,7] },
+    "Electro 2-B": { SN: [5,13], BD: [1,11,14] },
+    "Electro 3-A": { SN: [5,13], BD: [1,7,12] },
+    "Electro 3-B": { SN: [5,13], BD: [1,7,12,14] },
+    "Electro 4": { SN: [5,13], BD: [1,7,11,14] },
+    "Siberian Nights": { CH: [1,3,4,5,7,8,9,11,12,13,15,16], SN: [5,13], BD: [1,7] },
+    "New Wave": { BD: [1,7,9,10], SN: [5,13], CH: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16], OH: [3], SH: [5,13] }
+  },
+  "House": {
+    "House": { BD: [1,5,9,13], SN: [5,13], CY: [1], OH: [3,7,11,15] },
+    "House 2": { BD: [1,5,9,13], SN: [5,13], CH: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16], OH: [3,6,11,14] },
+    "Brit House": { BD: [1,5,9,13], CL: [5,13], CY: [3,7,11,15], CH: [1,2,4,5,6,8,9,10,12,13,14,16], OH: [3,7,11,15] },
+    "French House": { BD: [1,5,9,13], CL: [5,13], SH: [1,2,3,5,7,8,9,10,11,13,15,16], CH: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16], OH: [2,4,6,8,10,12,14,16] },
+    "Dirty House": { BD: [1,3,5,9,11,13,16], SN: [5,13], CL: [3,5,9,11,13], CH: [11,16], OH: [3,11,15] },
+    "Deep House": { BD: [1,5,9,13], CL: [5,13], CH: [2,8,10], OH: [3,7,11,15] },
+    "Deeper House": { BD: [1,5,9,13], CL: [2,10], MT: [3,8,11], SH: [4,9], OH: [3,7,11,12,15] },
+    "Slow Deep House": { BD: [1,5,9,13], CL: [5,13], SH: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16], CH: [1,5,9,13], OH: [3,4,7,8,10,11,13] },
+    "Footwork-A": { BD: [1,4,7,9,12,15], CL: [13], CH: [3,11], RS: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16] },
+    "Footwork-B": { BD: [1,4,7,9,12,15], CL: [13], CH: [3,7,8,11,15], RS: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16] }
+  },
+  "Miami Bass": {
+    "Miami Bass-A": { BD: [1,7], SN: [5,13], CH: [1,3,4,5,7,8,9,11,12,13,15,16] },
+    "Miami Bass-B": { BD: [1,7,11,14], SN: [5,13], CH: [1,3,4,5,7,8,9,11,12,13,15,16] },
+    "Sally": { BD: [1,7,11,15], SN: [5,13], LT: [1,7,11,15], CH: [1,3,5,7,9,11,13,15] },
+    "Rock the Planet": { BD: [1,4,7], SN: [5,13], CH: [1,3,4,5,7,8,9,11,12,13,14,15,16] }
+  },
+  "Hip-Hop": {
+    "Hip Hop 1-A": { BD: [1,7,8,12,15], SN: [5,13] },
+    "Hip Hop 1-B": { BD: [1,8,12], SN: [5,13] },
+    "Hip Hop 2-A": { BD: [1,8,9,10,14,16], SN: [5,13] },
+    "Hip Hop 2-B": { BD: [1,8,9,12], SN: [5,10,13] },
+    "Hip Hop 3-A": { BD: [1,3,9,11], SN: [5,13] },
+    "Hip Hop 3-B": { BD: [1,3,9,10,12], SN: [5,13] },
+    "Hip Hop 4-A": { BD: [1,4,8,10,11,16], SN: [5,13] },
+    "Hip Hop 4-B": { BD: [1,3,8,9,10,11], SN: [5,13] },
+    "Hip Hop 5": { BD: [1,3,8,9,11,16], SN: [5,13] },
+    "Hip Hop 6": { BD: [1,3,11,12,16], SN: [5,13], CH: [1,3,5,7,9,11,13,15] },
+    "Hip Hop 7": { BD: [1,8,11,14,16], SN: [5,13], CH: [1,3,5,7,9,11,13,15] },
+    "Hip Hop 8": { BD: [1,4,9,11,12], SN: [5,13], CH: [1,2,4,5,7,8,9,10,12,13,15,16], OH: [6,14] },
+    "Trap-A": { BD: [1,7,13], SN: [9], CH: [1,3,5,7,9,11,13,15] },
+    "Trap-B": { BD: [3,5], SN: [9], CH: [3,5,7,9,11,15] },
+    "Planet Rock-A": { CH: [1,3,4,5,7,8,9,11,12,13,14,15,16], CB: [1,3,5,7,8,10,12,13,15], SN: [5,13], BD: [1,7], HC: [5,13] },
+    "Planet Rock-B": { CH: [1,3,4,5,7,8,9,11,12,13,14,15,16], CB: [1,3,5,7,8,10,12,13,15], SN: [5,13], BD: [1,7,11,14], HC: [5,13] },
+    "Inna Club": { OH: [1,3,5,7,9,11,13,15], SN: [5,13], BD: [3,8,11,16], HC: [5,13] },
+    "Ice": { SN: [5,13], BD: [1,7,11,15], SH: [1,3,5,7,9,11,13,15] },
+    "Back to Cali-A": { CH: [1,3,5,7,9,11,13,15], SN: [5,13], BD: [1,7], HC: [5,7,9,13,15] },
+    "Back to Cali-B": { CH: [1,3,5,7,9,11,15], OH: [13], SN: [5,13], BD: [1,7,11,14], HC: [1,5,7,9,13] },
+    "Snoop Styles": { RS: [3,6,9,12], OH: [1,4,7,11], SN: [5,13], BD: [1,4,7,11], HC: [5,13] },
+    "The Groove-A": { CH: [1,3,5,7,9,11,13,15], OH: [8], SN: [5,13], BD: [1,4,8,12,15], SH: [5,13] },
+    "The Groove-B": { CH: [1,3,5,7,9,11,13,14], OH: [8,11,12,13,15], SN: [5,13], HT: [10,11], MT: [12,14], LT: [15,16], BD: [1,4,8,12], SH: [5,13] },
+    "Boom Bap": { CB: [9], OH: [15], CH: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16], CL: [3,7,11,15], SN: [3,7,11,15], BD: [1,3,6,10,14] },
+    "Most Wanted-A": { CH: [1,3,5,7,9,11,13,15], CY: [1], SN: [5,13], BD: [1,7,9,10,16], HC: [5,13] },
+    "Most Wanted-B": { CH: [1,5,7,9,11,13,15], OH: [3], SN: [5,13], BD: [3,7,9,10], HC: [5,13] }
+  },
+  "Funk and Soul": {
+    "Amen Break-A": { BD: [1,3,11,12], SN: [5,8,10,13,16], CH: [1,3,5,7,9,11,13,15] },
+    "Amen Break-B": { BD: [1,3,11,12], SN: [8,10,13,16], CH: [1,3,5,7,9,11,13,15], RS: [5] },
+    "Amen Break-C": { BD: [1,3,11], SN: [8,10,13,16], CH: [1,3,5,7,9,11,13,15], RS: [15] },
+    "Amen Break-D": { BD: [1,3,11], SN: [2,5,8,10,15], CH: [1,3,5,7,9,13,15], CY: [11] },
+    "The Funky Drummer": { BD: [1,3,7,11,14], SN: [5,8,10,12,13,16], CH: [1,2,3,4,5,6,7,9,10,11,12,13,15,16], OH: [8,14] },
+    "Impeach the President": { BD: [1,8,9,15], SN: [5,13], CH: [1,3,5,7,8,9,13,15], OH: [11] },
+    "When the Levee Breaks": { BD: [1,2,8,11,12], SN: [5,13], CH: [1,3,5,7,9,11,13,15] },
+    "It's a New Day": { BD: [1,3,11,12,16], SN: [5,13], CH: [1,3,5,7,9,11,13,15] },
+    "The Big Beat": { BD: [1,4,7,9], SN: [5,13], CH: [5,13] },
+    "Ashley's Roachclip": { BD: [1,3,7,9,10], SN: [5,13], CH: [1,3,5,7,9,13,15], OH: [11], CB: [1,3,5,7,9,11,13,15] },
+    "Papa Was Too": { BD: [1,8,9,11,16], SN: [5,13], CH: [5,9,11,13,15,16], CY: [5] },
+    "Superstition": { BD: [1,5,9,13], SN: [5,13], CH: [1,3,5,7,8,9,10,11,13,15,16] },
+    "Cissy Strut-A": { BD: [1,4,6,10,12,13,15], SN: [5,8,10,11], CY: [13,15] },
+    "Cissy Strut-B": { BD: [1,4,8,10,12,13,15], SN: [3,6,7,9,10] },
+    "Cissy Strut-C": { BD: [1,5,8,10,12,13,15], SN: [3,5,6,7,10], CY: [13,15] },
+    "Cissy Strut-D": { BD: [1,5,8,10,12,13,15], SN: [1,3,6,9,10], CY: [13,15] },
+    "Hook and Sling-A": { BD: [1,3,10,14,15], SN: [5,7,8,11,13], CY: [1,3,4,6,9,10,12,15] },
+    "Hook and Sling-B": { BD: [15], SN: [1,5,6,8,11,12,15,16], CY: [1,2,4,7,9,10,13,15] },
+    "Hook and Sling-C": { BD: [1,2,13,14,16], SN: [3,5,7,8,11,12,15], CY: [1,3,5,6,8,10,13,14] },
+    "Hook and Sling-D": { BD: [1,3,6,12,14,15], SN: [5,8,11,16], CY: [1,3,5,6,8] },
+    "Kissing My Love-A": { CY: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], SN: [5,8,10,13], BD: [1,2,4,12,15] },
+    "Kissing My Love-B": { CY: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16], SN: [5,8,10,13,16], BD: [1,2,4,12,14] },
+    "Kissing My Love-C": { CY: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16], SN: [5,8,10,16], BD: [1,2,4,11,13,14] },
+    "Kissing My Love-D": { CY: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], SN: [5,10,13], BD: [1,4,12,15] },
+    "Kissing My Love-E": { CY: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], SN: [5,8,10,13], BD: [1,12,14] },
+    "Cold Sweat-A": { CY: [1,3,5,7,9,11,13,15], SN: [5,8,15], BD: [1,9,11] },
+    "Cold Sweat-B": { CY: [1,3,5,7,9,11,13,15], SN: [2,5,8,10,13], BD: [3,9,11,15] },
+    "I Got You-A": { CY: [1,3,5,7,9,11,13,15], SN: [5,13], BD: [1,11] },
+    "I Got You-B": { CY: [1,3,5,7,9,11,13,15], SN: [5,13], BD: [3,7,11,15] },
+    "Funky President": { CY: [1,3,5,7,9,11,13,15], SN: [5,13], BD: [1,4,8,10,11] },
+    "Express Yourself-A": { CY: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16], SN: [5,8,10,12,14,16], BD: [1,4,9,12,15] },
+    "Express Yourself-B": { CY: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16], SN: [5,8,10,12,13], BD: [1,4,9,12,15] },
+    "More Bounce to the Ounce": { CH: [3,5,7,9,11,13,15], OH: [1], HC: [5,13], SN: [5,13], BD: [1,9,10] }
+  },
+  "Afro-Cuban": {
+    "Son Clave": { BD: [1,4,5,8,9,12,13,16], RS: [1,4,7,11,13], CY: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16] },
+    "Rumba": { BD: [1,4,5,8,9,12,13,16], RS: [1,4,8,11,13], CY: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16] },
+    "Bossa Nova": { BD: [1,4,5,8,9,12,13,16], RS: [1,4,7,11,14], CY: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16] },
+    "Bouton": { BD: [1,9,11,15], RS: [4,7,13], CH: [1,3,4,5,7,9,11,13,15] },
+    "Gahu": { BD: [1,5,9,13,15], RS: [3,4,7,8,11,12,15,16], CB: [1,4,7,11,15] },
+    "Shiko": { BD: [1,5,7,9,13,15], RS: [3,4,7,8,11,12,15,16], CB: [1,5,7,11,13] },
+    "Soukous": { BD: [1,5,9,13,15], RS: [1,4,7,9,12,15], CB: [1,4,7,10,11] }
+  },
+  "Drum and Bass": {
+    "Drum and Bass 1-A": { BD: [1,4,8,10,11,16], SN: [5,13], CH: [1,3,5,7,9,11,13,15] },
+    "Drum and Bass 1-B": { BD: [1,3,8,9,10,11], SN: [5,13], CH: [1,3,5,7,9,11,13,15] },
+    "Drum and Bass 2-A": { BD: [1,8,10,12,16], SN: [5,13], CH: [1,3,5,7,9,11,13,15] },
+    "Drum and Bass 2-B": { BD: [1,12], SN: [5,13], CH: [1,3,5,7,9,11,13,15,16] },
+    "Drum and Bass 3": { BD: [1,11], SN: [5,13], CH: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16], OH: [7,8,9,10] },
+    "Drum and Bass 4-A": { BD: [1,7], SN: [5,11,13], CH: [1,3,5,7,9,11,13,15], OH: [1] },
+    "Drum and Bass 4-B": { BD: [5,11], SN: [5,13], CH: [1,3,5,7,9,11,13,15] },
+    "Jungle-A": { BD: [1,3,11], SN: [5,8,10,15], CH: [1,3,5,7,9,11,13,15], OH: [1] },
+    "Jungle-B": { BD: [2,3,11], SN: [2,5,8,10,15], CH: [1,3,5,7,9,11,13,15] }
+  },
+  "EDM": {
+    "Techno": { BD: [1,5,9,13,15], SN: [5,13], CH: [10], OH: [3,7,11,15] },
+    "Dubstep-A": { BD: [1,11], SN: [9], CH: [2,3,7,12,15], OH: [5,14] },
+    "Dubstep-B": { BD: [1,4,7,11], SN: [9], CH: [2,3,7,12,15], OH: [5,14] },
+    "Dubstep Ratcheted": { BD: [1,4,9,12], SN: [5,13,16], CH: [1,2,6,7,8,9,10,12,13,14,16], OH: [7] },
+    "UK Garage-A": { BD: [1,11], CL: [5,13], CH: [3,4,7,11,15,16], RS: [2,8,14], MT: [6,12] },
+    "UK Garage-B": { BD: [1,11], CL: [5,13], CH: [3,7,11,15], RS: [8,14], MT: [6,12] },
+    "Synth Wave": { BD: [1,9], SN: [5,13], CH: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16], OH: [14] }
+  },
+  "Dub": {
+    "Half Drop": { BD: [1], SN: [9], CH: [1,3,5,7,9,11,13,15] },
+    "One Drop": { BD: [9], SN: [9], CH: [1,3,5,7,9,11,13,15] },
+    "Two Drop": { BD: [1,9], SN: [9], CH: [1,3,5,7,9,11,13,15] },
+    "Steppers": { BD: [1,5,9,13], SN: [9], CH: [1,3,5,7,9,11,13,15] }
+  },
+  "Reggaeton": {
+    "Reggaeton 1": { BD: [1,5,9,13], SN: [4,7,12,15], CH: [1,3,5,7,9,11,13,15] },
+    "Reggaeton 2": { CH: [3,7,11,15], SN: [4,6,7,8,11,12,15], BD: [1,8] },
+    "Reggaeton 3-A": { SN: [1,4,7,9,12,15], BD: [1,9] },
+    "Reggaeton 3-B": { CH: [1,4,7,9,12,15], SN: [1,4,7,9,12,15], BD: [1,9] }
+  },
+  "Pop": {
+    "Pop 1-A": { CH: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16], OH: [1,4,7,9,10], RS: [1,2,4,7,8,11,12], SN: [5,13], BD: [1,2,4,8,11], HC: [5,13] },
+    "In the Air Last Night-A": { HT: [3,7], OH: [1,13], CH: [3,7,11,13], SN: [13], BD: [11] },
+    "In the Air Last Night-B": { HT: [3,7], OH: [1,13], CH: [3,7,11,13], SN: [13], BD: [1,3,5,7,9,11,15] },
+    "Nineteen-A": { CH: [1,4,7,9,10], OH: [1,4,7,9,10], RS: [1,2,4,7,8,11,12], BD: [1,2,4,8,11], HC: [5,13] },
+    "Nineteen-B": { CH: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16], OH: [1,4,7,9,10], RS: [1,2,4,7,8,11,12], SN: [5,13], BD: [1,2,4,8,11], HC: [5,13] },
+    "Bleu Monday-A": { OH: [3,7,11,15], SN: [5,13], BD: [1,9], HC: [5,13] },
+    "Bleu Monday-B": { CH: [1,4,5,8,9,12,13,16], OH: [3,7,11,15], SN: [5,13], BD: [1,9], HC: [5,13] }
+  },
+  "Breaks": {
+    "Standard Breakbeat 1": { BD: [1,11], SN: [5,13] },
+    "Standard Breakbeat 2": { BD: [1,3,11], SN: [5,13] },
+    "Standard Breakbeat 3": { BD: [1,3,7,11], SN: [5,8,10,13] },
+    "Polyrhythmic-A": { BD: [1,7], SN: [3,5,9,11,12,13,15,16] },
+    "Polyrhythmic-B": { BD: [3,9], SN: [5,7,11,13] }
+  },
+  "Rolling Breaks": {
+    "Rolling 1": { BD: [1,11], SN: [5,13] },
+    "Rolling 2": { BD: [1,11,14], SN: [5,13] },
+    "Rolling 3-A": { BD: [1,7,13], SN: [5,11] },
+    "Rolling 3-B": { BD: [1,7,13], SN: [5,11,15] },
+    "Rolling 4-A": { BD: [1,2], SN: [5,13] },
+    "Rolling 4-B": { BD: [1,8,10,11], SN: [5,13] },
+    "Rolling 5-A": { BD: [1,3,11], SN: [5,13] },
+    "Rolling 5-B": { BD: [1,4,11], SN: [5,13] },
+    "Rolling 6-A": { BD: [1,7,12], SN: [5,13] },
+    "Rolling 6-B": { BD: [1,3,8,11,14], SN: [5,13] },
+    "Rolling 7-A": { BD: [1,8,9,12], SN: [5,13] },
+    "Rolling 7-B": { BD: [1,4,8,11], SN: [5,13] },
+    "Rolling 7-C": { BD: [1,8,11], SN: [5,13] },
+    "Rolling 7-D": { BD: [1,4,8,11], SN: [5,13] },
+    "Rolling 8": { BD: [1,8], SN: [5,13] },
+    "Rolling 9-A": { BD: [1,9,11], SN: [5,13] },
+    "Rolling 9-B": { BD: [1,2,9,11], SN: [5,13] },
+    "Rolling 10": { BD: [1,8,12], SN: [5,13] },
+    "Rolling 11": { BD: [1,6,7,10,11], SN: [5,13] }
+  },
+  "Drum Rolls": {
+    "Drum Roll 1": { HT: [9,10,11], MT: [12,13,14], LT: [15,16], OH: [1], CY: [1] },
+    "Drum Roll 2": { BD: [13,15], SN: [1,3,4,5,7,9,10,11,12] },
+    "Drum Roll 3": { SN: [1,2,3,5,6,7,9,11,13,14,15,16] },
+    "Drum Roll 4": { BD: [1,7,13], SN: [4,5,8,9,16], CY: [1,7,13] },
+    "Drum Roll 5": { HT: [1], MT: [5,9,11], LT: [13,15] },
+    "Drum Roll 6": { HT: [1], MT: [5,9,11], LT: [13,15] },
+    "Drum Roll 7": { HT: [3], MT: [4,7,8], LT: [11,12,14], SN: [1,5,9,13] }
+  }
+};
+
+// Instrument definitions with colors
+const INSTRUMENTS = {
+  BD: { name: 'Bass Drum', color: '#FF6B35' },
+  SN: { name: 'Snare', color: '#F7C948' },
+  CH: { name: 'Closed HH', color: '#4ECDC4' },
+  OH: { name: 'Open HH', color: '#45B7D1' },
+  LT: { name: 'Low Tom', color: '#96CEB4' },
+  MT: { name: 'Mid Tom', color: '#88D8B0' },
+  HT: { name: 'High Tom', color: '#7BC67B' },
+  CL: { name: 'Clap', color: '#DDA0DD' },
+  RS: { name: 'Rimshot', color: '#FFB6C1' },
+  CB: { name: 'Cowbell', color: '#E8B4B8' },
+  CY: { name: 'Cymbal', color: '#B8860B' },
+  SH: { name: 'Shaker', color: '#DEB887' },
+  HC: { name: 'Hand Clap', color: '#C9A0DC' }
+};
+
+// Audio synthesis engine
+class DrumSynth {
+  constructor() {
+    this.ctx = null;
+    this.masterGain = null;
+  }
+
+  init() {
+    if (!this.ctx) {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      this.masterGain = this.ctx.createGain();
+      this.masterGain.gain.value = 0.7;
+      this.masterGain.connect(this.ctx.destination);
+    }
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+  }
+
+  play(instrument, time = 0) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime + time;
+
+    switch(instrument) {
+      case 'BD': this.kick(t); break;
+      case 'SN': this.snare(t); break;
+      case 'CH': this.hihatClosed(t); break;
+      case 'OH': this.hihatOpen(t); break;
+      case 'LT': this.tom(t, 80); break;
+      case 'MT': this.tom(t, 120); break;
+      case 'HT': this.tom(t, 160); break;
+      case 'CL': case 'HC': this.clap(t); break;
+      case 'RS': this.rimshot(t); break;
+      case 'CB': this.cowbell(t); break;
+      case 'CY': this.cymbal(t); break;
+      case 'SH': this.shaker(t); break;
+      default: this.click(t);
+    }
+  }
+
+  kick(t) {
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, t);
+    osc.frequency.exponentialRampToValueAtTime(40, t + 0.1);
+    gain.gain.setValueAtTime(1, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.4);
+    osc.connect(gain).connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.4);
+  }
+
+  snare(t) {
+    const noise = this.ctx.createBufferSource();
+    const noiseBuffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.2, this.ctx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    noise.buffer = noiseBuffer;
+
+    const noiseFilter = this.ctx.createBiquadFilter();
+    noiseFilter.type = 'highpass';
+    noiseFilter.frequency.value = 1000;
+
+    const noiseGain = this.ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.8, t);
+    noiseGain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+
+    noise.connect(noiseFilter).connect(noiseGain).connect(this.masterGain);
+    noise.start(t);
+
+    const osc = this.ctx.createOscillator();
+    const oscGain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(180, t);
+    oscGain.gain.setValueAtTime(0.5, t);
+    oscGain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+    osc.connect(oscGain).connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.2);
+  }
+
+  hihatClosed(t) {
+    const noise = this.ctx.createBufferSource();
+    const buffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.05, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    noise.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 7000;
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.3, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.05);
+
+    noise.connect(filter).connect(gain).connect(this.masterGain);
+    noise.start(t);
+  }
+
+  hihatOpen(t) {
+    const noise = this.ctx.createBufferSource();
+    const buffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.3, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    noise.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 6000;
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.3, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+
+    noise.connect(filter).connect(gain).connect(this.masterGain);
+    noise.start(t);
+  }
+
+  tom(t, freq) {
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq * 1.5, t);
+    osc.frequency.exponentialRampToValueAtTime(freq, t + 0.1);
+    gain.gain.setValueAtTime(0.6, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+    osc.connect(gain).connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.3);
+  }
+
+  clap(t) {
+    for (let i = 0; i < 3; i++) {
+      const noise = this.ctx.createBufferSource();
+      const buffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.02, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let j = 0; j < data.length; j++) data[j] = Math.random() * 2 - 1;
+      noise.buffer = buffer;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 2500;
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.5, t + i * 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + i * 0.01 + 0.1);
+
+      noise.connect(filter).connect(gain).connect(this.masterGain);
+      noise.start(t + i * 0.01);
+    }
+  }
+
+  rimshot(t) {
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(800, t);
+    gain.gain.setValueAtTime(0.4, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.05);
+    osc.connect(gain).connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.05);
+  }
+
+  cowbell(t) {
+    const osc1 = this.ctx.createOscillator();
+    const osc2 = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc1.type = 'square';
+    osc2.type = 'square';
+    osc1.frequency.value = 800;
+    osc2.frequency.value = 540;
+    gain.gain.setValueAtTime(0.3, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(this.masterGain);
+    osc1.start(t);
+    osc2.start(t);
+    osc1.stop(t + 0.15);
+    osc2.stop(t + 0.15);
+  }
+
+  cymbal(t) {
+    const noise = this.ctx.createBufferSource();
+    const buffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.8, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    noise.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 5000;
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.25, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.8);
+
+    noise.connect(filter).connect(gain).connect(this.masterGain);
+    noise.start(t);
+  }
+
+  shaker(t) {
+    const noise = this.ctx.createBufferSource();
+    const buffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.04, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    noise.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 8000;
+    filter.Q.value = 2;
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.2, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.04);
+
+    noise.connect(filter).connect(gain).connect(this.masterGain);
+    noise.start(t);
+  }
+
+  click(t) {
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.frequency.value = 1000;
+    gain.gain.setValueAtTime(0.3, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.02);
+    osc.connect(gain).connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.02);
+  }
+}
+
+const synth = new DrumSynth();
+
+function DrumMachine() {
+  const [selectedGenre, setSelectedGenre] = useState('Basic Patterns');
+  const [selectedPattern, setSelectedPattern] = useState("Boots N' Cats");
+  const [customPattern, setCustomPattern] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [bpm, setBpm] = useState(120);
+  const [swing, setSwing] = useState(0);
+  const [currentStep, setCurrentStep] = useState(-1);
+  const [editMode, setEditMode] = useState(false);
+
+  const intervalRef = useRef(null);
+  const stepRef = useRef(0);
+
+  const currentPatternData = customPattern || PATTERNS[selectedGenre]?.[selectedPattern] || {};
+
+  const activeInstruments = [...new Set(Object.keys(currentPatternData))].sort((a, b) => {
+    const order = ['BD', 'SN', 'LT', 'MT', 'HT', 'CL', 'HC', 'RS', 'CB', 'CY', 'OH', 'CH', 'SH'];
+    return order.indexOf(a) - order.indexOf(b);
+  });
+
+  const playStep = useCallback((step) => {
+    activeInstruments.forEach(inst => {
+      if (currentPatternData[inst]?.includes(step)) {
+        synth.play(inst);
+      }
+    });
+  }, [activeInstruments, currentPatternData]);
+
+  const startPlayback = useCallback(() => {
+    synth.init();
+    setIsPlaying(true);
+    stepRef.current = 0;
+
+    const stepDuration = (60 / bpm) / 4 * 1000;
+
+    intervalRef.current = setInterval(() => {
+      const step = stepRef.current;
+      setCurrentStep(step);
+      playStep(step + 1);
+
+      stepRef.current = (step + 1) % 16;
+    }, stepDuration);
+  }, [bpm, playStep]);
+
+  const stopPlayback = useCallback(() => {
+    setIsPlaying(false);
+    setCurrentStep(-1);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isPlaying) {
+      stopPlayback();
+      startPlayback();
+    }
+  }, [bpm]);
+
+  const toggleStep = (instrument, step) => {
+    if (!editMode) return;
+
+    const newPattern = { ...currentPatternData };
+    if (!newPattern[instrument]) newPattern[instrument] = [];
+
+    const idx = newPattern[instrument].indexOf(step);
+    if (idx >= 0) {
+      newPattern[instrument] = newPattern[instrument].filter(s => s !== step);
+    } else {
+      newPattern[instrument] = [...newPattern[instrument], step].sort((a, b) => a - b);
+    }
+
+    if (newPattern[instrument].length === 0) delete newPattern[instrument];
+    setCustomPattern(newPattern);
+  };
+
+  const addInstrument = (inst) => {
+    if (!editMode) return;
+    const newPattern = { ...currentPatternData };
+    if (!newPattern[inst]) newPattern[inst] = [];
+    setCustomPattern(newPattern);
+  };
+
+  const loadPattern = (genre, pattern) => {
+    setSelectedGenre(genre);
+    setSelectedPattern(pattern);
+    setCustomPattern(null);
+    stopPlayback();
+  };
+
+  const clearPattern = () => {
+    setCustomPattern({});
+  };
+
+  const handleStepClick = (inst, step) => {
+    synth.init();
+    synth.play(inst);
+    toggleStep(inst, step);
+  };
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f1a 100%)',
+      color: '#e0e0e0',
+      fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+      padding: '20px'
+    }}>
+      {/* Header */}
+      <div style={{
+        textAlign: 'center',
+        marginBottom: 30,
+        borderBottom: '1px solid rgba(255,255,255,0.1)',
+        paddingBottom: 20
+      }}>
+        <h1 style={{
+          fontFamily: "'Orbitron', sans-serif",
+          fontSize: 32,
+          fontWeight: 900,
+          background: 'linear-gradient(135deg, #FF6B35, #F7C948, #4ECDC4)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          margin: 0,
+          letterSpacing: 2
+        }}>
+          POCKET OPERATIONS
+        </h1>
+        <p style={{ color: '#666', fontSize: 12, margin: '8px 0 0 0' }}>
+          Drum Pattern Explorer - {Object.values(PATTERNS).reduce((a, g) => a + Object.keys(g).length, 0)} patterns
+        </p>
+      </div>
+
+      <div style={{ display: 'flex', gap: 20, maxWidth: 1400, margin: '0 auto' }}>
+        {/* Left Panel - Pattern Browser */}
+        <div style={{
+          width: 280,
+          flexShrink: 0,
+          background: 'rgba(0,0,0,0.2)',
+          borderRadius: 12,
+          padding: 16,
+          maxHeight: 'calc(100vh - 180px)',
+          overflowY: 'auto'
+        }}>
+          <h3 style={{
+            margin: '0 0 12px 0',
+            fontSize: 11,
+            color: '#666',
+            textTransform: 'uppercase',
+            letterSpacing: 2
+          }}>Genres</h3>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+            {Object.keys(PATTERNS).map(genre => (
+              <button
+                key={genre}
+                className={`genre-btn ${selectedGenre === genre ? 'active' : ''}`}
+                onClick={() => setSelectedGenre(genre)}
+              >
+                {genre}
+              </button>
+            ))}
+          </div>
+
+          <h3 style={{
+            margin: '16px 0 12px 0',
+            fontSize: 11,
+            color: '#666',
+            textTransform: 'uppercase',
+            letterSpacing: 2
+          }}>Patterns</h3>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {Object.keys(PATTERNS[selectedGenre] || {}).map(pattern => (
+              <button
+                key={pattern}
+                className={`pattern-btn ${selectedPattern === pattern && !customPattern ? 'active' : ''}`}
+                onClick={() => loadPattern(selectedGenre, pattern)}
+              >
+                {pattern}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Main Area */}
+        <div style={{ flex: 1 }}>
+          {/* Transport Controls */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 30,
+            marginBottom: 20,
+            padding: 20,
+            background: 'rgba(0,0,0,0.2)',
+            borderRadius: 12,
+            flexWrap: 'wrap'
+          }}>
+            <button
+              className={`control-btn ${isPlaying ? 'stop' : ''}`}
+              onClick={isPlaying ? stopPlayback : startPlayback}
+            >
+              {isPlaying ? '\u25A0 STOP' : '\u25B6 PLAY'}
+            </button>
+
+            <div className="knob-container">
+              <span className="knob-label">BPM</span>
+              <span className="knob-value">{bpm}</span>
+              <input
+                type="range"
+                min="60"
+                max="200"
+                value={bpm}
+                onChange={e => setBpm(Number(e.target.value))}
+                style={{ width: 100 }}
+              />
+            </div>
+
+            <div className="knob-container">
+              <span className="knob-label">Swing</span>
+              <span className="knob-value">{swing}%</span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={swing}
+                onChange={e => setSwing(Number(e.target.value))}
+                style={{ width: 100 }}
+              />
+            </div>
+
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
+              <button
+                className="control-btn"
+                style={{
+                  background: editMode
+                    ? 'linear-gradient(135deg, #4ECDC4, #45B7D1)'
+                    : 'linear-gradient(135deg, #444, #333)',
+                  padding: '10px 16px',
+                  fontSize: 12
+                }}
+                onClick={() => setEditMode(!editMode)}
+              >
+                {editMode ? '\u2713 EDIT ON' : '\u270E EDIT'}
+              </button>
+              <button
+                className="control-btn"
+                style={{
+                  background: 'linear-gradient(135deg, #666, #444)',
+                  padding: '10px 16px',
+                  fontSize: 12
+                }}
+                onClick={clearPattern}
+              >
+                CLEAR
+              </button>
+            </div>
+          </div>
+
+          {/* Pattern Name */}
+          <div style={{
+            marginBottom: 16,
+            padding: '12px 16px',
+            background: 'rgba(78, 205, 196, 0.1)',
+            borderRadius: 8,
+            borderLeft: '3px solid #4ECDC4'
+          }}>
+            <span style={{ fontSize: 11, color: '#666', textTransform: 'uppercase' }}>
+              {selectedGenre} /
+            </span>
+            <span style={{ fontSize: 16, fontWeight: 'bold', marginLeft: 8, color: '#fff' }}>
+              {customPattern ? 'Custom Pattern' : selectedPattern}
+            </span>
+          </div>
+
+          {/* Step Labels */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '80px repeat(16, 1fr)',
+            gap: 4,
+            marginBottom: 8,
+            padding: '0 4px'
+          }}>
+            <div></div>
+            {[...Array(16)].map((_, i) => (
+              <div key={i} style={{
+                textAlign: 'center',
+                fontSize: 9,
+                color: (i % 4 === 0) ? '#4ECDC4' : '#444',
+                fontWeight: (i % 4 === 0) ? 'bold' : 'normal'
+              }}>
+                {i + 1}
+              </div>
+            ))}
+          </div>
+
+          {/* Grid */}
+          <div style={{
+            background: 'rgba(0,0,0,0.3)',
+            borderRadius: 12,
+            padding: 12,
+            border: '1px solid rgba(255,255,255,0.05)'
+          }}>
+            {activeInstruments.map(inst => (
+              <div key={inst} style={{
+                display: 'grid',
+                gridTemplateColumns: '80px repeat(16, 1fr)',
+                gap: 4,
+                marginBottom: 4
+              }}>
+                <div style={{
+                  fontSize: 10,
+                  color: INSTRUMENTS[inst]?.color || '#888',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  paddingLeft: 8
+                }}>
+                  {inst}
+                  <span style={{
+                    fontSize: 8,
+                    color: '#555',
+                    marginLeft: 6,
+                    fontWeight: 'normal'
+                  }}>
+                    {INSTRUMENTS[inst]?.name}
+                  </span>
+                </div>
+                {[...Array(16)].map((_, i) => {
+                  const step = i + 1;
+                  const isActive = currentPatternData[inst]?.includes(step);
+                  const isCurrent = currentStep === i;
+                  const color = INSTRUMENTS[inst]?.color || '#888';
+
+                  return (
+                    <div
+                      key={i}
+                      className={`step ${isActive ? 'active' : ''} ${isCurrent ? 'current' : ''}`}
+                      style={{
+                        background: isActive
+                          ? `linear-gradient(135deg, ${color}, ${color}88)`
+                          : (i % 4 === 0)
+                            ? 'rgba(255,255,255,0.05)'
+                            : 'rgba(0,0,0,0.3)',
+                        color: color
+                      }}
+                      onClick={() => handleStepClick(inst, step)}
+                    />
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+
+          {/* Add Instrument (edit mode) */}
+          {editMode && (
+            <div style={{ marginTop: 16 }}>
+              <span style={{ fontSize: 10, color: '#666', marginRight: 10 }}>Add instrument:</span>
+              {Object.keys(INSTRUMENTS).filter(i => !activeInstruments.includes(i)).map(inst => (
+                <button
+                  key={inst}
+                  className="inst-btn"
+                  style={{ marginRight: 4 }}
+                  onClick={() => addInstrument(inst)}
+                >
+                  {inst}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Legend */}
+          <div style={{
+            marginTop: 20,
+            padding: 16,
+            background: 'rgba(0,0,0,0.2)',
+            borderRadius: 8,
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 16
+          }}>
+            <span style={{ fontSize: 10, color: '#666', marginRight: 10 }}>Legend:</span>
+            {Object.entries(INSTRUMENTS).map(([key, val]) => (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{
+                  width: 12,
+                  height: 12,
+                  background: val.color,
+                  borderRadius: 2
+                }}/>
+                <span style={{ fontSize: 10, color: '#888' }}>{key}: {val.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<DrumMachine />);
+    </script>
+</body>
+</html>
