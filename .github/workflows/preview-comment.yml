@@ -14,7 +14,7 @@ jobs:
           # Convert branch name to Cloudflare Pages URL format
           BRANCH="${{ github.head_ref }}"
           SLUG=$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//')
-          echo "url=https://${SLUG}.tools-robbiehickey.workers.dev" >> $GITHUB_OUTPUT
+          echo "url=https://${SLUG}.tools-kbt.pages.dev" >> $GITHUB_OUTPUT
 
       - name: Comment on PR
         uses: actions/github-script@v7
