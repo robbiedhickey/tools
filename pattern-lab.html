@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pocket Operations - Drum Pattern Explorer</title>
+    <title>Pattern Lab - Drum Pattern Explorer</title>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; }
@@ -741,10 +741,10 @@ function DrumMachine() {
           margin: 0,
           letterSpacing: 2
         }}>
-          POCKET OPERATIONS
+          PATTERN LAB
         </h1>
         <p style={{ color: '#666', fontSize: 12, margin: '8px 0 0 0' }}>
-          Drum Pattern Explorer - {Object.values(PATTERNS).reduce((a, g) => a + Object.keys(g).length, 0)} patterns
+          {Object.values(PATTERNS).reduce((a, g) => a + Object.keys(g).length, 0)} patterns from <a href="https://shittyrecording.studio" style={{ color: '#4ECDC4' }}>Pocket Operations</a>
         </p>
       </div>
 
