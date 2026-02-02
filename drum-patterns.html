@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pocket Operations - Drum Pattern Explorer</title>
+    <title>Pattern Lab - Drum Pattern Explorer</title>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; }
+        html, body { margin: 0; padding: 0; overflow-x: hidden; max-width: 100vw; }
 
         .genre-btn {
             background: rgba(255,255,255,0.05);
@@ -115,6 +115,30 @@
             font-family: inherit;
         }
         .inst-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .main-layout {
+                flex-direction: column !important;
+            }
+            .sidebar {
+                width: 100% !important;
+                max-height: none !important;
+                overflow-y: visible !important;
+                margin-bottom: 16px;
+            }
+            .main-container {
+                overflow-x: hidden;
+                max-width: 100vw;
+            }
+            .step-grid {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .step-grid > div {
+                min-width: 500px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -690,12 +714,15 @@ function DrumMachine() {
   };
 
   return (
-    <div style={{
+    <div className="main-container" style={{
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f1a 100%)',
       color: '#e0e0e0',
       fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-      padding: '20px'
+      padding: '20px',
+      overflowX: 'hidden',
+      maxWidth: '100vw',
+      boxSizing: 'border-box'
     }}>
       {/* Header */}
       <div style={{
@@ -714,16 +741,16 @@ function DrumMachine() {
           margin: 0,
           letterSpacing: 2
         }}>
-          POCKET OPERATIONS
+          PATTERN LAB
         </h1>
         <p style={{ color: '#666', fontSize: 12, margin: '8px 0 0 0' }}>
-          Drum Pattern Explorer - {Object.values(PATTERNS).reduce((a, g) => a + Object.keys(g).length, 0)} patterns
+          {Object.values(PATTERNS).reduce((a, g) => a + Object.keys(g).length, 0)} patterns from <a href="https://shittyrecording.studio" style={{ color: '#4ECDC4' }}>Pocket Operations</a>
         </p>
       </div>
 
-      <div style={{ display: 'flex', gap: 20, maxWidth: 1400, margin: '0 auto' }}>
+      <div className="main-layout" style={{ display: 'flex', gap: 20, maxWidth: 1400, margin: '0 auto' }}>
         {/* Left Panel - Pattern Browser */}
-        <div style={{
+        <div className="sidebar" style={{
           width: 280,
           flexShrink: 0,
           background: 'rgba(0,0,0,0.2)',
@@ -864,7 +891,7 @@ function DrumMachine() {
           </div>
 
           {/* Step Labels */}
-          <div style={{
+          <div className="step-grid" style={{
             display: 'grid',
             gridTemplateColumns: '80px repeat(16, 1fr)',
             gap: 4,
@@ -885,7 +912,7 @@ function DrumMachine() {
           </div>
 
           {/* Grid */}
-          <div style={{
+          <div className="step-grid" style={{
             background: 'rgba(0,0,0,0.3)',
             borderRadius: 12,
             padding: 12,
