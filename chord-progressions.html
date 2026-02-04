@@ -1,0 +1,3015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EP-133 Chord Lab</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --te-orange: #FF6633;
+            --te-cream: #E8E4D9;
+            --te-paper: #D4D0C8;
+            --te-grid: #C4C0B8;
+            --te-black: #1A1A1A;
+            --te-select: #C4C0B8;
+            --te-select-dark: #A8A49C;
+            --te-mid-gray: #888;
+            --te-light-gray: #AAA;
+            --te-green: #4A7C59;
+            --te-green-light: #7FFF7F;
+            --te-third: #7BA394;
+            --te-fifth: #A8927C;
+            --te-seventh: #9B7BA3;
+        }
+
+        body {
+            font-family: 'IBM Plex Mono', 'Space Mono', monospace;
+            background-color: var(--te-paper);
+            background-image: 
+                linear-gradient(var(--te-grid) 1px, transparent 1px),
+                linear-gradient(90deg, var(--te-grid) 1px, transparent 1px);
+            background-size: 20px 20px;
+            min-height: 100vh;
+            color: var(--te-black);
+        }
+
+        /* ========== HEADER ========== */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 30px;
+            border-bottom: 2px solid var(--te-black);
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .logo-box {
+            background: var(--te-cream);
+            border: 3px solid var(--te-black);
+            border-radius: 8px;
+            padding: 8px 16px;
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .logo-ep {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--te-orange);
+            line-height: 1;
+        }
+
+        .logo-text {
+            display: flex;
+            flex-direction: column;
+            font-size: 11px;
+            font-weight: 600;
+            line-height: 1.3;
+            border-left: 2px solid var(--te-black);
+            padding-left: 8px;
+        }
+
+        .version {
+            font-size: 10px;
+            color: var(--te-mid-gray);
+            margin-top: 4px;
+        }
+
+        .header-status {
+            background: var(--te-cream);
+            border: 2px solid var(--te-black);
+            color: var(--te-black);
+            padding: 10px 20px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--te-mid-gray);
+        }
+
+        .status-dot.active {
+            background: var(--te-orange);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* ========== MAIN LAYOUT ========== */
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 24px;
+            padding: 24px 30px;
+            max-width: 1600px;
+            margin: 0 auto;
+            align-items: start;
+        }
+
+        .main-container > div {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        @media (max-width: 1000px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ========== PANELS ========== */
+        .panel {
+            background: var(--te-cream);
+            border: 3px solid var(--te-black);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            background: var(--te-orange);
+            color: white;
+            padding: 8px 14px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-content {
+            padding: 16px;
+        }
+
+        /* ========== FILTER/SEARCH ========== */
+        .search-section {
+            margin-bottom: 16px;
+        }
+
+        .search-box {
+            display: flex;
+            align-items: center;
+            background: white;
+            border: 2px solid var(--te-black);
+            border-radius: 4px;
+            padding: 0 12px;
+        }
+
+        .search-box input {
+            flex: 1;
+            border: none;
+            padding: 10px 8px;
+            font-family: inherit;
+            font-size: 12px;
+            background: transparent;
+            outline: none;
+        }
+
+        .search-icon {
+            color: var(--te-mid-gray);
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 6px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .filter-chip {
+            padding: 6px 12px;
+            background: white;
+            border: 2px solid var(--te-black);
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .filter-chip:hover {
+            background: var(--te-paper);
+        }
+
+        .filter-chip.active {
+            background: var(--te-select-dark);
+            border-color: var(--te-black);
+            color: var(--te-black);
+        }
+
+        /* ========== CUSTOM INPUT ========== */
+        .custom-input-section {
+            background: white;
+            border: 2px solid var(--te-black);
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 16px;
+        }
+
+        .custom-label {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--te-mid-gray);
+            margin-bottom: 8px;
+        }
+
+        .custom-input-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .custom-input-row input {
+            flex: 1;
+            border: 2px solid var(--te-black);
+            padding: 8px 10px;
+            font-family: inherit;
+            font-size: 12px;
+            border-radius: 4px;
+        }
+
+        .custom-input-row button {
+            padding: 8px 16px;
+            background: var(--te-orange);
+            color: white;
+            border: 2px solid var(--te-black);
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .custom-input-row button:hover {
+            background: #FF7744;
+        }
+
+        .j6-import-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .j6-import-row button {
+            padding: 6px 12px;
+            background: var(--te-black);
+            color: white;
+            border: 2px solid var(--te-black);
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .j6-import-row button:hover {
+            background: #333;
+        }
+
+        .j6-import-row button.loading {
+            opacity: 0.7;
+            cursor: wait;
+        }
+
+        .j6-status {
+            font-size: 10px;
+            color: var(--te-mid-gray);
+        }
+
+        .j6-status.error {
+            color: var(--te-orange);
+        }
+
+        /* ========== PROGRESSIONS LIST ========== */
+        .progressions-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .prog-card {
+            background: white;
+            border: 2px solid var(--te-black);
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .prog-card:hover {
+            background: var(--te-paper);
+            transform: translateX(2px);
+        }
+
+        .prog-card.selected {
+            background: var(--te-select);
+            border-color: var(--te-orange);
+            border-width: 3px;
+        }
+
+        .prog-name {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--te-orange);
+            margin-bottom: 4px;
+        }
+
+        .prog-numerals {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .prog-meta {
+            display: flex;
+            gap: 8px;
+            font-size: 9px;
+            color: var(--te-mid-gray);
+        }
+
+        .prog-meta span {
+            background: var(--te-paper);
+            padding: 2px 6px;
+            border-radius: 2px;
+        }
+
+        /* ========== PAD GRID ========== */
+        .pad-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .pad-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .pad-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--te-mid-gray);
+        }
+
+        .toggle-group {
+            display: flex;
+            gap: 6px;
+        }
+
+        .toggle-btn {
+            padding: 6px 10px;
+            background: white;
+            border: 2px solid var(--te-black);
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .toggle-btn.active {
+            background: var(--te-orange);
+            color: white;
+        }
+
+        .pad-safe {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--te-mid-gray);
+        }
+
+        .pad-safe input {
+            accent-color: var(--te-orange);
+        }
+
+        .num-pad {
+            aspect-ratio: 1;
+            background: white;
+            border: 3px solid var(--te-black);
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s;
+            position: relative;
+        }
+
+        .num-pad:hover {
+            background: var(--te-paper);
+        }
+
+        .num-pad.playing {
+            box-shadow: 0 0 0 3px var(--te-orange) inset;
+        }
+
+        .pad-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--te-mid-gray);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: white;
+            border: 2px solid var(--te-black);
+            border-radius: 4px;
+            padding: 4px 6px;
+        }
+
+        .legend-swatch {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            border: 1px solid var(--te-black);
+        }
+
+        .num-pad.root {
+            background: var(--te-orange);
+            color: white;
+            border-color: var(--te-black);
+        }
+
+        .num-pad.third {
+            background: var(--te-third);
+            color: white;
+        }
+
+        .num-pad.fifth {
+            background: var(--te-fifth);
+            color: white;
+        }
+
+        .num-pad.seventh {
+            background: var(--te-seventh);
+            color: white;
+        }
+
+        .pad-num {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .pad-note {
+            font-size: 9px;
+            font-weight: 600;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+
+        /* ========== CHORD TIMELINE ========== */
+        .chord-timeline {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 4px;
+            margin-bottom: 16px;
+        }
+
+        .timeline-chord {
+            min-width: 80px;
+            background: white;
+            border: 2px solid var(--te-black);
+            border-radius: 4px;
+            padding: 8px;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .timeline-chord:hover {
+            background: var(--te-paper);
+        }
+
+        .timeline-chord.active {
+            background: var(--te-orange);
+            color: white;
+            border-color: var(--te-black);
+            border-width: 3px;
+        }
+
+        .tc-numeral {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .tc-name {
+            font-size: 9px;
+            opacity: 0.8;
+        }
+
+        .tc-voicing-select {
+            margin-top: 6px;
+            font-family: inherit;
+            font-size: 9px;
+            padding: 3px 6px;
+            border: 1px solid var(--te-black);
+            border-radius: 3px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .timeline-chord.active .tc-voicing-select {
+            background: var(--te-cream);
+        }
+
+        /* ========== CONTROLS ========== */
+        .control-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .control-button {
+            flex: 1;
+            padding: 12px;
+            background: var(--te-orange);
+            color: white;
+            border: 2px solid var(--te-black);
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .control-button:hover {
+            background: #FF7744;
+        }
+
+        .control-button.playing {
+            background: var(--te-green);
+        }
+
+        .control-button.secondary {
+            background: var(--te-cream);
+            color: var(--te-black);
+        }
+
+        .control-button.secondary:hover {
+            background: var(--te-select);
+        }
+
+        /* ========== TEMPO SLIDER ========== */
+        .tempo-control {
+            margin-bottom: 16px;
+        }
+
+        .tempo-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--te-mid-gray);
+        }
+
+        .tempo-value {
+            color: var(--te-orange);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: white;
+            border: 2px solid var(--te-black);
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: var(--te-orange);
+            border: 2px solid var(--te-black);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: var(--te-orange);
+            border: 2px solid var(--te-black);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        /* ========== SELECTS ========== */
+        .select-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .select-wrapper {
+            flex: 1;
+        }
+
+        .select-label {
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--te-mid-gray);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        .select-note {
+            font-size: 9px;
+            color: var(--te-mid-gray);
+            margin-top: 6px;
+        }
+
+        select {
+            width: 100%;
+            padding: 8px 10px;
+            background: white;
+            border: 2px solid var(--te-black);
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* ========== INFO PANEL ========== */
+        .info-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--te-orange);
+            margin-bottom: 8px;
+        }
+
+        .info-content {
+            font-size: 11px;
+            line-height: 1.5;
+            color: var(--te-black);
+        }
+
+        .info-notes,
+        .info-function,
+        .info-suggestions,
+        .pad-safe-note {
+            font-size: 10px;
+            color: var(--te-mid-gray);
+            margin-top: 6px;
+        }
+
+        .info-suggestions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .suggestion-btn {
+            padding: 4px 8px;
+            background: white;
+            border: 2px solid var(--te-black);
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 9px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .suggestion-btn:hover {
+            background: var(--te-paper);
+        }
+
+        .raw-chord {
+            margin-top: 8px;
+            font-size: 10px;
+            color: var(--te-mid-gray);
+        }
+
+        .interval-info {
+            background: white;
+            border: 2px solid var(--te-black);
+            border-radius: 4px;
+            padding: 12px;
+            margin-top: 12px;
+        }
+
+        .interval-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--te-grid);
+        }
+
+        .interval-row:last-child {
+            border-bottom: none;
+        }
+
+        .interval-label {
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .interval-value {
+            font-size: 10px;
+            color: var(--te-mid-gray);
+        }
+
+        .harmonic-note {
+            font-size: 10px;
+            color: var(--te-mid-gray);
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        /* ========== THEORY REFERENCE ========== */
+        .theory-reference {
+            margin-top: 16px;
+        }
+
+        .theory-toggle {
+            width: 100%;
+            padding: 10px;
+            background: var(--te-cream);
+            border: 2px solid var(--te-black);
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: left;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .theory-toggle:hover {
+            background: var(--te-select);
+        }
+
+        .theory-content {
+            display: none;
+            background: white;
+            border: 2px solid var(--te-black);
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            padding: 12px;
+            margin-top: -2px;
+        }
+
+        .theory-content.expanded {
+            display: block;
+        }
+
+        .theory-visual {
+            margin: 10px 0 12px;
+        }
+
+        .circle-of-fifths {
+            width: 100%;
+            max-width: 360px;
+            display: block;
+            margin: 6px auto;
+            background: var(--te-paper);
+            border: 2px solid var(--te-black);
+            border-radius: 8px;
+        }
+
+        .circle-of-fifths text {
+            font-family: 'IBM Plex Mono', 'Space Mono', monospace;
+            font-size: 10px;
+            font-weight: 600;
+            fill: var(--te-black);
+        }
+
+        .circle-of-fifths .minor {
+            font-size: 9px;
+            fill: var(--te-mid-gray);
+        }
+
+        .theory-section {
+            margin-bottom: 12px;
+        }
+
+        .theory-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .theory-subtitle {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--te-orange);
+            margin-bottom: 6px;
+        }
+
+        .theory-item {
+            font-size: 9px;
+            line-height: 1.6;
+            margin-bottom: 4px;
+        }
+
+        .theory-formula {
+            font-family: 'Space Mono', monospace;
+            background: var(--te-paper);
+            padding: 2px 4px;
+            border-radius: 2px;
+        }
+
+        /* ========== NOW PLAYING ========== */
+        .now-playing {
+            background: white;
+            border: 2px solid var(--te-black);
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 16px;
+        }
+
+        .np-label {
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--te-mid-gray);
+            margin-bottom: 4px;
+        }
+
+        .np-progression {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .np-name {
+            font-size: 10px;
+            color: var(--te-mid-gray);
+        }
+
+        /* ========== CODE DISPLAY ========== */
+        .code-display {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .code-box {
+            flex: 1;
+            background: var(--te-black);
+            color: var(--te-green-light);
+            border: 2px solid var(--te-black);
+            border-radius: 4px;
+            padding: 8px 10px;
+            font-family: 'Space Mono', monospace;
+            text-align: center;
+        }
+
+        .code-label {
+            font-size: 8px;
+            opacity: 0.7;
+            margin-bottom: 2px;
+        }
+
+        .code-value {
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        /* ========== SYNTH OPTIONS ========== */
+        .synth-options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 6px;
+            margin-bottom: 16px;
+        }
+
+        .synth-btn {
+            padding: 8px;
+            background: white;
+            border: 2px solid var(--te-black);
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .synth-btn:hover {
+            background: var(--te-paper);
+        }
+
+        .synth-btn.active {
+            background: var(--te-orange);
+            color: white;
+        }
+
+        .advanced-toggle {
+            width: 100%;
+            padding: 8px 10px;
+            background: var(--te-cream);
+            border: 2px solid var(--te-black);
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: left;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 10px;
+        }
+
+        .advanced-toggle:hover {
+            background: var(--te-select);
+        }
+
+        .advanced-content {
+            display: none;
+            background: white;
+            border: 2px solid var(--te-black);
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            padding: 10px;
+            margin-top: -2px;
+        }
+
+        .advanced-content.expanded {
+            display: block;
+        }
+
+        .adsr-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .adsr-control label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--te-mid-gray);
+            margin-bottom: 4px;
+        }
+
+        /* ========== SCROLLBAR ========== */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--te-cream);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--te-select-dark);
+            border: 2px solid var(--te-cream);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--te-black);
+        }
+
+        /* ========== CREDITS ========== */
+        .credits {
+            grid-column: 1 / -1;
+            margin-top: 8px;
+        }
+
+        .credits-box {
+            background: var(--te-cream);
+            border: 2px solid var(--te-black);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 10px;
+            color: var(--te-mid-gray);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .credits-box a {
+            color: var(--te-orange);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .credits-box a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <!-- HEADER -->
+    <div class="header">
+        <div class="logo-section">
+            <div class="logo-box">
+                <div class="logo-ep">EP</div>
+                <div class="logo-text">
+                    <span>CHORD</span>
+                    <span>LAB</span>
+                </div>
+            </div>
+            <div class="version">v2.0 Enhanced</div>
+        </div>
+        
+        <div class="header-status">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">READY</span>
+        </div>
+    </div>
+
+    <!-- MAIN CONTAINER -->
+    <div class="main-container">
+        <!-- LEFT COLUMN -->
+        <div>
+            <!-- PROGRESSION BROWSER -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span>PROGRESSION BROWSER</span>
+                    <span id="progCount">0 LOADED</span>
+                </div>
+                <div class="panel-content">
+                    <!-- Search -->
+                    <div class="search-section">
+                        <div class="search-box">
+                            <span class="search-icon">🔍</span>
+                            <input type="text" id="searchInput" placeholder="Search progressions, genres, songs...">
+                        </div>
+                        <div class="filter-row" id="filterRow"></div>
+                    </div>
+                    
+                    <!-- Custom Input -->
+                    <div class="custom-input-section">
+                        <div class="custom-label">Custom Progression</div>
+                        <div class="custom-input-row">
+                            <input type="text" id="customInput" placeholder="E.g., I - V - vi/1 - IV7">
+                            <button id="loadCustomBtn">LOAD</button>
+                        </div>
+                        <div class="j6-import-row">
+                            <button id="loadJ6Btn">LOAD J-6 SETS</button>
+                            <div class="j6-status" id="j6Status">Click to load J-6 sets</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Progressions List -->
+                    <div class="progressions-list" id="progressionsList"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div>
+            <!-- PAD DISPLAY -->
+            <div class="panel">
+                <div class="panel-header">PAD DISPLAY</div>
+                <div class="panel-content">
+                    <div class="pad-grid" id="padGrid"></div>
+
+                    <div class="pad-controls">
+                        <div class="pad-toggle">
+                            <span>PAD LABELS</span>
+                            <div class="toggle-group" id="padLabelToggle">
+                                <button class="toggle-btn" data-label="notes">NOTES</button>
+                                <button class="toggle-btn" data-label="degrees">DEGREES</button>
+                            </div>
+                        </div>
+                        <label class="pad-safe">
+                            <input type="checkbox" id="padSafeToggle" checked>
+                            <span>Pad-safe voicing (fit to 12 pads)</span>
+                        </label>
+                    </div>
+                    
+                    <!-- Now Playing -->
+                    <div class="now-playing">
+                        <div class="np-label">NOW PLAYING</div>
+                        <div class="np-progression" id="npProgression">—</div>
+                        <div class="np-name" id="npName">Select a progression to begin</div>
+                    </div>
+                    
+                    <!-- Chord Timeline -->
+                    <div class="chord-timeline" id="chordTimeline"></div>
+
+                    <div class="pad-legend" aria-label="Pad color legend">
+                        <div class="legend-item">
+                            <span class="legend-swatch" style="background: var(--te-orange);"></span>
+                            Root
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-swatch" style="background: var(--te-third);"></span>
+                            3rd
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-swatch" style="background: var(--te-fifth);"></span>
+                            5th
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-swatch" style="background: var(--te-seventh);"></span>
+                            7th
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PLAYBACK CONTROLS -->
+            <div class="panel">
+                <div class="panel-header">PLAYBACK CONTROLS</div>
+                <div class="panel-content">
+                    <div class="control-row">
+                        <button class="control-button" id="playBtn">▶ PLAY</button>
+                        <button class="control-button secondary" id="stopBtn">⏹ STOP</button>
+                    </div>
+                    
+                    <div class="tempo-control">
+                        <div class="tempo-label">
+                            <span>TEMPO</span>
+                            <span class="tempo-value"><span id="tempoValue">120</span> BPM</span>
+                        </div>
+                        <input type="range" id="tempoSlider" min="60" max="200" value="120">
+                    </div>
+
+                    <div class="tempo-control">
+                        <div class="tempo-label">
+                            <span>BEATS / CHORD</span>
+                            <span class="tempo-value"><span id="beatsValue">1</span></span>
+                        </div>
+                        <input type="range" id="beatsSlider" min="1" max="4" value="1">
+                    </div>
+                    
+                    <div class="select-group">
+                        <div class="select-wrapper">
+                            <div class="select-label">KEY</div>
+                            <select id="keySelect"></select>
+                        </div>
+                        <div class="select-wrapper">
+                            <div class="select-label">SCALE</div>
+                            <select id="scaleSelect"></select>
+                            <div class="select-note">Pad mapping supports 7-note scales only.</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Code Display -->
+                    <div class="code-display">
+                        <div class="code-box">
+                            <div class="code-label">KEY</div>
+                            <div class="code-value" id="keyCode">—</div>
+                        </div>
+                        <div class="code-box">
+                            <div class="code-label">SCALE</div>
+                            <div class="code-value" id="scaleCode">—</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Synth Options -->
+                    <div class="select-label">SYNTHESIS</div>
+                    <div class="synth-options" id="synthOptions"></div>
+
+                    <button class="advanced-toggle" id="advancedToggle">
+                        <span>Advanced</span>
+                        <span id="advancedArrow">▼</span>
+                    </button>
+                    <div class="advanced-content" id="advancedContent">
+                        <div class="adsr-grid">
+                            <div class="adsr-control">
+                                <label for="attackSlider">ATTACK <span id="attackValue">0.05s</span></label>
+                                <input type="range" id="attackSlider" min="0" max="1" step="0.01" value="0.05">
+                            </div>
+                            <div class="adsr-control">
+                                <label for="decaySlider">DECAY <span id="decayValue">0.10s</span></label>
+                                <input type="range" id="decaySlider" min="0" max="1" step="0.01" value="0.1">
+                            </div>
+                            <div class="adsr-control">
+                                <label for="sustainSlider">SUSTAIN <span id="sustainValue">0.70</span></label>
+                                <input type="range" id="sustainSlider" min="0" max="1" step="0.01" value="0.7">
+                            </div>
+                            <div class="adsr-control">
+                                <label for="releaseSlider">RELEASE <span id="releaseValue">0.30s</span></label>
+                                <input type="range" id="releaseSlider" min="0" max="2" step="0.01" value="0.3">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="select-label" style="margin-top: 12px;">ARPEGGIATION</div>
+                    <div class="synth-options" id="arpOptions"></div>
+                </div>
+            </div>
+
+            <!-- INFO PANEL -->
+            <div class="panel">
+                <div class="panel-header">CHORD INFO</div>
+                <div class="panel-content">
+                    <div class="info-title" id="infoTitle">—</div>
+                    <div class="info-content" id="infoContent">
+                        Select a progression and chord to see details.
+                    </div>
+                    <div class="info-notes" id="infoNotes"></div>
+                    <div class="info-function" id="infoFunction"></div>
+                    <div class="info-suggestions" id="infoSuggestions"></div>
+                    <div class="pad-safe-note" id="padSafeNote" style="display: none;"></div>
+                    
+                    <div class="interval-info" id="intervalInfo" style="display: none;">
+                        <!-- Intervals will be populated here -->
+                    </div>
+                    
+                    <!-- Theory Reference -->
+                    <div class="theory-reference">
+                        <button class="theory-toggle" id="theoryToggle">
+                            <span>📚 Theory Reference</span>
+                            <span id="theoryArrow">▼</span>
+                        </button>
+                        <div class="theory-content" id="theoryContent">
+                            <div class="theory-section">
+                                <div class="theory-subtitle">Scale Formulas (W = Whole, H = Half)</div>
+                                <div class="theory-item"><strong>Major:</strong> <span class="theory-formula">W-W-H-W-W-W-H</span></div>
+                                <div class="theory-item"><strong>Natural Minor:</strong> <span class="theory-formula">W-H-W-W-H-W-W</span></div>
+                                <div class="theory-item"><strong>Harmonic Minor:</strong> <span class="theory-formula">W-H-W-W-H-W+H-H</span></div>
+                                <div class="theory-item"><strong>Dorian:</strong> <span class="theory-formula">W-H-W-W-W-H-W</span></div>
+                                <div class="theory-item"><strong>Mixolydian:</strong> <span class="theory-formula">W-W-H-W-W-H-W</span></div>
+                            </div>
+
+                            <div class="theory-section">
+                                <div class="theory-subtitle">Circle of Fifths (Major / Relative Minor)</div>
+                                <div class="theory-visual">
+                                    <svg class="circle-of-fifths" viewBox="0 0 200 200" aria-label="Circle of fifths">
+                                        <circle cx="100" cy="100" r="86" fill="none" stroke="var(--te-black)" stroke-width="2"></circle>
+                                        <circle cx="100" cy="100" r="62" fill="none" stroke="var(--te-black)" stroke-width="1.5"></circle>
+
+                                        <g>
+                                            <text data-ring="major" data-angle="0">C</text>
+                                            <text data-ring="major" data-angle="30">G</text>
+                                            <text data-ring="major" data-angle="60">D</text>
+                                            <text data-ring="major" data-angle="90">A</text>
+                                            <text data-ring="major" data-angle="120">E</text>
+                                            <text data-ring="major" data-angle="150">B</text>
+                                            <text data-ring="major" data-angle="180">F#</text>
+                                            <text data-ring="major" data-angle="210">C#</text>
+                                            <text data-ring="major" data-angle="240">G#</text>
+                                            <text data-ring="major" data-angle="270">D#</text>
+                                            <text data-ring="major" data-angle="300">A#</text>
+                                            <text data-ring="major" data-angle="330">F</text>
+
+                                            <text data-ring="minor" data-angle="0" class="minor">Am</text>
+                                            <text data-ring="minor" data-angle="30" class="minor">Em</text>
+                                            <text data-ring="minor" data-angle="60" class="minor">Bm</text>
+                                            <text data-ring="minor" data-angle="90" class="minor">F#m</text>
+                                            <text data-ring="minor" data-angle="120" class="minor">C#m</text>
+                                            <text data-ring="minor" data-angle="150" class="minor">G#m</text>
+                                            <text data-ring="minor" data-angle="180" class="minor">D#m</text>
+                                            <text data-ring="minor" data-angle="210" class="minor">A#m</text>
+                                            <text data-ring="minor" data-angle="240" class="minor">Fm</text>
+                                            <text data-ring="minor" data-angle="270" class="minor">Cm</text>
+                                            <text data-ring="minor" data-angle="300" class="minor">Gm</text>
+                                            <text data-ring="minor" data-angle="330" class="minor">Dm</text>
+                                        </g>
+                                    </svg>
+                                </div>
+                                <div class="theory-item">Clockwise adds sharps, counterclockwise adds flats. Neighboring keys often sound good together.</div>
+                            </div>
+                            
+                            <div class="theory-section">
+                                <div class="theory-subtitle">Chord Types</div>
+                                <div class="theory-item"><strong>Major:</strong> Root + M3 (4 semitones) + P5 (7 semitones)</div>
+                                <div class="theory-item"><strong>Minor:</strong> Root + m3 (3 semitones) + P5 (7 semitones)</div>
+                                <div class="theory-item"><strong>Diminished:</strong> Root + m3 + d5 (6 semitones)</div>
+                                <div class="theory-item"><strong>Sus2:</strong> Root + M2 (2 semitones) + P5</div>
+                                <div class="theory-item"><strong>Sus4:</strong> Root + P4 (5 semitones) + P5</div>
+                                <div class="theory-item"><strong>7th (in-scale):</strong> Adds the 7th scale degree.</div>
+                            </div>
+                            
+                            <div class="theory-section">
+                                <div class="theory-subtitle">Inversions</div>
+                                <div class="theory-item"><strong>Root:</strong> 1-3-5 (Bass is root)</div>
+                                <div class="theory-item"><strong>1st Inv:</strong> 3-5-1 (Bass is 3rd)</div>
+                                <div class="theory-item"><strong>2nd Inv:</strong> 5-1-3 (Bass is 5th)</div>
+                            </div>
+                            
+                            <div class="theory-section">
+                                <div class="theory-subtitle">Notation Examples</div>
+                                <div class="theory-item"><strong>Separator:</strong> <code>I - V - vi - IV</code> (spaces or hyphens)</div>
+                                <div class="theory-item"><strong>Major:</strong> <code>I</code> or <code>1</code></div>
+                                <div class="theory-item"><strong>Minor:</strong> <code>vi</code> or <code>6m</code></div>
+                                <div class="theory-item"><strong>Flat degrees:</strong> <code>bVII</code>, <code>bVI</code>, <code>bIII</code></div>
+                                <div class="theory-item"><strong>Diminished (ASCII):</strong> <code>viidim</code> or <code>viio</code></div>
+                                <div class="theory-item"><strong>Borrowed chords:</strong> Chords from the parallel key (like <code>bVII</code> or <code>iv</code>) add color outside the key.</div>
+                                <div class="theory-item"><strong>1st inversion:</strong> <code>I/1</code> or <code>1/1</code></div>
+                                <div class="theory-item"><strong>2nd inversion:</strong> <code>I/2</code> or <code>1/2</code></div>
+                                <div class="theory-item"><strong>Sus2:</strong> <code>Isus2</code> or <code>1sus2</code></div>
+                                <div class="theory-item"><strong>Sus4:</strong> <code>Isus4</code> or <code>1sus4</code></div>
+                                <div class="theory-item"><strong>7th (in-scale):</strong> <code>V7</code> or <code>57</code> (maj7 accepted)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        <div class="credits">
+            <div class="credits-box">
+                Credits:
+                <span>J-6 chord sets from the Roland J-6 manual.</span>
+                <a href="https://static.roland.com/manuals/J-6_manual_v102/eng/28645807.html" target="_blank" rel="noopener">Manual</a>
+                <span>Common progressions from Hooktheory.</span>
+                <a href="https://www.hooktheory.com/theorytab/common-chord-progressions" target="_blank" rel="noopener">Hooktheory</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== DATA ==========
+        const PROGRESSIONS = [
+            // TOP HOOKTHEORY PROGRESSIONS (with inversions where specified)
+            { id: 1, numerals: ['I', 'V', 'vi', 'IV'], name: 'The Most Popular', genre: 'POP', mood: 'UPLIFTING', songs: 'Let It Be • With or Without You • Don\'t Stop Believin\'', hooktheory: 1 },
+            { id: 2, numerals: ['I', 'V', 'vi', 'iii'], name: 'Pachelbel\'s Progression', genre: 'CLASSICAL', mood: 'BEAUTIFUL', songs: 'Canon in D • Memories • Basket Case', hooktheory: 2 },
+            { id: 3, numerals: ['vi', 'V', 'IV', 'V'], name: 'Effective in All Genres', genre: 'POP', mood: 'VERSATILE', songs: 'When I Was Your Man • Mirrors', hooktheory: 3 },
+            { id: 4, numerals: ['I', 'vi', 'IV', 'V'], name: 'Those Magic Changes', genre: 'DOO-WOP', mood: 'NOSTALGIC', songs: 'Stand By Me • Earth Angel • Blue Moon', hooktheory: 4 },
+            { id: 5, numerals: ['I', 'IV', 'vi', 'V'], name: 'Gaining Popularity', genre: 'POP', mood: 'UPBEAT', songs: 'Love Story • Hey Soul Sister • Riptide', hooktheory: 5 },
+            { id: 6, numerals: ['I', 'V', 'IV', 'V'], name: 'Timeless', genre: 'ROCK', mood: 'CLASSIC', songs: 'Shout • What I Like About You', hooktheory: 6 },
+            { id: 7, numerals: ['I', 'V/1', 'vi'], name: 'Stepwise Bass Down', genre: 'POP', mood: 'SMOOTH', songs: 'Grenade • Jar of Hearts', hooktheory: 8 },
+            { id: 8, numerals: ['I', 'iii/2', 'vi'], name: 'The Newcomer', genre: 'POP', mood: 'MODERN', songs: 'Treat You Better • Perfect', hooktheory: 10 },
+            { id: 9, numerals: ['IV', 'I/1', 'V'], name: 'IV-I-V Movement', genre: 'ROCK', mood: 'RESOLVED', songs: 'Common rock cadence', hooktheory: 11 },
+            { id: 10, numerals: ['IV', 'iv', 'I'], name: 'Cadencing in Style', genre: 'POP', mood: 'DRAMATIC', songs: 'Creep • Space Oddity' },
+            
+            // EXTENDED POPULAR PROGRESSIONS
+            { id: 11, numerals: ['I', 'V', 'vi', 'iii', 'IV', 'I', 'IV', 'V'], name: 'Full Canon', genre: 'CLASSICAL', mood: 'ELEGANT', songs: 'Canon in D (complete)' },
+            { id: 12, numerals: ['vi', 'IV', 'I', 'V'], name: 'Axis of Awesome', genre: 'POP', mood: 'EMOTIONAL', songs: 'Someone Like You • Africa • Grenade' },
+            { id: 13, numerals: ['IV', 'I', 'V', 'vi'], name: 'Hopscotch', genre: 'POP', mood: 'BOUNCY', songs: 'Shut Up and Dance • Riptide' },
+            { id: 14, numerals: ['bVII', 'I'], name: 'Cadencing via bVII', genre: 'ROCK', mood: 'BLUESY', songs: 'Hey Jude • Let It Be' },
+            { id: 15, numerals: ['bVI', 'V'], name: 'Setting Up Tension', genre: 'ROCK', mood: 'DRAMATIC', songs: 'Modal rock progressions' },
+            
+            // JAZZ PROGRESSIONS
+            { id: 16, numerals: ['ii', 'V', 'I'], name: 'Jazz Turnaround', genre: 'JAZZ', mood: 'SMOOTH', songs: 'Autumn Leaves • Fly Me to the Moon' },
+            { id: 17, numerals: ['I', 'vi', 'ii', 'V'], name: 'Rhythm Changes', genre: 'JAZZ', mood: 'SWINGY', songs: 'I Got Rhythm • Anthropology' },
+            { id: 18, numerals: ['ii', 'V', 'I', 'vi'], name: 'Extended ii-V-I', genre: 'JAZZ', mood: 'SOPHISTICATED', songs: 'All The Things You Are' },
+            { id: 19, numerals: ['iii', 'vi', 'ii', 'V'], name: 'Circle Progression', genre: 'JAZZ', mood: 'FLOWING', songs: 'Sunday • Softly as in Morning Sunrise' },
+            { id: 20, numerals: ['I', 'IV', 'iii', 'vi', 'ii', 'V'], name: 'Extended Circle', genre: 'JAZZ', mood: 'COMPLEX', songs: 'Autumn Leaves (full form)' },
+            
+            // BLUES
+            { id: 21, numerals: ['I', 'I', 'I', 'I', 'IV', 'IV', 'I', 'I', 'V', 'IV', 'I', 'V'], name: '12 Bar Blues', genre: 'BLUES', mood: 'CLASSIC', songs: 'Sweet Home Chicago • Pride and Joy' },
+            { id: 22, numerals: ['I', 'IV', 'I', 'V'], name: 'Quick Change Blues', genre: 'BLUES', mood: 'GROOVY', songs: 'Crossroads • Rock Around the Clock' },
+            { id: 23, numerals: ['i', 'iv', 'i', 'V'], name: 'Minor Blues', genre: 'BLUES', mood: 'MOODY', songs: 'Black Magic Woman • The Thrill Is Gone' },
+            
+            // ROCK/ALTERNATIVE
+            { id: 24, numerals: ['I', 'IV', 'V'], name: 'Three Chord Rock', genre: 'ROCK', mood: 'SIMPLE', songs: 'Twist and Shout • La Bamba • Wild Thing' },
+            { id: 25, numerals: ['I', 'bVII', 'IV'], name: 'Mixolydian Rock', genre: 'ROCK', mood: 'GROOVY', songs: 'Sweet Home Alabama • Seven Nation Army' },
+            { id: 26, numerals: ['i', 'bVII', 'bVI', 'bVII'], name: 'Minor Rock', genre: 'ROCK', mood: 'DARK', songs: 'Radioactive • Stairway to Heaven' },
+            { id: 27, numerals: ['i', 'bVI', 'bIII', 'bVII'], name: 'Epic Minor', genre: 'ROCK', mood: 'EPIC', songs: 'All Along the Watchtower • Creep' },
+            { id: 28, numerals: ['I', 'bIII', 'IV'], name: 'Modal Rock', genre: 'ALT', mood: 'INTERESTING', songs: 'Space Oddity • The Wind Cries Mary' },
+            
+            // MINOR KEY PROGRESSIONS
+            { id: 29, numerals: ['i', 'bVII', 'bVI', 'V'], name: 'Andalusian Cadence', genre: 'FLAMENCO', mood: 'DRAMATIC', songs: 'Hit the Road Jack • Sultans of Swing' },
+            { id: 30, numerals: ['vi', 'V', 'IV', 'III'], name: 'Descending Minor', genre: 'POP', mood: 'EMOTIONAL', songs: 'My Heart Will Go On • Total Eclipse' },
+            { id: 31, numerals: ['i', 'bIII', 'bVII', 'bVI'], name: 'Natural Minor Descent', genre: 'ROCK', mood: 'MELANCHOLIC', songs: 'Zombie • The Kill' },
+            
+            // R&B/SOUL
+            { id: 32, numerals: ['ii', 'V', 'I', 'IV'], name: 'Neo-Soul', genre: 'R&B', mood: 'SMOOTH', songs: 'Sunday Morning • D\'Angelo style' },
+            { id: 33, numerals: ['I', 'iii', 'IV', 'iv'], name: 'Chromatic Soul', genre: 'R&B', mood: 'SOULFUL', songs: 'Isn\'t She Lovely • Stevie Wonder' },
+            { id: 34, numerals: ['vi', 'ii', 'V', 'I'], name: 'Soul Turnaround', genre: 'R&B', mood: 'GROOVY', songs: 'Neo-soul standards' },
+            
+            // HIP-HOP
+            { id: 35, numerals: ['i', 'bVII', 'bVI', 'V'], name: 'Hip-Hop Soul', genre: 'HIP-HOP', mood: 'SMOOTH', songs: 'Changes • Juicy • Still Dre' },
+            { id: 36, numerals: ['i', 'iv', 'i', 'V'], name: 'Trap Minor', genre: 'HIP-HOP', mood: 'DARK', songs: 'XO Tour Llif3 • Mask Off' },
+            { id: 37, numerals: ['vi', 'IV', 'I', 'V'], name: 'Boom Bap Classic', genre: 'HIP-HOP', mood: 'CLASSIC', songs: 'NY State of Mind • C.R.E.A.M.' },
+            
+            // EDM/ELECTRONIC
+            { id: 38, numerals: ['vi', 'I', 'V', 'IV'], name: 'Progressive House', genre: 'EDM', mood: 'BUILDING', songs: 'Strobe • Language • Sun & Moon' },
+            { id: 39, numerals: ['i', 'bVI', 'bVII', 'i'], name: 'Dark EDM', genre: 'EDM', mood: 'DARK', songs: 'Animals • Scary Monsters • Tremor' },
+            { id: 40, numerals: ['I', 'V', 'IV'], name: 'Simple EDM', genre: 'EDM', mood: 'ENERGETIC', songs: 'Levels • Wake Me Up' },
+            
+            // INDIE/FOLK
+            { id: 41, numerals: ['I', 'iii', 'IV', 'V'], name: 'Indie Folk', genre: 'FOLK', mood: 'INTIMATE', songs: 'Ho Hey • Home • I Will Wait' },
+            { id: 42, numerals: ['I', 'iii', 'vi', 'IV'], name: 'Dreamy Indie', genre: 'INDIE', mood: 'DREAMY', songs: 'Radiohead • Coldplay style' },
+            { id: 43, numerals: ['I', 'V', 'I', 'IV', 'I', 'V', 'I'], name: 'Folk Standard', genre: 'FOLK', mood: 'WARM', songs: 'This Land Is Your Land' },
+            
+            // PUNK/GRUNGE
+            { id: 44, numerals: ['I', 'bVII', 'IV'], name: 'Grunge Power', genre: 'GRUNGE', mood: 'RAW', songs: 'Smells Like Teen Spirit • Come As You Are' },
+            { id: 45, numerals: ['I', 'V', 'vi', 'IV'], name: 'Pop Punk', genre: 'PUNK', mood: 'ANGSTY', songs: 'All The Small Things • Sugar We\'re Goin Down' },
+            
+            // LATIN
+            { id: 46, numerals: ['i', 'iv', 'V', 'i'], name: 'Latin Minor', genre: 'LATIN', mood: 'PASSIONATE', songs: 'Oye Como Va • Smooth • Maria Maria' },
+            { id: 47, numerals: ['I', 'IV', 'V', 'V'], name: 'Reggaeton', genre: 'LATIN', mood: 'DANCEABLE', songs: 'Despacito • Mi Gente • Dura' },
+            
+            // UNIQUE/INTERESTING
+            { id: 48, numerals: ['I', 'II', 'IV'], name: 'Chromatic Pop', genre: 'POP', mood: 'UNUSUAL', songs: 'Get Lucky • Blinding Lights' },
+            { id: 49, numerals: ['I', 'bIII', 'bVII', 'IV'], name: 'Dorian Groove', genre: 'FUNK', mood: 'GROOVY', songs: 'Get Lucky • Another Brick In The Wall' },
+            { id: 50, numerals: ['I', 'IV', 'V', 'IV'], name: 'Rock Solid', genre: 'ROCK', mood: 'DRIVING', songs: 'Louie Louie • Good Lovin\'' },
+        ];
+
+        const J6_MANUAL_URL = 'https://static.roland.com/manuals/J-6_manual_v102/eng/28645807.html';
+        const J6_SOURCE = 'J-6';
+        const J6_PROGRESSIONS_START_ID = 1000;
+
+        const KEYS = [
+            { name: 'C', code: '320', offset: 0 },
+            { name: 'C#', code: '321', offset: 1 },
+            { name: 'D', code: '322', offset: 2 },
+            { name: 'D#', code: '323', offset: 3 },
+            { name: 'E', code: '324', offset: 4 },
+            { name: 'F', code: '325', offset: 5 },
+            { name: 'F#', code: '326', offset: 6 },
+            { name: 'G', code: '327', offset: 7 },
+            { name: 'G#', code: '328', offset: 8 },
+            { name: 'A', code: '329', offset: 9 },
+            { name: 'A#', code: '330', offset: 10 },
+            { name: 'B', code: '331', offset: 11 }
+        ];
+
+        const SCALES = [
+            { name: '12 Tone', code: '310', intervals: [0,1,2,3,4,5,6,7,8,9,10,11] },
+            { name: 'Major', code: '311', intervals: [0, 2, 4, 5, 7, 9, 11] },
+            { name: 'Natural Minor', code: '312', intervals: [0, 2, 3, 5, 7, 8, 10] },
+            { name: 'Dorian', code: '313', intervals: [0, 2, 3, 5, 7, 9, 10] },
+            { name: 'Phrygian', code: '314', intervals: [0, 1, 3, 5, 7, 8, 10] },
+            { name: 'Lydian', code: '315', intervals: [0, 2, 4, 6, 7, 9, 11] },
+            { name: 'Mixolydian', code: '316', intervals: [0, 2, 4, 5, 7, 9, 10] },
+            { name: 'Locrian', code: '317', intervals: [0, 1, 3, 5, 6, 8, 10] },
+            { name: 'Major Pentatonic', code: '318', intervals: [0, 2, 4, 7, 9] },
+            { name: 'Minor Pentatonic', code: '319', intervals: [0, 3, 5, 7, 10] },
+            { name: 'Harmonic Minor', code: '302', intervals: [0, 2, 3, 5, 7, 8, 11] }
+        ];
+
+        // Enhanced numeral mapping with voicing support
+        const NUMERAL_MAP = {
+            'I': { degree: 1, quality: 'major' },
+            'II': { degree: 2, quality: 'major' },
+            'III': { degree: 3, quality: 'major' },
+            'IV': { degree: 4, quality: 'major' },
+            'V': { degree: 5, quality: 'major' },
+            'VI': { degree: 6, quality: 'major' },
+            'VII': { degree: 7, quality: 'major' },
+            'i': { degree: 1, quality: 'minor' },
+            'ii': { degree: 2, quality: 'minor' },
+            'iii': { degree: 3, quality: 'minor' },
+            'iv': { degree: 4, quality: 'minor' },
+            'v': { degree: 5, quality: 'minor' },
+            'vi': { degree: 6, quality: 'minor' },
+            'vii': { degree: 7, quality: 'minor' },
+            'vii°': { degree: 7, quality: 'diminished' },
+            'bII': { degree: 2, quality: 'major', flat: true },
+            'bIII': { degree: 3, quality: 'major', flat: true },
+            'bV': { degree: 5, quality: 'major', flat: true },
+            'bVI': { degree: 6, quality: 'major', flat: true },
+            'bVII': { degree: 7, quality: 'major', flat: true }
+        };
+
+        const NOTE_TO_SEMITONE = {
+            'C': 0, 'C#': 1, 'Db': 1,
+            'D': 2, 'D#': 3, 'Eb': 3,
+            'E': 4,
+            'F': 5, 'F#': 6, 'Gb': 6,
+            'G': 7, 'G#': 8, 'Ab': 8,
+            'A': 9, 'A#': 10, 'Bb': 10,
+            'B': 11
+        };
+
+        const SEMITONE_TO_ROMAN = [
+            { roman: 'I' },
+            { roman: 'II', flat: true },  // bII
+            { roman: 'II' },
+            { roman: 'III', flat: true }, // bIII
+            { roman: 'III' },
+            { roman: 'IV' },
+            { roman: 'V', flat: true },   // bV
+            { roman: 'V' },
+            { roman: 'VI', flat: true },  // bVI
+            { roman: 'VI' },
+            { roman: 'VII', flat: true }, // bVII
+            { roman: 'VII' }
+        ];
+
+        function normalizeChordToken(token) {
+            return token.replace(/[,;]/g, '').replace(/´/g, '#').trim();
+        }
+
+        function extractChordTokens(line) {
+            const tokens = line.split(/\s+/).filter(Boolean);
+            const chords = [];
+
+            tokens.forEach(raw => {
+                const token = normalizeChordToken(raw);
+                if (!token) return;
+                if (/^[A-G](#|b)?/.test(token)) {
+                    chords.push(token);
+                } else if (chords.length > 0) {
+                    chords[chords.length - 1] += token;
+                }
+            });
+
+            return chords;
+        }
+
+        function parseJ6ChordSetsFromText(text) {
+            const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+            const startIndex = lines.findIndex(line => line === 'Chord Set List');
+            if (startIndex === -1) return [];
+
+            const keyButtonsIndex = lines.findIndex((line, idx) => idx > startIndex && line === 'Key buttons');
+            if (keyButtonsIndex === -1) return [];
+
+            const bIndex = lines.findIndex((line, idx) => idx > keyButtonsIndex && line === 'B');
+            if (bIndex === -1) return [];
+
+            let i = bIndex + 1;
+            const sets = [];
+
+            while (i < lines.length) {
+                const line = lines[i];
+                if (/^\d+$/.test(line)) {
+                    const number = parseInt(line, 10);
+                    const genre = lines[i + 1] || 'J-6';
+                    i += 2;
+
+                    let chords = [];
+                    while (i < lines.length && chords.length < 12) {
+                        const chordLine = lines[i];
+                        if (/^\d+$/.test(chordLine)) break;
+
+                        const tokens = extractChordTokens(chordLine);
+                        const allNotes = tokens.length === 0 &&
+                            chordLine.split(/\s+/).every(token => /^[A-G](#|b)?\d$/.test(token));
+                        if (allNotes && chords.length > 0) break;
+
+                        chords = chords.concat(tokens);
+                        i += 1;
+                    }
+
+                    if (chords.length >= 12) {
+                        sets.push({ number, genre, chords: chords.slice(0, 12) });
+                    }
+                } else {
+                    i += 1;
+                }
+            }
+
+            return sets;
+        }
+
+        function parseNoteName(note) {
+            const match = note.match(/^([A-G])([#b]?)/);
+            if (!match) return null;
+            return match[1].toUpperCase() + (match[2] || '');
+        }
+
+        function parseChordName(chordName) {
+            const cleaned = chordName.replace(/\s+/g, '');
+            const rootMatch = cleaned.match(/^([A-G])([#b]?)/);
+            if (!rootMatch) return null;
+            const root = rootMatch[1].toUpperCase() + (rootMatch[2] || '');
+
+            let rest = cleaned.slice(rootMatch[0].length);
+            let bass = null;
+            const slashIndex = rest.indexOf('/');
+            if (slashIndex !== -1) {
+                bass = rest.slice(slashIndex + 1);
+                rest = rest.slice(0, slashIndex);
+            }
+
+            const lower = rest.toLowerCase();
+            const isDim = /dim|°/.test(lower);
+            const isMinor = !isDim && (/^m(?!aj)/.test(rest) || /^min/.test(lower));
+            const sus = /sus2/.test(lower) ? 2 : /sus4/.test(lower) ? 4 : null;
+            const hasMaj7 = /maj7|ma7|M7|Δ7/i.test(rest);
+            const hasSeventh = /7|9|11|13/.test(lower);
+            const seventh = hasMaj7 ? 'maj' : hasSeventh ? 'min' : null;
+
+            return {
+                root,
+                bass,
+                quality: isDim ? 'diminished' : isMinor ? 'minor' : 'major',
+                sus,
+                seventh
+            };
+        }
+
+        function chordNameToRoman(chordName) {
+            const parsed = parseChordName(chordName);
+            if (!parsed) return 'I';
+
+            const rootSemitone = NOTE_TO_SEMITONE[parsed.root];
+            if (rootSemitone === undefined) return 'I';
+
+            const romanInfo = SEMITONE_TO_ROMAN[rootSemitone];
+            let roman = romanInfo.roman;
+            if (parsed.quality === 'minor') roman = roman.toLowerCase();
+            if (parsed.quality === 'diminished') roman = roman.toLowerCase() + '°';
+
+            let numeral = romanInfo.flat ? `b${roman}` : roman;
+            if (parsed.sus === 2) numeral += 'sus2';
+            if (parsed.sus === 4) numeral += 'sus4';
+            if (parsed.seventh) numeral += '7';
+
+            const bassNote = parsed.bass ? parseNoteName(parsed.bass) : null;
+            if (bassNote) {
+                const bassSemitone = NOTE_TO_SEMITONE[bassNote];
+                if (bassSemitone !== undefined) {
+                    let triad = [0, 4, 7];
+                    if (parsed.sus === 2) triad = [0, 2, 7];
+                    else if (parsed.sus === 4) triad = [0, 5, 7];
+                    else if (parsed.quality === 'minor') triad = [0, 3, 7];
+                    else if (parsed.quality === 'diminished') triad = [0, 3, 6];
+
+                    const interval = (bassSemitone - rootSemitone + 12) % 12;
+                    if (interval === triad[1]) numeral += '/1';
+                    else if (interval === triad[2]) numeral += '/2';
+                }
+            }
+
+            return numeral;
+        }
+
+        function buildJ6Progression(set) {
+            return {
+                id: J6_PROGRESSIONS_START_ID + set.number,
+                numerals: set.chords.map(chordNameToRoman),
+                name: `J-6 Set ${set.number}`,
+                genre: (set.genre || 'J-6').toUpperCase(),
+                mood: 'J-6',
+                songs: 'Roland J-6 chord set',
+                source: J6_SOURCE,
+                chords: set.chords
+            };
+        }
+
+        function removeJ6Progressions() {
+            for (let i = PROGRESSIONS.length - 1; i >= 0; i--) {
+                if (PROGRESSIONS[i].source === J6_SOURCE) {
+                    PROGRESSIONS.splice(i, 1);
+                }
+            }
+        }
+
+        function updateJ6Status(message, isError = false) {
+            const status = document.getElementById('j6Status');
+            if (!status) return;
+            status.textContent = message;
+            status.classList.toggle('error', isError);
+        }
+
+        async function loadJ6ChordSets() {
+            const button = document.getElementById('loadJ6Btn');
+            if (!button || button.dataset.loading === 'true') return;
+
+            button.dataset.loading = 'true';
+            button.classList.add('loading');
+            const originalLabel = button.textContent;
+            button.textContent = 'LOADING J-6...';
+            updateJ6Status('Loading J-6 chord sets...');
+
+            try {
+                const response = await fetch(J6_MANUAL_URL, { cache: 'no-store' });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const html = await response.text();
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const text = doc.body ? doc.body.textContent || '' : html;
+                const sets = parseJ6ChordSetsFromText(text);
+
+                if (sets.length === 0) throw new Error('No chord sets found');
+                removeJ6Progressions();
+                const j6Progressions = sets.map(buildJ6Progression);
+                PROGRESSIONS.push(...j6Progressions);
+
+                updateJ6Status(`Loaded ${j6Progressions.length} J-6 sets`);
+                renderFilters();
+                renderProgressions();
+                button.textContent = 'RELOAD J-6 SETS';
+            } catch (error) {
+                console.error('J-6 chord set load failed:', error);
+                updateJ6Status('J-6 load failed (CORS or network).', true);
+                button.textContent = originalLabel;
+            } finally {
+                button.dataset.loading = 'false';
+                button.classList.remove('loading');
+            }
+        }
+
+        const SYNTH_TYPES = [
+            { id: 'sine', name: 'Sine', icon: '∿' },
+            { id: 'square', name: 'Square', icon: '⊓' },
+            { id: 'sawtooth', name: 'Saw', icon: '⊿' },
+            { id: 'triangle', name: 'Triangle', icon: '△' }
+        ];
+
+        const ARP_MODES = [
+            { id: 'chord', name: 'Chord', icon: '▮' },
+            { id: 'up', name: 'Up', icon: '↑' },
+            { id: 'down', name: 'Down', icon: '↓' },
+            { id: 'updown', name: 'Up/Down', icon: '↕' },
+            { id: 'pulse', name: 'Pulse', icon: '▮▮' },
+            { id: 'pedal', name: 'Pedal', icon: '•' },
+            { id: 'bounce', name: 'Bounce', icon: '⤒' },
+            { id: 'pyramid', name: 'Pyramid', icon: '▲' }
+        ];
+
+        const VOICING_OPTIONS = [
+            { value: 'root', label: 'Root' },
+            { value: '1st', label: '1st Inv' },
+            { value: '2nd', label: '2nd Inv' },
+            { value: 'sus2', label: 'sus2' },
+            { value: 'sus4', label: 'sus4' },
+            { value: '7', label: '7th (in-scale)' }
+        ];
+
+        // ========== STATE ==========
+        let state = {
+            selectedProgression: null,
+            currentChordIndex: 0,
+            currentKey: 0, // C
+            currentScale: 1, // Major (was 0 for 12 Tone)
+            tempo: 120,
+            beatsPerChord: 1,
+            isPlaying: false,
+            playbackInterval: null,
+            noteHighlightTimers: [],
+            envelope: {
+                attack: 0.05,
+                decay: 0.1,
+                sustain: 0.7,
+                release: 0.3
+            },
+            searchQuery: '',
+            activeFilters: [],
+            synthType: 'sine',
+            arpMode: 'chord',
+            chordVoicings: {}, // Maps chord index to voicing type
+            padLabelMode: 'notes',
+            padSafe: true
+        };
+
+        // Audio context
+        let audioContext = null;
+
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        // ========== CHORD PARSING ==========
+        
+        /**
+         * Enhanced parser that supports:
+         * - Roman numerals (I-VII, i-vii) and Arabic (1-7)
+         * - Inversions: /1, /2
+         * - Chord types: sus2, sus4, 7 (in-scale)
+         * - Quality modifiers: m (minor), dim/o/° (diminished)
+         * 
+         * Examples: I, vi, V7, I7, I/1, 6m/2, 1sus4, 47
+         */
+        function parseChordNotation(notation) {
+            const result = {
+                degree: 1,
+                quality: 'major',
+                flat: false,
+                voicing: 'root',
+                seventh: false, // boolean (in-scale 7th)
+                sus: null
+            };
+            
+            let remaining = notation.trim();
+            
+            // Check for flat prefix
+            if (remaining.startsWith('b')) {
+                result.flat = true;
+                remaining = remaining.substring(1);
+            }
+            
+            // Parse degree (Roman or Arabic)
+            const romanMatch = remaining.match(/^(I{1,3}V?|IV|V?I{0,3})/i);
+            const arabicMatch = remaining.match(/^(\d)/);
+            
+            if (romanMatch) {
+                const romanNumerals = { 'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5, 'VI': 6, 'VII': 7 };
+                const roman = romanMatch[1].toUpperCase();
+                result.degree = romanNumerals[roman] || 1;
+                result.quality = romanMatch[1] === romanMatch[1].toLowerCase() ? 'minor' : 'major';
+                remaining = remaining.substring(romanMatch[1].length);
+            } else if (arabicMatch) {
+                result.degree = parseInt(arabicMatch[1]);
+                remaining = remaining.substring(1);
+            }
+            
+            // Check for quality modifiers
+            if (remaining.startsWith('dim')) {
+                result.quality = 'diminished';
+                remaining = remaining.substring(3);
+            } else if (remaining.startsWith('o') || remaining.startsWith('0')) {
+                result.quality = 'diminished';
+                remaining = remaining.substring(1);
+            } else if (remaining.startsWith('°')) {
+                result.quality = 'diminished';
+                remaining = remaining.substring(1);
+            } else if (remaining.startsWith('m') && !remaining.startsWith('maj')) {
+                result.quality = 'minor';
+                remaining = remaining.substring(1);
+            }
+            
+            // Check for sus modifiers
+            if (remaining.startsWith('sus2')) {
+                result.sus = 2;
+                remaining = remaining.substring(4);
+            } else if (remaining.startsWith('sus4')) {
+                result.sus = 4;
+                remaining = remaining.substring(4);
+            }
+            
+            // Check for 7th (diatonic only)
+            if (remaining.startsWith('maj7')) {
+                result.seventh = true;
+                remaining = remaining.substring(4);
+            } else if (remaining.startsWith('M7')) {
+                result.seventh = true;
+                remaining = remaining.substring(2);
+            } else if (remaining.startsWith('add7')) {
+                result.seventh = true;
+                remaining = remaining.substring(4);
+            } else if (remaining.startsWith('7')) {
+                result.seventh = true;
+                remaining = remaining.substring(1);
+            }
+            
+            // Check for inversion
+            if (remaining.startsWith('/1')) {
+                result.voicing = '1st';
+                remaining = remaining.substring(2);
+            } else if (remaining.startsWith('/2')) {
+                result.voicing = '2nd';
+                remaining = remaining.substring(2);
+            }
+            
+            return result;
+        }
+
+        function isScaleSupported(scale) {
+            return Array.isArray(scale.intervals) && scale.intervals.length === 7;
+        }
+
+        function getFirstSupportedScaleIndex() {
+            return SCALES.findIndex(scale => isScaleSupported(scale));
+        }
+
+        function fitDegreesToPads(degrees, options = {}) {
+            const dedupe = options.dedupe === true;
+            let adjusted = false;
+
+            const wrapped = degrees.map(degree => {
+                let d = degree;
+                while (d > 12) {
+                    d -= 7;
+                    adjusted = true;
+                }
+                while (d < 1) {
+                    d += 7;
+                    adjusted = true;
+                }
+                return d;
+            });
+
+            if (!dedupe) {
+                return { degrees: wrapped, adjusted };
+            }
+
+            const seen = new Set();
+            const deduped = [];
+            wrapped.forEach(d => {
+                if (!seen.has(d)) {
+                    seen.add(d);
+                    deduped.push(d);
+                } else {
+                    adjusted = true;
+                }
+            });
+
+            return { degrees: deduped, adjusted };
+        }
+
+        function getChordDegreesForDisplay(notation, voicing) {
+            const degrees = getScaleDegreesFromNotation(notation, voicing);
+            if (!state.padSafe) {
+                return { degrees, adjusted: false };
+            }
+            return fitDegreesToPads(degrees, { dedupe: true });
+        }
+
+        function getChordDegreesForAudio(notation, voicing) {
+            const degrees = getScaleDegreesFromNotation(notation, voicing);
+            if (!state.padSafe) {
+                return { degrees, adjusted: false };
+            }
+            return fitDegreesToPads(degrees, { dedupe: false });
+        }
+
+        function degreeToNoteName(degree, includeOctave = true) {
+            const scale = SCALES[state.currentScale];
+            if (!isScaleSupported(scale)) return '?';
+
+            const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+            const octaveOffset = Math.floor((degree - 1) / 7);
+            const scaleDegree = ((degree - 1) % 7);
+            const interval = scale.intervals[scaleDegree] || 0;
+            const noteIndex = (state.currentKey + interval + 12) % 12;
+            const octaveMark = includeOctave && octaveOffset > 0 ? "'" : '';
+            return `${noteNames[noteIndex]}${octaveMark}`;
+        }
+
+        function getChordNoteNames(degrees) {
+            const names = degrees.map(deg => degreeToNoteName(deg, false));
+            return names.join('/');
+        }
+
+        function getChordFunction(parsed) {
+            if (parsed.flat) return 'Borrowed (outside key)';
+            const degree = parsed.degree;
+            if (degree === 1 || degree === 3 || degree === 6) return 'Tonic (home/base)';
+            if (degree === 2 || degree === 4) return 'Predominant (sets up V)';
+            if (degree === 5 || degree === 7) return 'Dominant (tension)';
+            return 'Function varies';
+        }
+
+        function getNextChordSuggestions(parsed) {
+            const map = {
+                1: ['V', 'vi', 'IV'],
+                2: ['V', 'I', 'vi'],
+                3: ['vi', 'IV', 'ii'],
+                4: ['V', 'I', 'ii'],
+                5: ['I', 'vi', 'IV'],
+                6: ['IV', 'ii', 'V'],
+                7: ['I', 'iii', 'V']
+            };
+            return map[parsed.degree] || ['V', 'IV', 'vi'];
+        }
+
+        function clearPadHighlights() {
+            state.noteHighlightTimers.forEach(timer => clearTimeout(timer));
+            state.noteHighlightTimers = [];
+            document.querySelectorAll('.num-pad.playing').forEach(pad => {
+                pad.classList.remove('playing');
+            });
+        }
+
+        function highlightPad(degree, durationMs) {
+            const pad = document.querySelector(`.num-pad[data-degree="${degree}"]`);
+            if (!pad) return;
+            pad.classList.add('playing');
+            const timer = setTimeout(() => {
+                pad.classList.remove('playing');
+            }, durationMs);
+            state.noteHighlightTimers.push(timer);
+        }
+
+        function positionCircleOfFifths() {
+            const svg = document.querySelector('.circle-of-fifths');
+            if (!svg) return;
+            const cx = 100;
+            const cy = 100;
+            const ringRadius = {
+                major: 80,
+                minor: 56
+            };
+            svg.querySelectorAll('text[data-angle]').forEach(label => {
+                const angleDeg = parseFloat(label.dataset.angle) || 0;
+                const ring = label.dataset.ring || 'major';
+                const radius = ringRadius[ring] || ringRadius.major;
+                const rad = (angleDeg * Math.PI) / 180;
+                const x = cx + radius * Math.sin(rad);
+                const y = cy - radius * Math.cos(rad);
+                label.setAttribute('x', x.toFixed(2));
+                label.setAttribute('y', y.toFixed(2));
+                label.setAttribute('text-anchor', 'middle');
+                label.setAttribute('dominant-baseline', 'middle');
+            });
+        }
+
+        /**
+         * Get the scale degrees for a chord based on its notation and voicing
+         */
+        function getScaleDegreesFromNotation(notation, voicing = null) {
+            const parsed = parseChordNotation(notation);
+            
+            // Apply override voicing if provided
+            if (voicing) {
+                if (voicing === '1st' || voicing === '2nd') {
+                    parsed.voicing = voicing;
+                } else if (voicing === 'sus2' || voicing === 'sus4') {
+                    parsed.sus = voicing === 'sus2' ? 2 : 4;
+                    parsed.voicing = 'root';
+                } else if (voicing === '7') {
+                    parsed.seventh = true;
+                    parsed.voicing = 'root';
+                }
+            }
+            
+            let degrees = [];
+            const root = parsed.degree;
+            
+            // Build chord based on type - degrees are SCALE degrees, not intervals
+            // For example, V chord (degree 5) is built as 5-7-9 (which becomes 5-7-2 after wrapping)
+            if (parsed.sus === 2) {
+                // Sus2: root - 2nd - 5th (e.g., V sus2 = 5-6-9)
+                degrees = [root, root + 1, root + 4];
+            } else if (parsed.sus === 4) {
+                // Sus4: root - 4th - 5th (e.g., V sus4 = 5-8-9)
+                degrees = [root, root + 3, root + 4];
+            } else {
+                // Normal triads: root - 3rd - 5th (stacked thirds)
+                // E.g., I = 1-3-5, V = 5-7-9, vi = 6-8-10
+                degrees = [root, root + 2, root + 4];
+            }
+            
+            // Add 7th if present (another stacked third)
+            if (parsed.seventh) {
+                degrees.push(root + 6);
+            }
+            
+            // Apply inversion
+            if (parsed.voicing === '1st') {
+                // Move bass note up an octave
+                degrees = [degrees[1], degrees[2], degrees[0] + 7, ...(degrees[3] ? [degrees[3]] : [])];
+            } else if (parsed.voicing === '2nd') {
+                // Move two bass notes up an octave
+                degrees = [degrees[2], degrees[0] + 7, degrees[1] + 7, ...(degrees[3] ? [degrees[3]] : [])];
+            }
+            
+            return degrees;
+        }
+
+        // Legacy function for compatibility
+        function getScaleDegrees(numeral) {
+            const parsed = NUMERAL_MAP[numeral] || NUMERAL_MAP['I'];
+            const root = parsed.degree;
+            
+            if (parsed.quality === 'diminished') {
+                return [root, root + 2, root + 4]; // 1-3-5 for dim (will be flattened by scale)
+            } else if (parsed.quality === 'minor') {
+                return [root, root + 2, root + 4]; // 1-3-5 (minor third from scale)
+            } else {
+                return [root, root + 2, root + 4]; // 1-3-5
+            }
+        }
+
+        // ========== AUDIO SYNTHESIS ==========
+        function midiToFreq(midi) {
+            return 440 * Math.pow(2, (midi - 69) / 12);
+        }
+
+        function playSynth(frequencies, duration = 1.0) {
+            initAudio();
+            
+            const now = audioContext.currentTime;
+            const envelope = state.envelope;
+            
+            frequencies.forEach(freq => {
+                const osc = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                osc.type = state.synthType;
+                osc.frequency.value = freq;
+                
+                // ADSR envelope
+                gainNode.gain.setValueAtTime(0, now);
+                gainNode.gain.linearRampToValueAtTime(0.3, now + envelope.attack);
+                gainNode.gain.linearRampToValueAtTime(0.3 * envelope.sustain, now + envelope.attack + envelope.decay);
+                gainNode.gain.setValueAtTime(0.3 * envelope.sustain, now + Math.max(0, duration - envelope.release));
+                gainNode.gain.linearRampToValueAtTime(0, now + duration);
+                
+                osc.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                osc.start(now);
+                osc.stop(now + duration);
+            });
+        }
+
+        function buildArpSequenceIndices(degrees) {
+            const sorted = degrees
+                .map((degree, index) => ({ degree, index }))
+                .sort((a, b) => (a.degree - b.degree) || (a.index - b.index))
+                .map(item => item.index);
+
+            const count = sorted.length;
+            if (count === 0) return [];
+
+            const low = sorted[0];
+            const mid = sorted[Math.min(1, count - 1)];
+            const high = sorted[count - 1];
+            const upperMid = sorted[Math.min(2, count - 1)];
+
+            switch (state.arpMode) {
+                case 'up':
+                    return sorted;
+                case 'down':
+                    return [...sorted].reverse();
+                case 'updown':
+                    return sorted.concat(sorted.slice(1, -1).reverse());
+                case 'pulse':
+                    return count === 1 ? [low] : [low, high, low, high];
+                case 'pedal':
+                    return count >= 3 ? [low, mid, low, upperMid] : [low, high, low, high];
+                case 'bounce':
+                    return count >= 3 ? [low, mid, high, mid] : [low, high, low, high];
+                case 'pyramid':
+                    if (count >= 4) return [low, mid, upperMid, high, upperMid, mid];
+                    if (count === 3) return [low, mid, high, mid];
+                    return count === 2 ? [low, high, low, high] : [low];
+                default:
+                    return sorted;
+            }
+        }
+
+        function playArpeggio(degrees, frequencies, duration = 1.0) {
+            const sequence = buildArpSequenceIndices(degrees);
+            if (sequence.length === 0) return;
+
+            const noteLength = duration / sequence.length;
+            clearPadHighlights();
+
+            sequence.forEach((index, step) => {
+                const freq = frequencies[index];
+                const degree = degrees[index];
+                const delay = step * noteLength * 1000;
+                const playLength = noteLength * 0.9;
+
+                setTimeout(() => {
+                    playSynth([freq], playLength);
+                    highlightPad(degree, playLength * 1000);
+                }, delay);
+            });
+        }
+
+        function playChordByNotation(notation, chordIndex) {
+            const voicing = state.chordVoicings[chordIndex] || 'root';
+            const { degrees } = getChordDegreesForAudio(notation, voicing);
+            const parsed = parseChordNotation(notation);
+            const scale = SCALES[state.currentScale];
+            
+            const frequencies = degrees.map((degree, idx) => {
+                // Calculate which octave this degree is in
+                // Degrees 1-7 are base octave, 8-14 are +1 octave, etc.
+                const octaveOffset = Math.floor((degree - 1) / 7);
+                const scaleDegree = ((degree - 1) % 7);
+                const interval = scale.intervals[scaleDegree] || 0;
+                let midi = 60 + state.currentKey + interval + (octaveOffset * 12);
+                return midiToFreq(midi);
+            });
+            
+            const chordDuration = (60 / state.tempo) * state.beatsPerChord;
+            if (state.arpMode === 'chord') {
+                playSynth(frequencies, chordDuration);
+            } else {
+                playArpeggio(degrees, frequencies, chordDuration);
+            }
+        }
+
+        // ========== PLAYBACK ==========
+        function playChord(index) {
+            if (!state.selectedProgression) return;
+            
+            state.currentChordIndex = index;
+            const numeral = state.selectedProgression.numerals[index];
+            playChordByNotation(numeral, index);
+            updateUI();
+        }
+
+        function startPlayback() {
+            if (!state.selectedProgression) return;
+            
+            state.isPlaying = true;
+            state.currentChordIndex = 0;
+            
+            const beatDuration = (60 / state.tempo) * 1000 * state.beatsPerChord;
+            
+            playChord(state.currentChordIndex);
+            
+            state.playbackInterval = setInterval(() => {
+                state.currentChordIndex = (state.currentChordIndex + 1) % state.selectedProgression.numerals.length;
+                playChord(state.currentChordIndex);
+            }, beatDuration);
+            
+            updateUI();
+        }
+
+        function stopPlayback() {
+            state.isPlaying = false;
+            if (state.playbackInterval) {
+                clearInterval(state.playbackInterval);
+                state.playbackInterval = null;
+            }
+            clearPadHighlights();
+            updateUI();
+        }
+
+        // ========== RENDERING ==========
+        function renderFilters() {
+            const filterRow = document.getElementById('filterRow');
+            const genres = [...new Set(PROGRESSIONS.map(p => p.genre))];
+            const moods = [...new Set(PROGRESSIONS.map(p => p.mood))];
+            
+            filterRow.innerHTML = genres.map(genre => 
+                `<button class="filter-chip" data-type="genre" data-value="${genre}">${genre}</button>`
+            ).join('') + moods.map(mood => 
+                `<button class="filter-chip" data-type="mood" data-value="${mood}">${mood}</button>`
+            ).join('');
+            
+            filterRow.querySelectorAll('.filter-chip').forEach(chip => {
+                chip.addEventListener('click', () => {
+                    chip.classList.toggle('active');
+                    const type = chip.dataset.type;
+                    const value = chip.dataset.value;
+                    
+                    const filterKey = `${type}:${value}`;
+                    if (chip.classList.contains('active')) {
+                        state.activeFilters.push(filterKey);
+                    } else {
+                        state.activeFilters = state.activeFilters.filter(f => f !== filterKey);
+                    }
+                    
+                    renderProgressions();
+                });
+            });
+        }
+
+        function renderProgressions() {
+            const container = document.getElementById('progressionsList');
+            
+            let filtered = PROGRESSIONS.filter(prog => {
+                // Search filter
+                if (state.searchQuery) {
+                    const query = state.searchQuery.toLowerCase();
+                    const chordNames = prog.chords ? prog.chords.join(' ') : '';
+                    const source = prog.source || '';
+                    const searchable = `${prog.name} ${prog.genre} ${prog.mood} ${source} ${prog.songs || ''} ${chordNames} ${prog.numerals.join(' ')}`.toLowerCase();
+                    if (!searchable.includes(query)) return false;
+                }
+                
+                // Genre/Mood filters
+                if (state.activeFilters.length > 0) {
+                    const genreFilters = state.activeFilters.filter(f => f.startsWith('genre:')).map(f => f.split(':')[1]);
+                    const moodFilters = state.activeFilters.filter(f => f.startsWith('mood:')).map(f => f.split(':')[1]);
+                    
+                    if (genreFilters.length > 0 && !genreFilters.includes(prog.genre)) return false;
+                    if (moodFilters.length > 0 && !moodFilters.includes(prog.mood)) return false;
+                }
+                
+                return true;
+            });
+            
+            document.getElementById('progCount').textContent = `${filtered.length} LOADED`;
+            
+            container.innerHTML = filtered.map(prog => {
+                const tags = [];
+                const addTag = (value) => {
+                    if (value) tags.push(`<span>${value}</span>`);
+                };
+                const isJ6 = prog.source === J6_SOURCE;
+
+                if (isJ6) {
+                    if (prog.genre && prog.genre !== J6_SOURCE) addTag(prog.genre);
+                    addTag(J6_SOURCE);
+                } else {
+                    addTag(prog.genre);
+                    addTag(prog.mood);
+                    addTag(prog.source);
+                }
+
+                const j6Link = isJ6
+                    ? `<a href="${J6_MANUAL_URL}" target="_blank" rel="noopener" style="color: var(--te-orange); text-decoration: none;" onclick="event.stopPropagation();">🔗 J-6 Manual</a>`
+                    : '';
+                const hookLink = prog.hooktheory
+                    ? `<a href="https://www.hooktheory.com/theorytab/common-chord-progressions/${prog.hooktheory}" target="_blank" rel="noopener" style="color: var(--te-orange); text-decoration: none;" onclick="event.stopPropagation();">🔗 Hooktheory</a>`
+                    : '';
+
+                return `
+                    <div class="prog-card ${state.selectedProgression?.id === prog.id ? 'selected' : ''}" data-id="${prog.id}">
+                        <div class="prog-name">${prog.name}</div>
+                        <div class="prog-numerals">${prog.numerals.join(' - ')}</div>
+                        <div class="prog-meta">
+                            ${tags.join('')}
+                            ${j6Link}
+                            ${hookLink}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            container.querySelectorAll('.prog-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const prog = PROGRESSIONS.find(p => p.id === parseInt(card.dataset.id));
+                    selectProgression(prog);
+                });
+            });
+        }
+
+        function selectProgression(prog) {
+            const cloned = {
+                ...prog,
+                numerals: prog.numerals ? [...prog.numerals] : []
+            };
+            if (prog.chords) cloned.chords = [...prog.chords];
+            state.selectedProgression = cloned;
+            state.currentChordIndex = 0;
+            
+            // Parse voicings from chord notation
+            state.chordVoicings = {};
+            prog.numerals.forEach((numeral, i) => {
+                const parsed = parseChordNotation(numeral);
+                
+                // Map parsed voicing to dropdown value
+                if (parsed.voicing === '1st') {
+                    state.chordVoicings[i] = '1st';
+                } else if (parsed.voicing === '2nd') {
+                    state.chordVoicings[i] = '2nd';
+                } else if (parsed.sus === 2) {
+                    state.chordVoicings[i] = 'sus2';
+                } else if (parsed.sus === 4) {
+                    state.chordVoicings[i] = 'sus4';
+                } else if (parsed.seventh) {
+                    state.chordVoicings[i] = '7';
+                } else {
+                    state.chordVoicings[i] = 'root';
+                }
+            });
+            
+            if (state.isPlaying) {
+                stopPlayback();
+            }
+            
+            // Populate custom input with selected progression
+            document.getElementById('customInput').value = prog.numerals.join(' - ');
+            
+            renderProgressions();
+            updateUI();
+        }
+
+        function renderKeySelect() {
+            const select = document.getElementById('keySelect');
+            select.innerHTML = KEYS.map((key, i) => 
+                `<option value="${i}">${key.name} (${key.code})</option>`
+            ).join('');
+        }
+
+        function renderScaleSelect() {
+            const select = document.getElementById('scaleSelect');
+            select.innerHTML = SCALES.map((scale, i) => {
+                const supported = isScaleSupported(scale);
+                const label = supported
+                    ? `${scale.name} (${scale.code})`
+                    : `${scale.name} (${scale.code}) - not supported`;
+                return `<option value="${i}" ${supported ? '' : 'disabled'}>${label}</option>`;
+            }).join('');
+
+            if (!isScaleSupported(SCALES[state.currentScale])) {
+                const fallback = getFirstSupportedScaleIndex();
+                state.currentScale = fallback === -1 ? 0 : fallback;
+            }
+
+            select.value = state.currentScale; // Set to current state (Major = 1)
+        }
+
+        function renderSynthButtons() {
+            const container = document.getElementById('synthOptions');
+            container.innerHTML = SYNTH_TYPES.map(synth => `
+                <button class="synth-btn ${state.synthType === synth.id ? 'active' : ''}" data-synth="${synth.id}">
+                    ${synth.icon} ${synth.name}
+                </button>
+            `).join('');
+            
+            container.querySelectorAll('.synth-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    state.synthType = btn.dataset.synth;
+                    renderSynthButtons();
+                });
+            });
+        }
+
+        function renderArpButtons() {
+            const container = document.getElementById('arpOptions');
+            container.innerHTML = ARP_MODES.map(mode => `
+                <button class="synth-btn ${state.arpMode === mode.id ? 'active' : ''}" data-arp="${mode.id}">
+                    ${mode.icon} ${mode.name}
+                </button>
+            `).join('');
+            
+            container.querySelectorAll('.synth-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    state.arpMode = btn.dataset.arp;
+                    renderArpButtons();
+                });
+            });
+        }
+
+        function renderPadLabelToggle() {
+            const container = document.getElementById('padLabelToggle');
+            if (!container) return;
+            container.querySelectorAll('.toggle-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.label === state.padLabelMode);
+            });
+        }
+
+        function updateBeatsLabel() {
+            const beatsValue = document.getElementById('beatsValue');
+            if (!beatsValue) return;
+            beatsValue.textContent = state.beatsPerChord === 1
+                ? '1 BEAT'
+                : `${state.beatsPerChord} BEATS`;
+        }
+
+        function renderPadGrid() {
+            const container = document.getElementById('padGrid');
+            
+            // EP-133 pad layout (3x4): 7,8,9 / 4,5,6 / 1,2,3 / .,0,ENTER
+            const padLayout = [
+                { label: '7', degree: 7 },
+                { label: '8', degree: 8 },
+                { label: '9', degree: 9 },
+                { label: '4', degree: 4 },
+                { label: '5', degree: 5 },
+                { label: '6', degree: 6 },
+                { label: '1', degree: 1 },
+                { label: '2', degree: 2 },
+                { label: '3', degree: 3 },
+                { label: '.', degree: 10 },
+                { label: '0', degree: 11 },
+                { label: '⏎', degree: 12 }
+            ];
+            
+            if (!state.selectedProgression) {
+                container.innerHTML = padLayout.map(pad => `
+                    <button class="num-pad">
+                        <span class="pad-num">${pad.label}</span>
+                    </button>
+                `).join('');
+                return;
+            }
+            
+            const numeral = state.selectedProgression.numerals[state.currentChordIndex];
+            const voicing = state.chordVoicings[state.currentChordIndex] || 'root';
+            const { degrees: chordDegrees } = getChordDegreesForDisplay(numeral, voicing);
+            
+            container.innerHTML = padLayout.map(pad => {
+                const classes = ['num-pad'];
+                let noteLabel = '';
+                
+                if (state.padLabelMode === 'notes') {
+                    noteLabel = degreeToNoteName(pad.degree, true);
+                } else {
+                    const degreeInScale = ((pad.degree - 1) % 7) + 1;
+                    const octaveMarker = pad.degree > 7 ? "'" : '';
+                    noteLabel = degreeInScale + octaveMarker;
+                }
+                
+                // Highlight if this degree is in the chord
+                if (chordDegrees.includes(pad.degree)) {
+                    const position = chordDegrees.indexOf(pad.degree);
+                    if (position === 0) classes.push('root');
+                    else if (position === 1) classes.push('third');
+                    else if (position === 2) classes.push('fifth');
+                    else if (position === 3) classes.push('seventh');
+                }
+                
+                return `
+                    <button class="${classes.join(' ')}" data-degree="${pad.degree}">
+                        <span class="pad-num">${pad.label}</span>
+                        <span class="pad-note">${noteLabel}</span>
+                    </button>
+                `;
+            }).join('');
+            
+            container.querySelectorAll('.num-pad').forEach(pad => {
+                pad.addEventListener('click', () => {
+                    const degree = parseInt(pad.dataset.degree);
+                    if (!isNaN(degree)) {
+                        const scale = SCALES[state.currentScale];
+                        
+                        // Calculate MIDI note based on degree
+                        const octaveOffset = Math.floor((degree - 1) / 7);
+                        const scaleDegree = ((degree - 1) % 7) + 1;
+                        
+                        const interval = scale.intervals[scaleDegree - 1] || 0;
+                        const midi = 60 + state.currentKey + interval + (octaveOffset * 12);
+                        playSynth([midiToFreq(midi)], 0.5);
+                    }
+                });
+            });
+        }
+
+        function renderChordTimeline() {
+            const container = document.getElementById('chordTimeline');
+            if (!state.selectedProgression) return;
+            
+            const numerals = state.selectedProgression.numerals;
+            
+            container.innerHTML = numerals.map((numeral, i) => {
+                const chordName = getChordName(numeral, state.currentKey);
+                const voicing = state.chordVoicings[i] || 'root';
+                
+                return `
+                    <div class="timeline-chord ${i === state.currentChordIndex ? 'active' : ''}" data-index="${i}">
+                        <div class="tc-numeral">${numeral}</div>
+                        <div class="tc-name">${chordName}</div>
+                        <select class="tc-voicing-select" data-index="${i}">
+                            ${VOICING_OPTIONS.map(opt => 
+                                `<option value="${opt.value}" ${voicing === opt.value ? 'selected' : ''}>${opt.label}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                `;
+            }).join('');
+            
+            container.querySelectorAll('.timeline-chord').forEach(chord => {
+                chord.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('tc-voicing-select')) return;
+                    const index = parseInt(chord.dataset.index);
+                    if (state.isPlaying) {
+                        stopPlayback();
+                    }
+                    playChord(index);
+                });
+            });
+            
+            container.querySelectorAll('.tc-voicing-select').forEach(select => {
+                select.addEventListener('change', (e) => {
+                    e.stopPropagation();
+                    const index = parseInt(select.dataset.index);
+                    const newVoicing = select.value;
+                    state.chordVoicings[index] = newVoicing;
+                    
+                    // Update the underlying numeral notation
+                    if (state.selectedProgression) {
+                        const baseNumeral = state.selectedProgression.numerals[index];
+                        const parsed = parseChordNotation(baseNumeral);
+                        
+                        // Build new numeral string based on voicing
+                        let newNumeral = '';
+                        
+                        // Add flat prefix if present
+                        if (parsed.flat) newNumeral += 'b';
+                        
+                        // Add degree (roman numeral)
+                        const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+                        let roman = romanNumerals[parsed.degree - 1];
+                        if (parsed.quality === 'minor') roman = roman.toLowerCase();
+                        if (parsed.quality === 'diminished') roman = roman.toLowerCase() + '°';
+                        newNumeral += roman;
+                        
+                        // Add voicing notation
+                        if (newVoicing === '1st') {
+                            newNumeral += '/1';
+                        } else if (newVoicing === '2nd') {
+                            newNumeral += '/2';
+                        } else if (newVoicing === 'sus2') {
+                            newNumeral += 'sus2';
+                        } else if (newVoicing === 'sus4') {
+                            newNumeral += 'sus4';
+                        } else if (newVoicing === '7') {
+                            newNumeral += '7';
+                        }
+                        // 'root' adds nothing
+                        
+                        // Update the progression
+                        state.selectedProgression.numerals[index] = newNumeral;
+                        
+                        // Update custom input
+                        document.getElementById('customInput').value = 
+                            state.selectedProgression.numerals.join(' - ');
+                    }
+                    
+                    updateUI();
+                });
+            });
+        }
+
+        function getChordName(numeral, keyIndex) {
+            const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+            const parsed = parseChordNotation(numeral);
+            const scale = SCALES[state.currentScale];
+            
+            let degree = parsed.degree - 1;
+            let rootOffset = scale.intervals[degree % scale.intervals.length] || 0;
+            if (parsed.flat) rootOffset -= 1;
+            
+            const noteIndex = (keyIndex + rootOffset + 12) % 12;
+            const noteName = noteNames[noteIndex];
+            
+            let suffix = '';
+            if (parsed.quality === 'minor') suffix = 'm';
+            else if (parsed.quality === 'diminished') suffix = '°';
+            
+            if (parsed.sus === 2) suffix += 'sus2';
+            else if (parsed.sus === 4) suffix += 'sus4';
+            
+            if (parsed.seventh) suffix += '7';
+            
+            return noteName + suffix;
+        }
+
+        function updateIntervalInfo() {
+            const infoDiv = document.getElementById('intervalInfo');
+            
+            if (!state.selectedProgression) {
+                infoDiv.style.display = 'none';
+                return;
+            }
+            
+            const numeral = state.selectedProgression.numerals[state.currentChordIndex];
+            const voicing = state.chordVoicings[state.currentChordIndex] || 'root';
+            const { degrees } = getChordDegreesForDisplay(numeral, voicing);
+            const parsed = parseChordNotation(numeral);
+            
+            const intervalNames = ['Root (P1)', 'Major 2nd (M2)', 'Major 3rd (M3)', 'Perfect 4th (P4)', 
+                                  'Perfect 5th (P5)', 'Major 6th (M6)', 'Major 7th (M7)'];
+            
+            let intervals = [];
+            const scale = SCALES[state.currentScale];
+            
+            degrees.forEach((degree, idx) => {
+                const normalizedDegree = ((degree - 1) % 7) + 1;
+                const octaveOffset = Math.floor((degree - 1) / 7);
+                const label = idx === 0 ? 'Bass' : `Voice ${idx}`;
+                
+                intervals.push({
+                    label: label,
+                    degree: normalizedDegree,
+                    octave: octaveOffset > 0 ? `+${octaveOffset} oct` : ''
+                });
+            });
+            
+            let harmonicExplanation = '';
+            if (parsed.sus === 2) {
+                harmonicExplanation = 'Sus2 replaces the 3rd with the 2nd, creating an open, unresolved sound.';
+            } else if (parsed.sus === 4) {
+                harmonicExplanation = 'Sus4 replaces the 3rd with the 4th, creating tension that wants to resolve.';
+            } else if (parsed.voicing === '1st') {
+                harmonicExplanation = '1st inversion places the 3rd in the bass, creating a smoother bass line.';
+            } else if (parsed.voicing === '2nd') {
+                harmonicExplanation = '2nd inversion places the 5th in the bass, often used as a passing chord.';
+            } else if (parsed.seventh) {
+                harmonicExplanation = 'The 7th adds color while staying in key.';
+            } else if (parsed.quality === 'minor') {
+                harmonicExplanation = 'Minor 3rd creates a darker, more melancholic character.';
+            } else if (parsed.quality === 'major') {
+                harmonicExplanation = 'Major 3rd creates a bright, stable character.';
+            }
+            
+            infoDiv.innerHTML = `
+                ${intervals.map(int => `
+                    <div class="interval-row">
+                        <span class="interval-label">${int.label}</span>
+                        <span class="interval-value">Scale degree ${int.degree} ${int.octave}</span>
+                    </div>
+                `).join('')}
+                ${harmonicExplanation ? `<div class="harmonic-note">${harmonicExplanation}</div>` : ''}
+            `;
+            
+            infoDiv.style.display = 'block';
+        }
+
+        function updateUI() {
+            if (state.selectedProgression) {
+                document.getElementById('npProgression').textContent = 
+                    state.selectedProgression.numerals.join(' - ');
+                document.getElementById('npName').textContent = 
+                    `"${state.selectedProgression.name}" in ${KEYS[state.currentKey].name} ${SCALES[state.currentScale].name}`;
+            }
+            
+            document.getElementById('scaleCode').textContent = SCALES[state.currentScale].code;
+            document.getElementById('keyCode').textContent = KEYS[state.currentKey].code;
+            updateBeatsLabel();
+            renderPadLabelToggle();
+            
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            if (state.isPlaying) {
+                statusDot.classList.add('active');
+                statusText.textContent = 'PLAYING';
+            } else {
+                statusDot.classList.remove('active');
+                statusText.textContent = 'READY';
+            }
+            
+            const playBtn = document.getElementById('playBtn');
+            if (state.isPlaying) {
+                playBtn.textContent = '⏸ PAUSE';
+                playBtn.classList.add('playing');
+            } else {
+                playBtn.textContent = '▶ PLAY';
+                playBtn.classList.remove('playing');
+            }
+            
+            if (state.selectedProgression) {
+                const numeral = state.selectedProgression.numerals[state.currentChordIndex];
+                const voicing = state.chordVoicings[state.currentChordIndex] || 'root';
+                const chordName = getChordName(numeral, state.currentKey);
+                const parsed = parseChordNotation(numeral);
+                const { degrees, adjusted } = getChordDegreesForDisplay(numeral, voicing);
+                
+                let voicingLabel = '';
+                if (voicing === '1st') voicingLabel = ' - 1st Inversion';
+                else if (voicing === '2nd') voicingLabel = ' - 2nd Inversion';
+                else if (voicing === 'sus2') voicingLabel = ' - Sus2';
+                else if (voicing === 'sus4') voicingLabel = ' - Sus4';
+                else if (voicing === '7') voicingLabel = ' - 7th';
+                
+                
+                // Convert degrees to pad labels (1-9 are numbers, 10-12 use ., 0, ⏎)
+                const padLabels = degrees.map(deg => {
+                    if (deg >= 1 && deg <= 9) return deg.toString();
+                    if (deg === 10) return '.';
+                    if (deg === 11) return '0';
+                    if (deg === 12) return '⏎';
+                    // For degrees > 12, would need multiple octaves
+                    return deg.toString();
+                });
+                
+                document.getElementById('infoTitle').textContent = 
+                    `CHORD ${numeral} (${chordName}${voicingLabel})`;
+                const rawChord = state.selectedProgression.chords
+                    ? state.selectedProgression.chords[state.currentChordIndex]
+                    : null;
+                const rawChordLine = rawChord
+                    ? `<div class="raw-chord">J-6 chord: ${rawChord}</div>`
+                    : '';
+                document.getElementById('infoContent').innerHTML = 
+                    `Press pads <strong>${padLabels.join(' + ')}</strong> together on your EP-133/40 in Keys mode.` +
+                    rawChordLine;
+
+                const noteNames = getChordNoteNames(degrees);
+                document.getElementById('infoNotes').textContent = noteNames
+                    ? `Notes: ${noteNames}`
+                    : '';
+
+                const functionText = getChordFunction(parsed);
+                document.getElementById('infoFunction').textContent = `Function: ${functionText}`;
+
+                const suggestions = getNextChordSuggestions(parsed);
+                const suggestionsEl = document.getElementById('infoSuggestions');
+                suggestionsEl.innerHTML = `
+                    <span style="font-weight: 600;">Next ideas:</span>
+                    ${suggestions.map(n => `
+                        <button class="suggestion-btn" data-numeral="${n}">
+                            ${n} (${getChordName(n, state.currentKey)})
+                        </button>
+                    `).join('')}
+                `;
+
+                suggestionsEl.querySelectorAll('.suggestion-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const nextNumeral = btn.dataset.numeral;
+                        if (state.isPlaying) {
+                            stopPlayback();
+                        }
+                        playChordByNotation(nextNumeral, -1);
+                    });
+                });
+
+                const padSafeNote = document.getElementById('padSafeNote');
+                if (state.padSafe && adjusted) {
+                    padSafeNote.textContent = 'Pad-safe voicing is on: high notes are folded down to fit 12 pads.';
+                    padSafeNote.style.display = 'block';
+                } else {
+                    padSafeNote.textContent = '';
+                    padSafeNote.style.display = 'none';
+                }
+                
+                updateIntervalInfo();
+            } else {
+                document.getElementById('infoNotes').textContent = '';
+                document.getElementById('infoFunction').textContent = '';
+                document.getElementById('infoSuggestions').innerHTML = '';
+                const padSafeNote = document.getElementById('padSafeNote');
+                padSafeNote.textContent = '';
+                padSafeNote.style.display = 'none';
+            }
+            
+            renderChordTimeline();
+            renderPadGrid();
+        }
+
+        // ========== EVENT LISTENERS ==========
+        function initEventListeners() {
+            document.getElementById('searchInput').addEventListener('input', (e) => {
+                state.searchQuery = e.target.value;
+                renderProgressions();
+            });
+            
+            document.getElementById('loadCustomBtn').addEventListener('click', () => {
+                const input = document.getElementById('customInput').value;
+                const numerals = input.split(/[-–—\s]+/).filter(n => n);
+                
+                if (numerals.length > 0) {
+                    const customProg = {
+                        id: -1,
+                        numerals: numerals,
+                        name: 'Custom Progression',
+                        genre: 'CUSTOM',
+                        mood: 'CUSTOM',
+                        songs: 'Your creation!'
+                    };
+                    selectProgression(customProg);
+                }
+            });
+
+            const j6Button = document.getElementById('loadJ6Btn');
+            if (j6Button) {
+                j6Button.addEventListener('click', () => {
+                    loadJ6ChordSets();
+                });
+            }
+            
+            document.getElementById('playBtn').addEventListener('click', () => {
+                if (state.isPlaying) {
+                    stopPlayback();
+                } else {
+                    startPlayback();
+                }
+            });
+            
+            document.getElementById('stopBtn').addEventListener('click', stopPlayback);
+            
+            const tempoSlider = document.getElementById('tempoSlider');
+            const tempoValue = document.getElementById('tempoValue');
+            tempoSlider.addEventListener('input', (e) => {
+                state.tempo = parseInt(e.target.value);
+                tempoValue.textContent = state.tempo;
+                
+                if (state.isPlaying) {
+                    stopPlayback();
+                    startPlayback();
+                }
+            });
+
+            const beatsSlider = document.getElementById('beatsSlider');
+            beatsSlider.addEventListener('input', (e) => {
+                state.beatsPerChord = parseInt(e.target.value);
+                updateBeatsLabel();
+                if (state.isPlaying) {
+                    stopPlayback();
+                    startPlayback();
+                }
+            });
+
+            document.getElementById('keySelect').addEventListener('change', (e) => {
+                state.currentKey = parseInt(e.target.value);
+                updateUI();
+            });
+            
+            document.getElementById('scaleSelect').addEventListener('change', (e) => {
+                state.currentScale = parseInt(e.target.value);
+                updateUI();
+            });
+
+            const padSafeToggle = document.getElementById('padSafeToggle');
+            if (padSafeToggle) {
+                padSafeToggle.addEventListener('change', (e) => {
+                    state.padSafe = e.target.checked;
+                    updateUI();
+                });
+            }
+
+            const padLabelToggle = document.getElementById('padLabelToggle');
+            if (padLabelToggle) {
+                padLabelToggle.querySelectorAll('.toggle-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        state.padLabelMode = btn.dataset.label;
+                        renderPadLabelToggle();
+                        renderPadGrid();
+                    });
+                });
+            }
+
+            const advancedToggle = document.getElementById('advancedToggle');
+            if (advancedToggle) {
+                advancedToggle.addEventListener('click', () => {
+                    const content = document.getElementById('advancedContent');
+                    const arrow = document.getElementById('advancedArrow');
+                    content.classList.toggle('expanded');
+                    arrow.textContent = content.classList.contains('expanded') ? '▲' : '▼';
+                });
+            }
+
+            const updateEnvelopeLabel = (id, value, suffix = '') => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = `${value.toFixed(2)}${suffix}`;
+            };
+
+            const attackSlider = document.getElementById('attackSlider');
+            const decaySlider = document.getElementById('decaySlider');
+            const sustainSlider = document.getElementById('sustainSlider');
+            const releaseSlider = document.getElementById('releaseSlider');
+
+            if (attackSlider) {
+                attackSlider.addEventListener('input', (e) => {
+                    state.envelope.attack = parseFloat(e.target.value);
+                    updateEnvelopeLabel('attackValue', state.envelope.attack, 's');
+                });
+            }
+
+            if (decaySlider) {
+                decaySlider.addEventListener('input', (e) => {
+                    state.envelope.decay = parseFloat(e.target.value);
+                    updateEnvelopeLabel('decayValue', state.envelope.decay, 's');
+                });
+            }
+
+            if (sustainSlider) {
+                sustainSlider.addEventListener('input', (e) => {
+                    state.envelope.sustain = parseFloat(e.target.value);
+                    updateEnvelopeLabel('sustainValue', state.envelope.sustain, '');
+                });
+            }
+
+            if (releaseSlider) {
+                releaseSlider.addEventListener('input', (e) => {
+                    state.envelope.release = parseFloat(e.target.value);
+                    updateEnvelopeLabel('releaseValue', state.envelope.release, 's');
+                });
+            }
+            
+            document.getElementById('theoryToggle').addEventListener('click', () => {
+                const content = document.getElementById('theoryContent');
+                const arrow = document.getElementById('theoryArrow');
+                content.classList.toggle('expanded');
+                arrow.textContent = content.classList.contains('expanded') ? '▲' : '▼';
+            });
+            
+            document.addEventListener('keydown', (e) => {
+                if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') {
+                    e.preventDefault();
+                    if (state.isPlaying) {
+                        stopPlayback();
+                    } else {
+                        startPlayback();
+                    }
+                }
+            });
+        }
+
+        // ========== INIT ==========
+        function init() {
+            renderFilters();
+            renderProgressions();
+            renderKeySelect();
+            renderScaleSelect();
+            renderSynthButtons();
+            renderArpButtons();
+            renderPadGrid();
+            renderChordTimeline();
+            positionCircleOfFifths();
+            updateBeatsLabel();
+            updateUI();
+            initEventListeners();
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
