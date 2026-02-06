@@ -1029,29 +1029,42 @@
 
         /* ========== OCTAVE CONTROL ========== */
         .octave-control {
-            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
         }
 
         .octave-control .select-label {
-            margin-bottom: 4px;
+            margin-bottom: 0;
+            font-size: 10px;
+            white-space: nowrap;
         }
 
         .octave-btn-group {
             display: flex;
-            gap: 4px;
+            gap: 0;
+            flex: 1;
+            border: 2px solid var(--te-black);
+            border-radius: 4px;
+            overflow: hidden;
         }
 
         .octave-btn {
             flex: 1;
-            padding: 6px 2px;
+            padding: 5px 2px;
             background: white;
-            border: 2px solid var(--te-black);
-            border-radius: 4px;
+            border: none;
+            border-right: 1px solid var(--te-select);
             font-family: inherit;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.15s;
+        }
+
+        .octave-btn:last-child {
+            border-right: none;
         }
 
         .octave-btn:hover {
@@ -1059,12 +1072,11 @@
         }
 
         .octave-btn.active {
-            background: var(--te-orange);
+            background: var(--te-black);
             color: white;
-            border-color: var(--te-orange);
         }
 
-        /* ========== RANDOMIZE BUTTON ========== */
+        /* ========== RANDOMIZE BUTTONS ========== */
         .randomize-section {
             display: flex;
             gap: 6px;
@@ -1073,19 +1085,18 @@
 
         .randomize-btn {
             flex: 1;
-            padding: 8px 12px;
+            padding: 8px 10px;
             background: white;
             border: 2px solid var(--te-black);
             border-radius: 4px;
             font-family: inherit;
-            font-size: 11px;
-            font-weight: 600;
             cursor: pointer;
             transition: all 0.15s;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
-            gap: 6px;
+            gap: 2px;
+            text-align: center;
         }
 
         .randomize-btn:hover {
@@ -1095,6 +1106,40 @@
         .randomize-btn:active {
             background: var(--te-orange);
             color: white;
+        }
+
+        .randomize-btn:active .randomize-sub {
+            color: rgba(255,255,255,0.7);
+        }
+
+        .randomize-title {
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .randomize-sub {
+            font-size: 8px;
+            color: var(--te-mid-gray);
+            line-height: 1.2;
+        }
+
+        /* ========== PER-CHORD BEATS ========== */
+        .tc-beats-select {
+            font-family: inherit;
+            font-size: 9px;
+            padding: 2px 4px;
+            border: 1px solid var(--te-select-dark);
+            border-radius: 3px;
+            background: var(--te-cream);
+            margin-top: 4px;
+            cursor: pointer;
+            text-align: center;
+            width: 100%;
+        }
+
+        .timeline-chord.active .tc-beats-select {
+            background: var(--te-cream);
+            color: var(--te-black);
         }
 
         /* ========== KEYBOARD HINTS ========== */
@@ -1262,11 +1307,13 @@
 
                     <!-- Randomize Controls -->
                     <div class="randomize-section">
-                        <button class="randomize-btn" id="randomizeVoicingsBtn" title="Randomize voicings (inversions, sus, 7ths)">
-                            ⚄ DICE VOICINGS
+                        <button class="randomize-btn" id="randomizeVoicingsBtn">
+                            <span class="randomize-title">⚄ REVOICE</span>
+                            <span class="randomize-sub">Same chords, random voicings</span>
                         </button>
-                        <button class="randomize-btn" id="randomizeVariationBtn" title="Generate a variation of this progression">
-                            ↻ VARIATION
+                        <button class="randomize-btn" id="randomizeVariationBtn">
+                            <span class="randomize-title">↻ MUTATE</span>
+                            <span class="randomize-sub">Swap chords, voicings &amp; beats</span>
                         </button>
                     </div>
 
@@ -1310,7 +1357,7 @@
 
                     <div class="tempo-control">
                         <div class="tempo-label">
-                            <span>BEATS / CHORD</span>
+                            <span>BEATS / CHORD (DEFAULT)</span>
                             <span class="tempo-value"><span id="beatsValue">1</span></span>
                         </div>
                         <input type="range" id="beatsSlider" min="1" max="4" value="1">
@@ -1328,12 +1375,6 @@
                         </div>
                     </div>
                     
-                    <!-- Octave -->
-                    <div class="octave-control">
-                        <div class="select-label">OCTAVE</div>
-                        <div class="octave-btn-group" id="octaveButtons"></div>
-                    </div>
-
                     <!-- Code Display -->
                     <div class="code-display">
                         <div class="code-box">
@@ -1344,6 +1385,12 @@
                             <div class="code-label">SCALE</div>
                             <div class="code-value" id="scaleCode">—</div>
                         </div>
+                    </div>
+
+                    <!-- Octave -->
+                    <div class="octave-control">
+                        <div class="select-label">OCTAVE</div>
+                        <div class="octave-btn-group" id="octaveButtons"></div>
                     </div>
                     
                     <!-- Synth Options -->
@@ -1908,6 +1955,7 @@
             beatsPerChord: 1,
             isPlaying: false,
             playbackInterval: null,
+            playbackTimeout: null,
             noteHighlightTimers: [],
             envelope: {
                 attack: 0.05,
@@ -1920,6 +1968,7 @@
             synthType: 'sine',
             arpMode: 'chord',
             chordVoicings: {}, // Maps chord index to voicing type
+            chordBeats: {}, // Maps chord index to beat count (null = use global)
             padLabelMode: 'notes',
             padSafe: true
         };
@@ -2324,23 +2373,27 @@
             });
         }
 
+        function getBeatsForChord(chordIndex) {
+            const perChord = state.chordBeats[chordIndex];
+            return (perChord && perChord > 0) ? perChord : state.beatsPerChord;
+        }
+
         function playChordByNotation(notation, chordIndex) {
             const voicing = state.chordVoicings[chordIndex] || 'root';
             const { degrees } = getChordDegreesForAudio(notation, voicing);
             const parsed = parseChordNotation(notation);
             const scale = SCALES[state.currentScale];
-            
+
             const frequencies = degrees.map((degree, idx) => {
-                // Calculate which octave this degree is in
-                // Degrees 1-7 are base octave, 8-14 are +1 octave, etc.
                 const octaveOffset = Math.floor((degree - 1) / 7);
                 const scaleDegree = (((degree - 1) % 7) + 7) % 7;
                 const interval = scale.intervals[scaleDegree] || 0;
                 let midi = (state.octave + 1) * 12 + state.currentKey + interval + (octaveOffset * 12);
                 return midiToFreq(midi);
             });
-            
-            const chordDuration = (60 / state.tempo) * state.beatsPerChord;
+
+            const beats = getBeatsForChord(chordIndex);
+            const chordDuration = (60 / state.tempo) * beats;
             if (state.arpMode === 'chord') {
                 playSynth(frequencies, chordDuration);
             } else {
@@ -2358,26 +2411,38 @@
             updateUI();
         }
 
-        function startPlayback() {
-            if (!state.selectedProgression) return;
-            
-            state.isPlaying = true;
-            state.currentChordIndex = 0;
-            
-            const beatDuration = (60 / state.tempo) * 1000 * state.beatsPerChord;
-            
-            playChord(state.currentChordIndex);
-            
-            state.playbackInterval = setInterval(() => {
+        function scheduleNextChord() {
+            if (!state.isPlaying || !state.selectedProgression) return;
+
+            const beats = getBeatsForChord(state.currentChordIndex);
+            const beatDuration = (60 / state.tempo) * 1000 * beats;
+
+            state.playbackTimeout = setTimeout(() => {
+                if (!state.isPlaying) return;
                 state.currentChordIndex = (state.currentChordIndex + 1) % state.selectedProgression.numerals.length;
                 playChord(state.currentChordIndex);
+                scheduleNextChord();
             }, beatDuration);
-            
+        }
+
+        function startPlayback() {
+            if (!state.selectedProgression) return;
+
+            state.isPlaying = true;
+            state.currentChordIndex = 0;
+
+            playChord(state.currentChordIndex);
+            scheduleNextChord();
+
             updateUI();
         }
 
         function stopPlayback() {
             state.isPlaying = false;
+            if (state.playbackTimeout) {
+                clearTimeout(state.playbackTimeout);
+                state.playbackTimeout = null;
+            }
             if (state.playbackInterval) {
                 clearInterval(state.playbackInterval);
                 state.playbackInterval = null;
@@ -2601,6 +2666,8 @@
 
             state.selectedProgression.numerals = variations;
             state.chordVoicings = {};
+            state.chordBeats = {};
+            const beatChoices = [0, 0, 1, 2, 3, 4]; // weighted toward default
             variations.forEach((numeral, i) => {
                 const parsed = parseChordNotation(numeral);
                 if (parsed.voicing === '1st') state.chordVoicings[i] = '1st';
@@ -2609,6 +2676,8 @@
                 else if (parsed.sus === 4) state.chordVoicings[i] = 'sus4';
                 else if (parsed.seventh) state.chordVoicings[i] = '7';
                 else state.chordVoicings[i] = 'root';
+
+                state.chordBeats[i] = beatChoices[Math.floor(Math.random() * beatChoices.length)];
             });
 
             document.getElementById('customInput').value = variations.join(' - ');
@@ -2725,6 +2794,9 @@
             state.selectedProgression = cloned;
             state.currentChordIndex = 0;
             
+            // Reset per-chord beats (all use global default)
+            state.chordBeats = {};
+
             // Parse voicings from chord notation
             state.chordVoicings = {};
             prog.numerals.forEach((numeral, i) => {
@@ -2933,26 +3005,40 @@
             
             const numerals = state.selectedProgression.numerals;
             
+            const BEAT_OPTIONS = [
+                { value: '0', label: 'Beats: default' },
+                { value: '1', label: '1 beat' },
+                { value: '2', label: '2 beats' },
+                { value: '3', label: '3 beats' },
+                { value: '4', label: '4 beats' }
+            ];
+
             container.innerHTML = numerals.map((numeral, i) => {
                 const chordName = getChordName(numeral, state.currentKey);
                 const voicing = state.chordVoicings[i] || 'root';
-                
+                const chordBeat = state.chordBeats[i] || 0;
+
                 return `
                     <div class="timeline-chord ${i === state.currentChordIndex ? 'active' : ''}" data-index="${i}">
                         <div class="tc-numeral">${numeral}</div>
                         <div class="tc-name">${chordName}</div>
                         <select class="tc-voicing-select" data-index="${i}">
-                            ${VOICING_OPTIONS.map(opt => 
+                            ${VOICING_OPTIONS.map(opt =>
                                 `<option value="${opt.value}" ${voicing === opt.value ? 'selected' : ''}>${opt.label}</option>`
+                            ).join('')}
+                        </select>
+                        <select class="tc-beats-select" data-index="${i}">
+                            ${BEAT_OPTIONS.map(opt =>
+                                `<option value="${opt.value}" ${chordBeat === parseInt(opt.value) ? 'selected' : ''}>${opt.label}</option>`
                             ).join('')}
                         </select>
                     </div>
                 `;
             }).join('');
-            
+
             container.querySelectorAll('.timeline-chord').forEach(chord => {
                 chord.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('tc-voicing-select')) return;
+                    if (e.target.classList.contains('tc-voicing-select') || e.target.classList.contains('tc-beats-select')) return;
                     const index = parseInt(chord.dataset.index);
                     if (state.isPlaying) {
                         stopPlayback();
@@ -3009,6 +3095,19 @@
                     }
                     
                     updateUI();
+                });
+            });
+
+            container.querySelectorAll('.tc-beats-select').forEach(select => {
+                select.addEventListener('change', (e) => {
+                    e.stopPropagation();
+                    const index = parseInt(select.dataset.index);
+                    const beats = parseInt(select.value);
+                    state.chordBeats[index] = beats;
+                    if (state.isPlaying) {
+                        stopPlayback();
+                        startPlayback();
+                    }
                 });
             });
         }
