@@ -1001,6 +1001,168 @@
             margin-bottom: 4px;
         }
 
+        /* ========== ADSR WAVEFORM VISUAL ========== */
+        .adsr-canvas-container {
+            margin-top: 12px;
+            border: 2px solid var(--te-black);
+            border-radius: 4px;
+            background: #1A1A1A;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .adsr-canvas-container canvas {
+            display: block;
+            width: 100%;
+            height: 120px;
+        }
+
+        .adsr-canvas-label {
+            position: absolute;
+            bottom: 4px;
+            right: 6px;
+            font-size: 8px;
+            color: var(--te-mid-gray);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* ========== OCTAVE CONTROL ========== */
+        .octave-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .octave-control .select-label {
+            margin-bottom: 0;
+            font-size: 10px;
+            white-space: nowrap;
+        }
+
+        .octave-btn-group {
+            display: flex;
+            gap: 0;
+            flex: 1;
+            border: 2px solid var(--te-black);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .octave-btn {
+            flex: 1;
+            padding: 5px 2px;
+            background: white;
+            border: none;
+            border-right: 1px solid var(--te-select);
+            font-family: inherit;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .octave-btn:last-child {
+            border-right: none;
+        }
+
+        .octave-btn:hover {
+            background: var(--te-select);
+        }
+
+        .octave-btn.active {
+            background: var(--te-black);
+            color: white;
+        }
+
+        /* ========== RANDOMIZE BUTTONS ========== */
+        .randomize-section {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .randomize-btn {
+            flex: 1;
+            padding: 8px 10px;
+            background: white;
+            border: 2px solid var(--te-black);
+            border-radius: 4px;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            text-align: center;
+        }
+
+        .randomize-btn:hover {
+            background: var(--te-select);
+        }
+
+        .randomize-btn:active {
+            background: var(--te-orange);
+            color: white;
+        }
+
+        .randomize-btn:active .randomize-sub {
+            color: rgba(255,255,255,0.7);
+        }
+
+        .randomize-title {
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .randomize-sub {
+            font-size: 8px;
+            color: var(--te-mid-gray);
+            line-height: 1.2;
+        }
+
+        /* ========== PER-CHORD BEATS ========== */
+        .tc-beats-select {
+            font-family: inherit;
+            font-size: 9px;
+            padding: 2px 4px;
+            border: 1px solid var(--te-select-dark);
+            border-radius: 3px;
+            background: var(--te-cream);
+            margin-top: 4px;
+            cursor: pointer;
+            text-align: center;
+            width: 100%;
+        }
+
+        .timeline-chord.active .tc-beats-select {
+            background: var(--te-cream);
+            color: var(--te-black);
+        }
+
+        /* ========== KEYBOARD HINTS ========== */
+        .pad-key-hint {
+            font-size: 7px;
+            color: var(--te-light-gray);
+            margin-top: 2px;
+            letter-spacing: 0.5px;
+        }
+
+        .num-pad.key-active {
+            transform: scale(0.93);
+            filter: brightness(1.15);
+            box-shadow: 0 0 8px rgba(255, 102, 51, 0.5);
+        }
+
+        .keyboard-hint-label {
+            font-size: 9px;
+            color: var(--te-mid-gray);
+            text-align: center;
+            margin-top: 6px;
+        }
+
         /* ========== SCROLLBAR ========== */
         ::-webkit-scrollbar {
             width: 10px;
@@ -1062,7 +1224,7 @@
                     <span>LAB</span>
                 </div>
             </div>
-            <div class="version">v2.0 Enhanced</div>
+            <div class="version">v2.1 Enhanced</div>
         </div>
         
         <div class="header-status">
@@ -1118,6 +1280,7 @@
                 <div class="panel-content">
                     <div class="pad-grid" id="padGrid"></div>
 
+                    <div class="keyboard-hint-label">Use your keyboard numpad to play pads</div>
                     <div class="pad-controls">
                         <div class="pad-toggle">
                             <span>PAD LABELS</span>
@@ -1141,6 +1304,18 @@
                     
                     <!-- Chord Timeline -->
                     <div class="chord-timeline" id="chordTimeline"></div>
+
+                    <!-- Randomize Controls -->
+                    <div class="randomize-section">
+                        <button class="randomize-btn" id="randomizeVoicingsBtn">
+                            <span class="randomize-title">⚄ REVOICE</span>
+                            <span class="randomize-sub">Same chords, random voicings</span>
+                        </button>
+                        <button class="randomize-btn" id="randomizeVariationBtn">
+                            <span class="randomize-title">↻ MUTATE</span>
+                            <span class="randomize-sub">Swap chords, voicings &amp; beats</span>
+                        </button>
+                    </div>
 
                     <div class="pad-legend" aria-label="Pad color legend">
                         <div class="legend-item">
@@ -1182,7 +1357,7 @@
 
                     <div class="tempo-control">
                         <div class="tempo-label">
-                            <span>BEATS / CHORD</span>
+                            <span>BEATS / CHORD (DEFAULT)</span>
                             <span class="tempo-value"><span id="beatsValue">1</span></span>
                         </div>
                         <input type="range" id="beatsSlider" min="1" max="4" value="1">
@@ -1211,6 +1386,12 @@
                             <div class="code-value" id="scaleCode">—</div>
                         </div>
                     </div>
+
+                    <!-- Octave -->
+                    <div class="octave-control">
+                        <div class="select-label">OCTAVE</div>
+                        <div class="octave-btn-group" id="octaveButtons"></div>
+                    </div>
                     
                     <!-- Synth Options -->
                     <div class="select-label">SYNTHESIS</div>
@@ -1238,6 +1419,10 @@
                                 <label for="releaseSlider">RELEASE <span id="releaseValue">0.30s</span></label>
                                 <input type="range" id="releaseSlider" min="0" max="2" step="0.01" value="0.3">
                             </div>
+                        </div>
+                        <div class="adsr-canvas-container">
+                            <canvas id="adsrCanvas" width="400" height="120"></canvas>
+                            <div class="adsr-canvas-label">ENVELOPE</div>
                         </div>
                     </div>
 
@@ -1765,10 +1950,12 @@
             currentChordIndex: 0,
             currentKey: 0, // C
             currentScale: 1, // Major (was 0 for 12 Tone)
+            octave: 4, // C4 = MIDI 60
             tempo: 120,
             beatsPerChord: 1,
             isPlaying: false,
             playbackInterval: null,
+            playbackTimeout: null,
             noteHighlightTimers: [],
             envelope: {
                 attack: 0.05,
@@ -1781,6 +1968,7 @@
             synthType: 'sine',
             arpMode: 'chord',
             chordVoicings: {}, // Maps chord index to voicing type
+            chordBeats: {}, // Maps chord index to beat count (null = use global)
             padLabelMode: 'notes',
             padSafe: true
         };
@@ -2185,23 +2373,27 @@
             });
         }
 
+        function getBeatsForChord(chordIndex) {
+            const perChord = state.chordBeats[chordIndex];
+            return (perChord && perChord > 0) ? perChord : state.beatsPerChord;
+        }
+
         function playChordByNotation(notation, chordIndex) {
             const voicing = state.chordVoicings[chordIndex] || 'root';
             const { degrees } = getChordDegreesForAudio(notation, voicing);
             const parsed = parseChordNotation(notation);
             const scale = SCALES[state.currentScale];
-            
+
             const frequencies = degrees.map((degree, idx) => {
-                // Calculate which octave this degree is in
-                // Degrees 1-7 are base octave, 8-14 are +1 octave, etc.
                 const octaveOffset = Math.floor((degree - 1) / 7);
                 const scaleDegree = (((degree - 1) % 7) + 7) % 7;
                 const interval = scale.intervals[scaleDegree] || 0;
-                let midi = 60 + state.currentKey + interval + (octaveOffset * 12);
+                let midi = (state.octave + 1) * 12 + state.currentKey + interval + (octaveOffset * 12);
                 return midiToFreq(midi);
             });
-            
-            const chordDuration = (60 / state.tempo) * state.beatsPerChord;
+
+            const beats = getBeatsForChord(chordIndex);
+            const chordDuration = (60 / state.tempo) * beats;
             if (state.arpMode === 'chord') {
                 playSynth(frequencies, chordDuration);
             } else {
@@ -2219,31 +2411,276 @@
             updateUI();
         }
 
-        function startPlayback() {
-            if (!state.selectedProgression) return;
-            
-            state.isPlaying = true;
-            state.currentChordIndex = 0;
-            
-            const beatDuration = (60 / state.tempo) * 1000 * state.beatsPerChord;
-            
-            playChord(state.currentChordIndex);
-            
-            state.playbackInterval = setInterval(() => {
+        function scheduleNextChord() {
+            if (!state.isPlaying || !state.selectedProgression) return;
+
+            const beats = getBeatsForChord(state.currentChordIndex);
+            const beatDuration = (60 / state.tempo) * 1000 * beats;
+
+            state.playbackTimeout = setTimeout(() => {
+                if (!state.isPlaying) return;
                 state.currentChordIndex = (state.currentChordIndex + 1) % state.selectedProgression.numerals.length;
                 playChord(state.currentChordIndex);
+                scheduleNextChord();
             }, beatDuration);
-            
+        }
+
+        function startPlayback() {
+            if (!state.selectedProgression) return;
+
+            state.isPlaying = true;
+            state.currentChordIndex = 0;
+
+            playChord(state.currentChordIndex);
+            scheduleNextChord();
+
             updateUI();
         }
 
         function stopPlayback() {
             state.isPlaying = false;
+            if (state.playbackTimeout) {
+                clearTimeout(state.playbackTimeout);
+                state.playbackTimeout = null;
+            }
             if (state.playbackInterval) {
                 clearInterval(state.playbackInterval);
                 state.playbackInterval = null;
             }
             clearPadHighlights();
+            updateUI();
+        }
+
+        // ========== ADSR WAVEFORM VISUAL ==========
+        function drawADSREnvelope() {
+            const canvas = document.getElementById('adsrCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+
+            const w = rect.width;
+            const h = rect.height;
+            const pad = 12;
+            const drawW = w - pad * 2;
+            const drawH = h - pad * 2;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Grid lines
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 0.5;
+            for (let i = 0; i <= 4; i++) {
+                const y = pad + (drawH / 4) * i;
+                ctx.beginPath();
+                ctx.moveTo(pad, y);
+                ctx.lineTo(pad + drawW, y);
+                ctx.stroke();
+            }
+
+            const env = state.envelope;
+            const totalTime = env.attack + env.decay + 0.4 + env.release;
+            const timeScale = drawW / totalTime;
+
+            const aEnd = pad + env.attack * timeScale;
+            const dEnd = aEnd + env.decay * timeScale;
+            const sEnd = dEnd + 0.4 * timeScale;
+            const rEnd = sEnd + env.release * timeScale;
+
+            const peakY = pad;
+            const sustainY = pad + drawH * (1 - env.sustain);
+            const zeroY = pad + drawH;
+
+            // Draw envelope fill
+            ctx.beginPath();
+            ctx.moveTo(pad, zeroY);
+            ctx.lineTo(aEnd, peakY);
+            ctx.lineTo(dEnd, sustainY);
+            ctx.lineTo(sEnd, sustainY);
+            ctx.lineTo(rEnd, zeroY);
+            ctx.lineTo(pad, zeroY);
+            ctx.closePath();
+
+            const grad = ctx.createLinearGradient(0, pad, 0, zeroY);
+            grad.addColorStop(0, 'rgba(255, 102, 51, 0.25)');
+            grad.addColorStop(1, 'rgba(255, 102, 51, 0.02)');
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            // Draw waveform inside envelope
+            drawWaveformInEnvelope(ctx, pad, zeroY, aEnd, dEnd, sEnd, rEnd, peakY, sustainY, env, drawH);
+
+            // Draw envelope line
+            ctx.beginPath();
+            ctx.moveTo(pad, zeroY);
+            ctx.lineTo(aEnd, peakY);
+            ctx.lineTo(dEnd, sustainY);
+            ctx.lineTo(sEnd, sustainY);
+            ctx.lineTo(rEnd, zeroY);
+            ctx.strokeStyle = '#FF6633';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Phase dots
+            ctx.fillStyle = '#FF6633';
+            [[pad, zeroY], [aEnd, peakY], [dEnd, sustainY], [sEnd, sustainY], [rEnd, zeroY]].forEach(([x, y]) => {
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Phase labels
+            ctx.fillStyle = '#666';
+            ctx.font = '9px IBM Plex Mono, monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('A', (pad + aEnd) / 2, zeroY + 10);
+            ctx.fillText('D', (aEnd + dEnd) / 2, zeroY + 10);
+            ctx.fillText('S', (dEnd + sEnd) / 2, zeroY + 10);
+            ctx.fillText('R', (sEnd + rEnd) / 2, zeroY + 10);
+        }
+
+        function drawWaveformInEnvelope(ctx, startX, zeroY, aEnd, dEnd, sEnd, rEnd, peakY, sustainY, env, drawH) {
+            const waveFreq = 12;
+            const totalWidth = rEnd - startX;
+            const steps = Math.floor(totalWidth);
+            if (steps <= 0) return;
+
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(255, 102, 51, 0.4)';
+            ctx.lineWidth = 1;
+
+            for (let i = 0; i <= steps; i++) {
+                const x = startX + i;
+                const t = i / steps;
+
+                // Determine envelope amplitude at this x position
+                let envAmp = 0;
+                if (x <= aEnd) {
+                    envAmp = (x - startX) / (aEnd - startX);
+                } else if (x <= dEnd) {
+                    const dProgress = (x - aEnd) / (dEnd - aEnd);
+                    envAmp = 1 - dProgress * (1 - env.sustain);
+                } else if (x <= sEnd) {
+                    envAmp = env.sustain;
+                } else if (x <= rEnd) {
+                    const rProgress = (x - sEnd) / (rEnd - sEnd);
+                    envAmp = env.sustain * (1 - rProgress);
+                }
+
+                // Generate waveform sample
+                const phase = (i / totalWidth) * waveFreq * Math.PI * 2;
+                let sample = 0;
+                switch (state.synthType) {
+                    case 'sine':
+                        sample = Math.sin(phase);
+                        break;
+                    case 'square':
+                        sample = Math.sin(phase) > 0 ? 1 : -1;
+                        break;
+                    case 'sawtooth':
+                        sample = 2 * ((phase / (Math.PI * 2)) % 1) - 1;
+                        break;
+                    case 'triangle':
+                        sample = 2 * Math.abs(2 * ((phase / (Math.PI * 2)) % 1) - 1) - 1;
+                        break;
+                }
+
+                const centerY = zeroY - (envAmp * drawH / 2);
+                const waveY = centerY - sample * envAmp * drawH * 0.35;
+
+                if (i === 0) ctx.moveTo(x, waveY);
+                else ctx.lineTo(x, waveY);
+            }
+            ctx.stroke();
+        }
+
+        // ========== RANDOMIZE FUNCTIONS ==========
+        function randomizeVoicings() {
+            if (!state.selectedProgression) return;
+            const voicingChoices = ['root', '1st', '2nd', 'sus2', 'sus4', '7'];
+            const numerals = state.selectedProgression.numerals;
+
+            numerals.forEach((numeral, i) => {
+                const parsed = parseChordNotation(numeral);
+                const choice = voicingChoices[Math.floor(Math.random() * voicingChoices.length)];
+                state.chordVoicings[i] = choice;
+
+                // Rebuild the numeral string
+                let newNumeral = '';
+                if (parsed.flat) newNumeral += 'b';
+
+                const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+                let roman = romanNumerals[parsed.degree - 1];
+                if (parsed.quality === 'minor') roman = roman.toLowerCase();
+                if (parsed.quality === 'diminished') roman = roman.toLowerCase() + '\u00B0';
+                newNumeral += roman;
+
+                if (choice === '1st') newNumeral += '/1';
+                else if (choice === '2nd') newNumeral += '/2';
+                else if (choice === 'sus2') newNumeral += 'sus2';
+                else if (choice === 'sus4') newNumeral += 'sus4';
+                else if (choice === '7') newNumeral += '7';
+
+                state.selectedProgression.numerals[i] = newNumeral;
+            });
+
+            document.getElementById('customInput').value =
+                state.selectedProgression.numerals.join(' - ');
+            updateUI();
+        }
+
+        function generateVariation() {
+            if (!state.selectedProgression) return;
+            const numerals = [...state.selectedProgression.numerals];
+            const variations = [];
+
+            numerals.forEach((numeral, i) => {
+                const parsed = parseChordNotation(numeral);
+                const roll = Math.random();
+
+                if (roll < 0.3) {
+                    // Substitute with a related chord (from suggestions)
+                    const suggestions = getNextChordSuggestions(parsed);
+                    const sub = suggestions[Math.floor(Math.random() * suggestions.length)];
+                    variations.push(sub);
+                } else if (roll < 0.5) {
+                    // Add a voicing variation
+                    const voicings = ['sus2', 'sus4', '7', '/1', '/2'];
+                    const v = voicings[Math.floor(Math.random() * voicings.length)];
+                    let base = '';
+                    if (parsed.flat) base += 'b';
+                    const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+                    let roman = romanNumerals[parsed.degree - 1];
+                    if (parsed.quality === 'minor') roman = roman.toLowerCase();
+                    if (parsed.quality === 'diminished') roman = roman.toLowerCase() + '\u00B0';
+                    base += roman;
+                    variations.push(base + v);
+                } else {
+                    // Keep original
+                    variations.push(numeral);
+                }
+            });
+
+            state.selectedProgression.numerals = variations;
+            state.chordVoicings = {};
+            state.chordBeats = {};
+            const beatChoices = [0, 0, 1, 2, 3, 4]; // weighted toward default
+            variations.forEach((numeral, i) => {
+                const parsed = parseChordNotation(numeral);
+                if (parsed.voicing === '1st') state.chordVoicings[i] = '1st';
+                else if (parsed.voicing === '2nd') state.chordVoicings[i] = '2nd';
+                else if (parsed.sus === 2) state.chordVoicings[i] = 'sus2';
+                else if (parsed.sus === 4) state.chordVoicings[i] = 'sus4';
+                else if (parsed.seventh) state.chordVoicings[i] = '7';
+                else state.chordVoicings[i] = 'root';
+
+                state.chordBeats[i] = beatChoices[Math.floor(Math.random() * beatChoices.length)];
+            });
+
+            document.getElementById('customInput').value = variations.join(' - ');
             updateUI();
         }
 
@@ -2357,6 +2794,9 @@
             state.selectedProgression = cloned;
             state.currentChordIndex = 0;
             
+            // Reset per-chord beats (all use global default)
+            state.chordBeats = {};
+
             // Parse voicings from chord notation
             state.chordVoicings = {};
             prog.numerals.forEach((numeral, i) => {
@@ -2426,6 +2866,7 @@
                 btn.addEventListener('click', () => {
                     state.synthType = btn.dataset.synth;
                     renderSynthButtons();
+                    drawADSREnvelope();
                 });
             });
         }
@@ -2442,6 +2883,23 @@
                 btn.addEventListener('click', () => {
                     state.arpMode = btn.dataset.arp;
                     renderArpButtons();
+                });
+            });
+        }
+
+        function renderOctaveButtons() {
+            const container = document.getElementById('octaveButtons');
+            if (!container) return;
+            const octaves = [2, 3, 4, 5, 6];
+            container.innerHTML = octaves.map(oct =>
+                `<button class="octave-btn ${state.octave === oct ? 'active' : ''}" data-octave="${oct}">C${oct}</button>`
+            ).join('');
+
+            container.querySelectorAll('.octave-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    state.octave = parseInt(btn.dataset.octave);
+                    renderOctaveButtons();
+                    updateUI();
                 });
             });
         }
@@ -2467,18 +2925,18 @@
             
             // EP-133 pad layout (3x4): 7,8,9 / 4,5,6 / 1,2,3 / .,0,ENTER
             const padLayout = [
-                { label: '7', degree: 7 },
-                { label: '8', degree: 8 },
-                { label: '9', degree: 9 },
-                { label: '4', degree: 4 },
-                { label: '5', degree: 5 },
-                { label: '6', degree: 6 },
-                { label: '1', degree: 1 },
-                { label: '2', degree: 2 },
-                { label: '3', degree: 3 },
-                { label: '.', degree: -2 },
-                { label: '0', degree: -1 },
-                { label: '⏎', degree: 0 }
+                { label: '7', degree: 7, key: 'Numpad7' },
+                { label: '8', degree: 8, key: 'Numpad8' },
+                { label: '9', degree: 9, key: 'Numpad9' },
+                { label: '4', degree: 4, key: 'Numpad4' },
+                { label: '5', degree: 5, key: 'Numpad5' },
+                { label: '6', degree: 6, key: 'Numpad6' },
+                { label: '1', degree: 1, key: 'Numpad1' },
+                { label: '2', degree: 2, key: 'Numpad2' },
+                { label: '3', degree: 3, key: 'Numpad3' },
+                { label: '.', degree: -2, key: 'NumpadDecimal' },
+                { label: '0', degree: -1, key: 'Numpad0' },
+                { label: '⏎', degree: 0, key: 'NumpadEnter' }
             ];
             
             if (!state.selectedProgression) {
@@ -2534,7 +2992,7 @@
                         const scaleDegree = (((degree - 1) % 7) + 7) % 7 + 1;
 
                         const interval = scale.intervals[scaleDegree - 1] || 0;
-                        const midi = 60 + state.currentKey + interval + (octaveOffset * 12);
+                        const midi = (state.octave + 1) * 12 + state.currentKey + interval + (octaveOffset * 12);
                         playSynth([midiToFreq(midi)], 0.5);
                     }
                 });
@@ -2547,26 +3005,40 @@
             
             const numerals = state.selectedProgression.numerals;
             
+            const BEAT_OPTIONS = [
+                { value: '0', label: 'Beats: default' },
+                { value: '1', label: '1 beat' },
+                { value: '2', label: '2 beats' },
+                { value: '3', label: '3 beats' },
+                { value: '4', label: '4 beats' }
+            ];
+
             container.innerHTML = numerals.map((numeral, i) => {
                 const chordName = getChordName(numeral, state.currentKey);
                 const voicing = state.chordVoicings[i] || 'root';
-                
+                const chordBeat = state.chordBeats[i] || 0;
+
                 return `
                     <div class="timeline-chord ${i === state.currentChordIndex ? 'active' : ''}" data-index="${i}">
                         <div class="tc-numeral">${numeral}</div>
                         <div class="tc-name">${chordName}</div>
                         <select class="tc-voicing-select" data-index="${i}">
-                            ${VOICING_OPTIONS.map(opt => 
+                            ${VOICING_OPTIONS.map(opt =>
                                 `<option value="${opt.value}" ${voicing === opt.value ? 'selected' : ''}>${opt.label}</option>`
+                            ).join('')}
+                        </select>
+                        <select class="tc-beats-select" data-index="${i}">
+                            ${BEAT_OPTIONS.map(opt =>
+                                `<option value="${opt.value}" ${chordBeat === parseInt(opt.value) ? 'selected' : ''}>${opt.label}</option>`
                             ).join('')}
                         </select>
                     </div>
                 `;
             }).join('');
-            
+
             container.querySelectorAll('.timeline-chord').forEach(chord => {
                 chord.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('tc-voicing-select')) return;
+                    if (e.target.classList.contains('tc-voicing-select') || e.target.classList.contains('tc-beats-select')) return;
                     const index = parseInt(chord.dataset.index);
                     if (state.isPlaying) {
                         stopPlayback();
@@ -2623,6 +3095,19 @@
                     }
                     
                     updateUI();
+                });
+            });
+
+            container.querySelectorAll('.tc-beats-select').forEach(select => {
+                select.addEventListener('change', (e) => {
+                    e.stopPropagation();
+                    const index = parseInt(select.dataset.index);
+                    const beats = parseInt(select.value);
+                    state.chordBeats[index] = beats;
+                    if (state.isPlaying) {
+                        stopPlayback();
+                        startPlayback();
+                    }
                 });
             });
         }
@@ -2950,6 +3435,7 @@
                 attackSlider.addEventListener('input', (e) => {
                     state.envelope.attack = parseFloat(e.target.value);
                     updateEnvelopeLabel('attackValue', state.envelope.attack, 's');
+                    drawADSREnvelope();
                 });
             }
 
@@ -2957,6 +3443,7 @@
                 decaySlider.addEventListener('input', (e) => {
                     state.envelope.decay = parseFloat(e.target.value);
                     updateEnvelopeLabel('decayValue', state.envelope.decay, 's');
+                    drawADSREnvelope();
                 });
             }
 
@@ -2964,6 +3451,7 @@
                 sustainSlider.addEventListener('input', (e) => {
                     state.envelope.sustain = parseFloat(e.target.value);
                     updateEnvelopeLabel('sustainValue', state.envelope.sustain, '');
+                    drawADSREnvelope();
                 });
             }
 
@@ -2971,6 +3459,7 @@
                 releaseSlider.addEventListener('input', (e) => {
                     state.envelope.release = parseFloat(e.target.value);
                     updateEnvelopeLabel('releaseValue', state.envelope.release, 's');
+                    drawADSREnvelope();
                 });
             }
             
@@ -2981,6 +3470,14 @@
                 arrow.textContent = content.classList.contains('expanded') ? '▲' : '▼';
             });
             
+            // Numpad-to-degree mapping
+            const NUMPAD_MAP = {
+                'Numpad7': 7, 'Numpad8': 8, 'Numpad9': 9,
+                'Numpad4': 4, 'Numpad5': 5, 'Numpad6': 6,
+                'Numpad1': 1, 'Numpad2': 2, 'Numpad3': 3,
+                'NumpadDecimal': -2, 'Numpad0': -1, 'NumpadEnter': 0
+            };
+
             document.addEventListener('keydown', (e) => {
                 if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') {
                     e.preventDefault();
@@ -2989,8 +3486,32 @@
                     } else {
                         startPlayback();
                     }
+                    return;
+                }
+
+                // Numpad playing
+                const degree = NUMPAD_MAP[e.code];
+                if (degree !== undefined && e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') {
+                    e.preventDefault();
+                    const pad = document.querySelector(`.num-pad[data-degree="${degree}"]`);
+                    if (pad) {
+                        pad.classList.add('key-active');
+                        pad.click();
+                        setTimeout(() => pad.classList.remove('key-active'), 150);
+                    }
                 }
             });
+
+            // Randomize buttons
+            const randomizeVoicingsBtn = document.getElementById('randomizeVoicingsBtn');
+            if (randomizeVoicingsBtn) {
+                randomizeVoicingsBtn.addEventListener('click', randomizeVoicings);
+            }
+
+            const randomizeVariationBtn = document.getElementById('randomizeVariationBtn');
+            if (randomizeVariationBtn) {
+                randomizeVariationBtn.addEventListener('click', generateVariation);
+            }
         }
 
         // ========== INIT ==========
@@ -3001,10 +3522,12 @@
             renderScaleSelect();
             renderSynthButtons();
             renderArpButtons();
+            renderOctaveButtons();
             renderPadGrid();
             renderChordTimeline();
             positionCircleOfFifths();
             updateBeatsLabel();
+            drawADSREnvelope();
             updateUI();
             initEventListeners();
         }
