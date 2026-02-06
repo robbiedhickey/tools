@@ -1903,7 +1903,7 @@
 
             const wrapped = degrees.map(degree => {
                 let d = degree;
-                while (d > 12) {
+                while (d > 9) {
                     d -= 7;
                     adjusted = true;
                 }
@@ -1954,10 +1954,10 @@
 
             const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
             const octaveOffset = Math.floor((degree - 1) / 7);
-            const scaleDegree = ((degree - 1) % 7);
+            const scaleDegree = (((degree - 1) % 7) + 7) % 7;
             const interval = scale.intervals[scaleDegree] || 0;
             const noteIndex = (state.currentKey + interval + 12) % 12;
-            const octaveMark = includeOctave && octaveOffset > 0 ? "'" : '';
+            const octaveMark = includeOctave ? (octaveOffset > 0 ? "'" : (octaveOffset < 0 ? ',' : '')) : '';
             return `${noteNames[noteIndex]}${octaveMark}`;
         }
 
@@ -2195,7 +2195,7 @@
                 // Calculate which octave this degree is in
                 // Degrees 1-7 are base octave, 8-14 are +1 octave, etc.
                 const octaveOffset = Math.floor((degree - 1) / 7);
-                const scaleDegree = ((degree - 1) % 7);
+                const scaleDegree = (((degree - 1) % 7) + 7) % 7;
                 const interval = scale.intervals[scaleDegree] || 0;
                 let midi = 60 + state.currentKey + interval + (octaveOffset * 12);
                 return midiToFreq(midi);
@@ -2476,9 +2476,9 @@
                 { label: '1', degree: 1 },
                 { label: '2', degree: 2 },
                 { label: '3', degree: 3 },
-                { label: '.', degree: 10 },
-                { label: '0', degree: 11 },
-                { label: '⏎', degree: 12 }
+                { label: '.', degree: 0 },
+                { label: '0', degree: -1 },
+                { label: '⏎', degree: -2 }
             ];
             
             if (!state.selectedProgression) {
@@ -2501,8 +2501,8 @@
                 if (state.padLabelMode === 'notes') {
                     noteLabel = degreeToNoteName(pad.degree, true);
                 } else {
-                    const degreeInScale = ((pad.degree - 1) % 7) + 1;
-                    const octaveMarker = pad.degree > 7 ? "'" : '';
+                    const degreeInScale = (((pad.degree - 1) % 7) + 7) % 7 + 1;
+                    const octaveMarker = pad.degree > 7 ? "'" : (pad.degree < 1 ? ',' : '');
                     noteLabel = degreeInScale + octaveMarker;
                 }
                 
@@ -2531,8 +2531,8 @@
                         
                         // Calculate MIDI note based on degree
                         const octaveOffset = Math.floor((degree - 1) / 7);
-                        const scaleDegree = ((degree - 1) % 7) + 1;
-                        
+                        const scaleDegree = (((degree - 1) % 7) + 7) % 7 + 1;
+
                         const interval = scale.intervals[scaleDegree - 1] || 0;
                         const midi = 60 + state.currentKey + interval + (octaveOffset * 12);
                         playSynth([midiToFreq(midi)], 0.5);
@@ -2671,14 +2671,14 @@
             const scale = SCALES[state.currentScale];
             
             degrees.forEach((degree, idx) => {
-                const normalizedDegree = ((degree - 1) % 7) + 1;
+                const normalizedDegree = (((degree - 1) % 7) + 7) % 7 + 1;
                 const octaveOffset = Math.floor((degree - 1) / 7);
                 const label = idx === 0 ? 'Bass' : `Voice ${idx}`;
-                
+
                 intervals.push({
                     label: label,
                     degree: normalizedDegree,
-                    octave: octaveOffset > 0 ? `+${octaveOffset} oct` : ''
+                    octave: octaveOffset > 0 ? `+${octaveOffset} oct` : (octaveOffset < 0 ? `${octaveOffset} oct` : '')
                 });
             });
             
