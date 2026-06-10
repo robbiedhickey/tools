@@ -505,7 +505,7 @@
     </div>
     <div style="text-align:right">
       Originated: 08:00 CDT, 06/09/2026<br>
-      $100k threshold triggers 5% penalty rate<br>
+      <span id="footerThreshold"></span><br>
       Proj. $1M: <span id="millionDate">calculating...</span>
     </div>
   </div>
@@ -672,6 +672,10 @@
   }
 
   // Apply name and aliases to DOM
+  // Footer threshold line
+  document.getElementById('footerThreshold').textContent =
+    `$${PENALTY_THRESHOLD.toLocaleString()} threshold triggers ${(RATE_PENALTY*100).toFixed(0)}% penalty rate`;
+
   document.title = `Account Statement — ${DEBTOR_NAME} a/k/a ${ALIASES[0] || ''}`;
 
   const debtorValEl = document.querySelector('.account-block-value');
