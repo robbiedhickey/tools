@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <title>DCRS Admin — New Debtor</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@400;600&display=swap');
+
+    html, body {
+      background: #f5f4f1;
+      color: #1a1a1a;
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      margin: 0;
+      padding: 3rem 1.5rem;
+      color-scheme: light;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    .page {
+      max-width: 580px;
+      margin: 0 auto;
+    }
+
+    .letterhead {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding-bottom: 1.25rem;
+      border-bottom: 2px solid #1a1a1a;
+      margin-bottom: 2rem;
+    }
+
+    .company-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.2rem;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+
+    .company-sub {
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #888070;
+      margin-top: 0.2rem;
+    }
+
+    .badge {
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #b91c1c;
+      border: 1px solid #fca5a5;
+      background: #fef2f2;
+      padding: 0.25rem 0.6rem;
+      border-radius: 2px;
+      font-weight: 600;
+    }
+
+    .section-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: #b8b0a0;
+      margin-bottom: 1rem;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .form-group.full {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #888070;
+    }
+
+    input {
+      background: #ffffff;
+      border: 1px solid #ddd9d0;
+      border-radius: 2px;
+      padding: 0.55rem 0.75rem;
+      font-size: 0.85rem;
+      font-family: 'Inter', sans-serif;
+      color: #1a1a1a;
+      outline: none;
+      transition: border-color 0.15s;
+      width: 100%;
+    }
+
+    input:focus {
+      border-color: #888070;
+    }
+
+    .hint {
+      font-size: 0.6rem;
+      color: #b8b0a0;
+      margin-top: 0.1rem;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #ddd9d0;
+      margin: 1.5rem 0;
+    }
+
+    .generate-btn {
+      background: #1a1a1a;
+      color: #f5f4f1;
+      border: none;
+      border-radius: 2px;
+      padding: 0.75rem 1.5rem;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.15s;
+    }
+
+    .generate-btn:hover { background: #333; }
+
+    .output-section {
+      display: none;
+      margin-top: 1.5rem;
+    }
+
+    .output-section.visible { display: block; }
+
+    .output-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: #b8b0a0;
+      margin-bottom: 0.5rem;
+    }
+
+    .url-box {
+      background: #ffffff;
+      border: 1px solid #ddd9d0;
+      border-left: 3px solid #1a1a1a;
+      padding: 0.75rem 1rem;
+      font-size: 0.7rem;
+      font-family: 'Share Tech Mono', 'Courier New', monospace;
+      color: #1a1a1a;
+      word-break: break-all;
+      line-height: 1.6;
+      margin-bottom: 0.75rem;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .copy-btn, .open-btn {
+      flex: 1;
+      padding: 0.6rem 1rem;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border-radius: 2px;
+      cursor: pointer;
+      border: 1px solid #ddd9d0;
+      transition: all 0.15s;
+    }
+
+    .copy-btn {
+      background: #ffffff;
+      color: #1a1a1a;
+    }
+
+    .copy-btn:hover { background: #f0ece4; }
+    .copy-btn.copied { border-color: #1a1a1a; color: #1a1a1a; font-weight: 600; }
+
+    .open-btn {
+      background: #b91c1c;
+      color: #fff;
+      border-color: #b91c1c;
+    }
+
+    .open-btn:hover { background: #991b1b; }
+
+    .preview-box {
+      background: #fff;
+      border: 1px solid #ddd9d0;
+      padding: 1rem 1.25rem;
+      margin-top: 1rem;
+      font-size: 0.75rem;
+      color: #888070;
+      line-height: 1.8;
+    }
+
+    .preview-box strong { color: #1a1a1a; }
+    .preview-box .preview-row { display: flex; justify-content: space-between; border-bottom: 1px dotted #ddd9d0; padding: 0.3rem 0; }
+    .preview-box .preview-row:last-child { border-bottom: none; }
+    .preview-box .preview-val { color: #1a1a1a; font-weight: 500; text-align: right; }
+
+    .doc-footer {
+      border-top: 1px solid #ddd9d0;
+      padding-top: 1rem;
+      margin-top: 2rem;
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.6rem;
+      color: #b8b0a0;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      line-height: 1.8;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <div class="letterhead">
+    <div>
+      <div class="company-name">DankCoin Capital<br>Recovery Services</div>
+      <div class="company-sub">Internal Admin — New Debtor Portal</div>
+    </div>
+    <div class="badge">Authorized Personnel Only</div>
+  </div>
+
+  <div class="section-label">Debtor Information</div>
+
+  <div class="form-grid">
+    <div class="form-group">
+      <label for="name">Debtor Name</label>
+      <input type="text" id="name" placeholder="Phil" value="Phil">
+    </div>
+    <div class="form-group">
+      <label for="aliases">Known Aliases</label>
+      <input type="text" id="aliases" placeholder="alias1,alias2" value="das_phyllis,Mr. McChicken">
+      <div class="hint">Comma-separated</div>
+    </div>
+    <div class="form-group">
+      <label for="principal">Principal ($)</label>
+      <input type="number" id="principal" placeholder="37000" value="37000" min="1">
+    </div>
+    <div class="form-group">
+      <label for="start">Start Date/Time (UTC)</label>
+      <input type="datetime-local" id="start" value="2026-06-09T13:00">
+    </div>
+  </div>
+
+  <hr class="divider">
+  <div class="section-label">Rate Structure</div>
+
+  <div class="form-grid">
+    <div class="form-group">
+      <label for="rate_normal">Standard Rate (%/hr)</label>
+      <input type="number" id="rate_normal" placeholder="3" value="3" min="0.1" max="100" step="0.1">
+    </div>
+    <div class="form-group">
+      <label for="rate">Penalty Rate (%/hr)</label>
+      <input type="number" id="rate" placeholder="6" value="6" min="0.1" max="100" step="0.1">
+    </div>
+    <div class="form-group full">
+      <label for="threshold">Penalty Threshold ($)</label>
+      <input type="number" id="threshold" placeholder="100000" value="100000" min="1">
+      <div class="hint">Balance at which penalty rate activates</div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <button class="generate-btn" onclick="generate()">Generate Debtor URL</button>
+
+  <div class="output-section" id="outputSection">
+    <hr class="divider">
+    <div class="output-label">Generated URL</div>
+    <div class="url-box" id="urlBox"></div>
+    <div class="btn-row">
+      <button class="copy-btn" id="copyBtn" onclick="copyUrl()">Copy URL</button>
+      <button class="open-btn" onclick="openUrl()">Open in New Tab</button>
+    </div>
+
+    <div class="preview-box" id="previewBox"></div>
+  </div>
+
+  <div class="doc-footer">
+    <div>DankCoin Capital Recovery Services LLC</div>
+    <div style="text-align:right">Internal Use Only</div>
+  </div>
+
+</div>
+
+<script>
+  const BASE_URL = 'https://tools-kbt.pages.dev/dankcoin-capital-recovery-services';
+  let currentUrl = '';
+
+  function generate() {
+    const name = document.getElementById('name').value.trim() || 'Phil';
+    const aliases = document.getElementById('aliases').value.trim() || 'das_phyllis,Mr. McChicken';
+    const principal = parseFloat(document.getElementById('principal').value) || 37000;
+    const rate_normal = parseFloat(document.getElementById('rate_normal').value) / 100 || 0.03;
+    const rate = parseFloat(document.getElementById('rate').value) / 100 || 0.06;
+    const threshold = parseFloat(document.getElementById('threshold').value) || 100000;
+    const startRaw = document.getElementById('start').value;
+    const start = startRaw ? new Date(startRaw + ':00.000Z').toISOString() : '2026-06-09T13:00:00.000Z';
+
+    const cfg = { name, aliases, principal, rate, rate_normal, threshold, start };
+    const encoded = btoa(JSON.stringify(cfg));
+    currentUrl = BASE_URL + '?d=' + encoded;
+
+    document.getElementById('urlBox').textContent = currentUrl;
+    document.getElementById('copyBtn').textContent = 'Copy URL';
+    document.getElementById('copyBtn').classList.remove('copied');
+
+    // Preview
+    const startDate = new Date(start).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+    document.getElementById('previewBox').innerHTML = `
+      <div class="preview-row"><span>Debtor</span><span class="preview-val">${name}</span></div>
+      <div class="preview-row"><span>Aliases</span><span class="preview-val">${aliases}</span></div>
+      <div class="preview-row"><span>Principal</span><span class="preview-val">$${principal.toLocaleString()}</span></div>
+      <div class="preview-row"><span>Standard Rate</span><span class="preview-val">${(rate_normal*100).toFixed(1)}% / hr</span></div>
+      <div class="preview-row"><span>Penalty Rate</span><span class="preview-val">${(rate*100).toFixed(1)}% / hr</span></div>
+      <div class="preview-row"><span>Penalty Threshold</span><span class="preview-val">$${threshold.toLocaleString()}</span></div>
+      <div class="preview-row"><span>Start</span><span class="preview-val">${startDate} (UTC)</span></div>
+    `;
+
+    document.getElementById('outputSection').classList.add('visible');
+  }
+
+  function copyUrl() {
+    navigator.clipboard.writeText(currentUrl).then(() => {
+      const btn = document.getElementById('copyBtn');
+      btn.textContent = 'Copied';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = 'Copy URL';
+        btn.classList.remove('copied');
+      }, 2000);
+    });
+  }
+
+  function openUrl() {
+    window.open(currentUrl, '_blank');
+  }
+</script>
+</body>
+</html>
