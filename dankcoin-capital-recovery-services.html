@@ -655,19 +655,27 @@
     }
     lastHour = hours;
 
-    // Project when balance hits $1M
+    // Project when balance hits $1M using full two-phase model
     const TARGET = 1000000;
-    const currentDebt = debt;
-    const currentRate = rate;
-    // Solve for hours remaining: TARGET = currentDebt * (1+r)^h
-    const hoursRemaining = Math.log(TARGET / currentDebt) / Math.log(1 + currentRate);
-    if (hoursRemaining > 0) {
-      const msRemaining = hoursRemaining * 3600000;
-      const millionTime = new Date(now + msRemaining);
+    let millionMs = null;
+    if (debt >= TARGET) {
+      document.getElementById('millionDate').textContent = 'threshold passed';
+    } else if (inPenalty) {
+      // Already in penalty tier -- straight compound forward at penalty rate
+      const hoursRemaining = Math.log(TARGET / debt) / Math.log(1 + RATE_PENALTY);
+      millionMs = now + hoursRemaining * 3600000;
+    } else {
+      // Still in normal tier -- figure out when we hit the penalty threshold,
+      // then compound the rest at penalty rate
+      const hoursToThreshold = Math.log(PENALTY_THRESHOLD / debt) / Math.log(1 + RATE_NORMAL);
+      const debtAtThreshold = PENALTY_THRESHOLD;
+      const hoursAfterThreshold = Math.log(TARGET / debtAtThreshold) / Math.log(1 + RATE_PENALTY);
+      millionMs = now + (hoursToThreshold + hoursAfterThreshold) * 3600000;
+    }
+    if (millionMs) {
+      const millionTime = new Date(millionMs);
       const opts = { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Chicago', timeZoneName: 'short' };
       document.getElementById('millionDate').textContent = millionTime.toLocaleString('en-US', opts);
-    } else {
-      document.getElementById('millionDate').textContent = 'threshold passed';
     }
   }
 
