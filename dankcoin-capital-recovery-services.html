@@ -387,16 +387,17 @@
 <body>
 
 <div class="marquee-bar" id="marqueeBar">
-  <div class="marquee-inner">
-    <span>PHIL A/K/A DAS_PHYLLIS — ACCOUNT DELINQUENT</span><span>COMPOUND INTEREST ACCRUING</span><span>PHIL A/K/A MR. MCCHICKEN — PAYMENT OVERDUE</span><span>THIS ACCOUNT IS IN DEFAULT</span><span>PHIL A/K/A DAS_PHYLLIS — ACCOUNT DELINQUENT</span><span>COMPOUND INTEREST ACCRUING</span><span>PHIL A/K/A MR. MCCHICKEN — PAYMENT OVERDUE</span><span>THIS ACCOUNT IS IN DEFAULT</span>
+  <div class="marquee-inner" id="marqueeInner">
+    <span>DANKCOIN CAPITAL RECOVERY SERVICES</span><span>COLLECTIONS &amp; DEBT MANAGEMENT DIVISION</span><span>ESTABLISHED JUNE 9, 2026</span><span>ALL DEBTS ARE RECOVERABLE</span><span>DANKCOIN CAPITAL RECOVERY SERVICES</span><span>COLLECTIONS &amp; DEBT MANAGEMENT DIVISION</span><span>ESTABLISHED JUNE 9, 2026</span><span>ALL DEBTS ARE RECOVERABLE</span>
   </div>
 </div>
 
+<div id="debtClock">
 <div class="penalty-overlay" id="penaltyOverlay">
   <div class="overlay-stamp">RATE ADJUSTED</div>
   <div class="overlay-body">
     Per Section 4(b) of the Standard Lending Terms, accounts exceeding the $100,000 threshold are automatically reclassified under the High Risk Borrower Schedule.<br><br>
-    <span class="overlay-rate">New compounding rate: 5.00% per hour, effective immediately.</span>
+    <span class="overlay-rate">New compounding rate: <span id="overlayRate">6.00%</span> per hour, effective immediately.</span>
   </div>
 </div>
 
@@ -435,7 +436,7 @@
   </div>
 
   <div class="alert-banner penalty" id="penaltyBanner">
-    <strong>High Risk Bracket Activated.</strong> Account balance exceeded $100,000.00. Per Section 4(b), the penalty compounding rate of 5.00% per hour is now in effect. This rate adjustment is non-negotiable and non-reversible.
+    <strong>High Risk Bracket Activated.</strong> Account balance exceeded <span id="bannerThreshold">$100,000.00</span>. Per Section 4(b), the penalty compounding rate of <span id="bannerRate">6.00%</span> per hour is now in effect. This rate adjustment is non-negotiable and non-reversible.
   </div>
 
   <div class="balance-section">
@@ -512,7 +513,60 @@
 
 </div>
 
+</div><!-- end debtClock -->
+
+<div id="landingPage" style="display:none; color-scheme:light; background:#f5f4f1; min-height:100vh; padding:4rem 1.5rem; font-family:'Inter',sans-serif; color:#1a1a1a;">
+  <div style="max-width:660px; margin:0 auto;">
+
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:1.5rem; border-bottom:2px solid #1a1a1a; margin-bottom:2rem;">
+      <div>
+        <div style="font-family:'Playfair Display',serif; font-size:1.4rem; font-weight:600; line-height:1.2;">DankCoin Capital<br>Recovery Services</div>
+        <div style="font-size:0.65rem; letter-spacing:0.15em; text-transform:uppercase; color:#888070; margin-top:0.2rem;">Collections &amp; Debt Management Division</div>
+      </div>
+      <div style="text-align:right; font-size:0.7rem; color:#888070; line-height:1.8;">Est. June 9, 2026<br>Fort Worth, TX</div>
+    </div>
+
+    <div style="background:#fff; border:1px solid #ddd9d0; padding:1.25rem 1.5rem; margin-bottom:1.5rem; border-left:3px solid #b91c1c; font-size:0.75rem; color:#888070; line-height:1.7;">
+      <strong style="color:#1a1a1a;">About This Portal.</strong> DankCoin Capital Recovery Services LLC is a wholly-owned subsidiary of DankCoin LLC, established for the express purpose of pursuing outstanding obligations owed to the parent company. This portal provides real-time, continuously compounding account statements for active collections cases. If you have been directed here by a representative of DCRS, you already know why. If you have stumbled here by accident, consider yourself fortunate.
+    </div>
+
+    <div style="margin-bottom:2rem;">
+      <div style="font-size:0.6rem; letter-spacing:0.3em; text-transform:uppercase; color:#b8b0a0; margin-bottom:1rem;">Active Service Areas</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+        <div style="background:#fff; border:1px solid #ddd9d0; padding:1rem 1.25rem;"><div style="font-size:0.6rem; letter-spacing:0.2em; text-transform:uppercase; color:#b8b0a0; margin-bottom:0.4rem;">Specialty</div><div style="font-size:0.85rem; color:#1a1a1a;">High-Risk Compounding Accounts</div></div>
+        <div style="background:#fff; border:1px solid #ddd9d0; padding:1rem 1.25rem;"><div style="font-size:0.6rem; letter-spacing:0.2em; text-transform:uppercase; color:#b8b0a0; margin-bottom:0.4rem;">Rate Structure</div><div style="font-size:0.85rem; color:#1a1a1a;">Tiered Hourly Compounding</div></div>
+        <div style="background:#fff; border:1px solid #ddd9d0; padding:1rem 1.25rem;"><div style="font-size:0.6rem; letter-spacing:0.2em; text-transform:uppercase; color:#b8b0a0; margin-bottom:0.4rem;">Cases Resolved</div><div style="font-size:0.85rem; color:#1a1a1a;">All of them</div></div>
+        <div style="background:#fff; border:1px solid #ddd9d0; padding:1rem 1.25rem;"><div style="font-size:0.6rem; letter-spacing:0.2em; text-transform:uppercase; color:#b8b0a0; margin-bottom:0.4rem;">Cases Lost</div><div style="font-size:0.85rem; color:#1a1a1a;">None on record</div></div>
+      </div>
+    </div>
+
+    <div style="border-top:1px solid #ddd9d0; padding-top:1.5rem; margin-bottom:2rem;">
+      <div style="font-size:0.6rem; letter-spacing:0.3em; text-transform:uppercase; color:#b8b0a0; margin-bottom:1.25rem;">Personnel &mdash; Collections Division</div>
+      <div style="background:#fff; border:1px solid #ddd9d0; padding:1.5rem;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1rem; padding-bottom:1rem; border-bottom:1px solid #ddd9d0;">
+          <div>
+            <div style="font-family:'Playfair Display',serif; font-size:1.1rem; font-weight:600;">Tito Ortiz</div>
+            <div style="font-size:0.65rem; letter-spacing:0.15em; text-transform:uppercase; color:#888070; margin-top:0.2rem;">Senior Collection Agent &mdash; Exclusive Engagement</div>
+          </div>
+          <div style="font-size:0.65rem; color:#b91c1c; letter-spacing:0.1em; text-transform:uppercase; font-weight:600;">Active</div>
+        </div>
+        <p style="font-size:0.8rem; line-height:1.9; color:#888070; margin-bottom:0.75rem;">Tito Ortiz brings an extensive and well-documented background in the application of sustained pressure to individuals who would prefer not to be pressured. A decorated veteran of high-stakes competitive environments, Mr. Ortiz has spent the better part of three decades ensuring that outcomes align with the interests of his principals. His transition into collections work was, in the words of DCRS management, "a natural fit."</p>
+        <p style="font-size:0.8rem; line-height:1.9; color:#888070; margin-bottom:0.75rem;">Mr. Ortiz operates under a proprietary engagement framework. The specific terms of his arrangement with DCRS are confidential. What is not confidential is that he has been retained, that he is aware of all open cases, and that he takes his work seriously.</p>
+        <p style="font-size:0.8rem; line-height:1.9; color:#888070;">Debtors are advised that direct contact with Mr. Ortiz is neither recommended nor, at a certain point, avoidable. DCRS assumes no liability for outcomes arising from delayed payment once Mr. Ortiz has been formally dispatched. His methods are not subject to review by any oversight body we are aware of.</p>
+        <div style="margin-top:1rem; padding-top:1rem; border-top:1px dotted #ddd9d0; font-size:0.65rem; color:#b8b0a0; font-style:italic;">Credentials available upon request. References declined on advice of counsel.</div>
+      </div>
+    </div>
+
+    <div style="border-top:1px solid #ddd9d0; padding-top:1.25rem; display:flex; justify-content:space-between; font-size:0.6rem; color:#b8b0a0; letter-spacing:0.1em; text-transform:uppercase; line-height:1.8;">
+      <div>DankCoin Capital Recovery Services LLC<br>Not a real financial institution. Very real debt.</div>
+      <div style="text-align:right;">Est. June 9, 2026<br>All Rights Reserved</div>
+    </div>
+
+  </div>
+</div><!-- end landingPage -->
+
 <script>
+(function() {
   /*
    * CONFIGURATION
    *
@@ -558,6 +612,20 @@
   }
 
   const cfg = getConfig();
+
+  // If no config params provided, show landing page
+  const hasParams = window.location.search.includes('d=') ||
+    ['name','aliases','principal','rate','rate_normal','threshold','start'].some(k =>
+      new URLSearchParams(window.location.search).has(k)
+    );
+
+  if (!hasParams) {
+    document.getElementById('landingPage').style.display = 'block';
+    document.getElementById('debtClock').style.display = 'none';
+    document.getElementById('marqueeBar').style.display = 'none';
+    document.title = 'DankCoin Capital Recovery Services';
+    return;
+  }
 
   const PRINCIPAL = parseFloat(cfg.principal) || 37000;
   const RATE_NORMAL = parseFloat(cfg.rate_normal) || 0.03;
@@ -681,6 +749,9 @@
 
   // Apply name and aliases to DOM
   // Footer threshold line
+  document.getElementById('overlayRate').textContent = (RATE_PENALTY * 100).toFixed(2) + '%';
+  document.getElementById('bannerRate').textContent = (RATE_PENALTY * 100).toFixed(2) + '%';
+  document.getElementById('bannerThreshold').textContent = '$' + PENALTY_THRESHOLD.toLocaleString('en-US', {minimumFractionDigits: 2});
   document.getElementById('footerThreshold').textContent =
     `$${PENALTY_THRESHOLD.toLocaleString()} threshold triggers ${(RATE_PENALTY*100).toFixed(0)}% penalty rate`;
 
@@ -715,6 +786,7 @@
 
   update();
   setInterval(update, 1000);
+})();
 </script>
 </body>
 </html>
