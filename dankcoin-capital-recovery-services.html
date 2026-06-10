@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <title>Account Statement — Phil a/k/a das_phyllis</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@400;600&display=swap');
+
+    :root {
+      --bg: #f5f4f1;
+      --surface: #ffffff;
+      --border: #ddd9d0;
+      --text: #1a1a1a;
+      --text-muted: #888070;
+      --text-faint: #b8b0a0;
+      --red: #b91c1c;
+      --red-light: #fef2f2;
+      --red-border: #fca5a5;
+      --amber: #92400e;
+      --amber-bg: #fffbeb;
+      --amber-border: #fcd34d;
+      --accent: #1a1a1a;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { background: #f5f4f1; color-scheme: light; }
+
+    .marquee-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #fff;
+      border-bottom: 1px solid #ddd9d0;
+      color: #888070;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.6rem;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      padding: 0.35rem 0;
+      overflow: hidden;
+      z-index: 50;
+    }
+
+    .marquee-bar.penalty-bar {
+      background: #fef2f2;
+      color: #b91c1c;
+      border-bottom-color: #fca5a5;
+    }
+
+    .marquee-inner {
+      display: flex;
+      gap: 4rem;
+      animation: marquee 22s linear infinite;
+      white-space: nowrap;
+    }
+
+    @keyframes marquee {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+
+    body {
+      background: #f5f4f1;
+      color: #1a1a1a;
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      padding: 4.5rem 1.5rem 3rem;
+    }
+
+    .page {
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .letterhead {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding-bottom: 1.5rem;
+      border-bottom: 2px solid #1a1a1a;
+      margin-bottom: 2rem;
+    }
+
+    .company-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.4rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      line-height: 1.2;
+    }
+
+    .company-sub {
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #888070;
+      margin-top: 0.2rem;
+    }
+
+    .statement-meta {
+      text-align: right;
+      font-size: 0.7rem;
+      color: #888070;
+      line-height: 1.8;
+    }
+
+    .statement-meta strong {
+      color: #1a1a1a;
+      font-weight: 500;
+    }
+
+    /* Account info row */
+    .account-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .account-block {
+      background: #ffffff;
+      border: 1px solid #ddd9d0;
+      padding: 1.25rem 1.5rem;
+      border-radius: 2px;
+    }
+
+    .account-block-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #b8b0a0;
+      margin-bottom: 0.5rem;
+    }
+
+    .account-block-value {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #1a1a1a;
+      line-height: 1.5;
+    }
+
+    .account-block-value.status-bad {
+      color: #b91c1c;
+      font-weight: 600;
+    }
+
+    /* Alert banner */
+    .alert-banner {
+      background: #fff;
+      border: 1px solid #ddd9d0;
+      border-left: 3px solid #b91c1c;
+      padding: 0.9rem 1.25rem;
+      margin-bottom: 2rem;
+      border-radius: 2px;
+      font-size: 0.75rem;
+      color: #888070;
+      line-height: 1.6;
+    }
+
+    .alert-banner.penalty {
+      background: #fffbeb;
+      border-color: #fcd34d;
+      border-left-color: #92400e;
+      color: #92400e;
+      display: none;
+    }
+
+    .alert-banner.penalty.visible { display: block; }
+
+    .alert-banner strong { font-weight: 600; }
+
+    /* Main balance */
+    .balance-section {
+      background: #ffffff;
+      border: 1px solid #ddd9d0;
+      border-radius: 2px;
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+
+    .balance-header {
+      background: #f0ece4;
+      color: #888070;
+      border-bottom: 1px solid #ddd9d0;
+      padding: 0.65rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .balance-header-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      font-weight: 500;
+      color: #888070;
+    }
+
+    .balance-header-rate {
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      color: #b8b0a0;
+    }
+
+    .balance-header-rate.penalty-active {
+      color: #92400e;
+    }
+
+    .balance-body {
+      padding: 2rem 1.5rem;
+      text-align: center;
+    }
+
+    .balance-amount {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2.8rem, 8vw, 4.5rem);
+      font-weight: 600;
+      color: #b91c1c;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      transition: color 0.5s ease;
+    }
+
+    .balance-amount.penalty { color: #92400e; }
+
+    .balance-amount.tick {
+      color: #dc2626;
+    }
+
+    .balance-amount.penalty.tick { color: #b45309; }
+
+    .balance-caption {
+      font-size: 0.65rem;
+      color: #b8b0a0;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-top: 0.5rem;
+    }
+
+    /* Stats table */
+    .stats-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 1.5rem;
+      background: #ffffff;
+      border: 1px solid #ddd9d0;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .stats-table tr {
+      border-bottom: 1px solid #ddd9d0;
+    }
+
+    .stats-table tr:last-child { border-bottom: none; }
+
+    .stats-table td {
+      padding: 0.75rem 1.5rem;
+      font-size: 0.8rem;
+    }
+
+    .stats-table td:first-child {
+      color: #888070;
+      font-weight: 400;
+      width: 55%;
+    }
+
+    .stats-table td:last-child {
+      color: #1a1a1a;
+      font-weight: 500;
+      text-align: right;
+    }
+
+    .stats-table td.danger { color: #b91c1c; }
+    .stats-table td.penalty-val { color: #92400e; }
+
+    /* Progress */
+    .progress-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.65rem;
+      color: #b8b0a0;
+      margin-bottom: 0.35rem;
+      letter-spacing: 0.05em;
+    }
+
+    .progress-track {
+      height: 2px;
+      background: #ddd9d0;
+      border-radius: 1px;
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: #1a1a1a;
+      transition: width 1s linear;
+    }
+
+    .progress-fill.penalty { background: #92400e; }
+
+    /* Footer */
+    .doc-footer {
+      border-top: 1px solid #ddd9d0;
+      padding-top: 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      font-size: 0.6rem;
+      color: #b8b0a0;
+      line-height: 1.7;
+    }
+
+    /* Penalty overlay */
+    .penalty-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(245, 244, 241, 0.97);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+      text-align: center;
+      padding: 2rem;
+      animation: overlayAnim 5s forwards;
+    }
+
+    .penalty-overlay.show { display: flex; }
+
+    .overlay-stamp {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2rem, 8vw, 4rem);
+      font-weight: 600;
+      color: #b91c1c;
+      border: 3px solid #b91c1c;
+      padding: 0.5rem 2rem;
+      transform: rotate(-3deg);
+      letter-spacing: 0.05em;
+      opacity: 0.9;
+    }
+
+    .overlay-body {
+      max-width: 420px;
+      font-size: 0.8rem;
+      color: #888070;
+      line-height: 1.8;
+    }
+
+    .overlay-rate {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    @keyframes overlayAnim {
+      0% { opacity: 0; }
+      8% { opacity: 1; }
+      80% { opacity: 1; }
+      100% { opacity: 0; pointer-events: none; }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      html, body, .page, .account-block, .balance-section, .balance-body,
+      .stats-table, .alert-banner, .marquee-bar {
+        background-color: #f5f4f1 !important;
+        color: #1a1a1a !important;
+      }
+      .balance-header { background-color: #e8e4dc !important; }
+      .account-block { background-color: #ffffff !important; border-color: #ddd9d0 !important; }
+      .stats-table { background-color: #ffffff !important; }
+      .stats-table td { color: #1a1a1a !important; }
+      .company-name, .letterhead { color: #1a1a1a !important; }
+      .balance-amount { color: #b91c1c !important; }
+      .marquee-bar { background-color: #ffffff !important; color: #888070 !important; border-bottom-color: #ddd9d0 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="marquee-bar" id="marqueeBar">
+  <div class="marquee-inner">
+    <span>PHIL A/K/A DAS_PHYLLIS — ACCOUNT DELINQUENT</span><span>COMPOUND INTEREST ACCRUING</span><span>PHIL A/K/A MR. MCCHICKEN — PAYMENT OVERDUE</span><span>THIS ACCOUNT IS IN DEFAULT</span><span>PHIL A/K/A DAS_PHYLLIS — ACCOUNT DELINQUENT</span><span>COMPOUND INTEREST ACCRUING</span><span>PHIL A/K/A MR. MCCHICKEN — PAYMENT OVERDUE</span><span>THIS ACCOUNT IS IN DEFAULT</span>
+  </div>
+</div>
+
+<div class="penalty-overlay" id="penaltyOverlay">
+  <div class="overlay-stamp">RATE ADJUSTED</div>
+  <div class="overlay-body">
+    Per Section 4(b) of the Standard Lending Terms, accounts exceeding the $100,000 threshold are automatically reclassified under the High Risk Borrower Schedule.<br><br>
+    <span class="overlay-rate">New compounding rate: 5.00% per hour, effective immediately.</span>
+  </div>
+</div>
+
+<div class="page">
+
+  <div class="letterhead">
+    <div>
+      <div class="company-name">DankCoin Capital<br>Recovery Services</div>
+      <div class="company-sub">Collections &amp; Debt Management Division</div>
+    </div>
+    <div class="statement-meta">
+      <div>Statement Date: <strong id="stmtDate">--</strong></div>
+      <div>Account No: <strong>DCR-2026-0609</strong></div>
+      <div>Ref: <strong id="metaRef">PHIL / HIGH PRIORITY</strong></div>
+      <div>A/K/A: <strong id="metaAliases">das_phyllis; Mr. McChicken</strong></div>
+    </div>
+  </div>
+
+  <div class="account-row">
+    <div class="account-block">
+      <div class="account-block-label">Debtor</div>
+      <div class="account-block-value">Phil<br>
+        <span style="font-size:0.75rem; color:#888070;">a/k/a <em>das_phyllis</em></span><br>
+        <span style="font-size:0.75rem; color:#888070;">a/k/a <em>Mr. McChicken</em></span><br>
+        <span style="font-size:0.7rem; color:#b8b0a0;">Account Holder Since 06/09/2026</span>
+      </div>
+    </div>
+    <div class="account-block">
+      <div class="account-block-label">Account Status</div>
+      <div class="account-block-value status-bad" id="accountStatus">DELINQUENT — ACTIVE ACCRUAL</div>
+    </div>
+  </div>
+
+  <div class="alert-banner">
+    <strong>Notice of Continued Default.</strong> This account has been in default since origination. Interest compounds hourly per the executed agreement. Failure to remit payment in full does not suspend accrual. This is not a final notice.
+  </div>
+
+  <div class="alert-banner penalty" id="penaltyBanner">
+    <strong>High Risk Bracket Activated.</strong> Account balance exceeded $100,000.00. Per Section 4(b), the penalty compounding rate of 5.00% per hour is now in effect. This rate adjustment is non-negotiable and non-reversible.
+  </div>
+
+  <div class="balance-section">
+    <div class="balance-header">
+      <span class="balance-header-label">Total Outstanding Balance</span>
+      <span class="balance-header-rate" id="rateLabel">3.00% / hr compounding</span>
+    </div>
+    <div class="balance-body">
+      <div class="balance-amount" id="balanceAmount">$0.00</div>
+      <div class="balance-caption">Updates every second &mdash; compounds at top of hour</div>
+    </div>
+  </div>
+
+  <table class="stats-table">
+    <tr>
+      <td>Original Principal</td>
+      <td>$37,000.00</td>
+    </tr>
+    <tr>
+      <td>Total Interest Accrued</td>
+      <td class="danger" id="interestAccrued">$0.00</td>
+    </tr>
+    <tr>
+      <td>Time in Default</td>
+      <td id="timeElapsed">0h 0m</td>
+    </tr>
+    <tr>
+      <td>Compounding Periods Elapsed</td>
+      <td id="periodsElapsed">0</td>
+    </tr>
+    <tr>
+      <td>Current Rate</td>
+      <td id="currentRate">3.00% / hour</td>
+    </tr>
+    <tr>
+      <td>Next Compound Amount</td>
+      <td class="danger" id="nextCompound">$0.00</td>
+    </tr>
+  </table>
+
+  <div class="progress-row">
+    <span>Next compounding event</span>
+    <span id="nextTickLabel">60:00</span>
+  </div>
+  <div class="progress-track">
+    <div class="progress-fill" id="progressFill" style="width:0%"></div>
+  </div>
+
+  <div style="border-top: 1px solid #ddd9d0; padding-top: 1.5rem; margin-bottom: 1.5rem;">
+    <div style="font-size:0.6rem; letter-spacing:0.2em; text-transform:uppercase; color:#b8b0a0; font-family:'Inter',sans-serif; margin-bottom:0.75rem;">Formal Notice & Governing Terms</div>
+    <p style="font-size:0.75rem; line-height:1.9; color:#888070; margin-bottom:1rem;">
+      <span id="legaleseP"><em>Whereas</em> the above-named Debtor, Phil, known also by the aliases <em>das_phyllis</em> and <em>Mr. McChicken</em>, did incur an obligation in the principal sum of <strong style="color:#1a1a1a;">Thirty-Seven Thousand Dollars ($37,000.00)</strong> on the ninth day of June, in the year Two Thousand and Twenty-Six, at eight o'clock in the morning, Central Daylight Time; and <em>whereas</em> said obligation accrues compound interest at the rate established herein, compounding at the top of each hour without interruption; the Debtor is hereby placed on formal notice that this balance is due and owing in full, immediately and without condition.</span>
+    </p>
+    <p style="font-size:0.75rem; line-height:1.9; color:#888070; margin-bottom:1rem;">
+      Continued non-payment shall be construed as willful default. DankCoin Capital Recovery Services reserves the right to pursue all available remedies, including but not limited to: public posting of this statement to the Discord server of record; escalation to the High Risk Collections Desk; formal notation in the DankCoin Credit Registry; and deployment of <strong style="color:#1a1a1a;">Collection Agent Tito Ortiz,</strong> whose methods are not subject to review by any oversight body we are aware of.
+    </p>
+    <p style="font-size:0.75rem; line-height:1.9; color:#888070;">
+      The Debtor is further advised that this document updates in real time and constitutes a continuous, living record of amounts owed. The clock does not stop. The rate does not decrease. <strong style="color:#b91c1c;">Ignorance of the balance is not a defense.</strong> DankCoin has never lost a collections case. We do not anticipate breaking that streak on account of <span id="closingName">Phil</span>.
+    </p>
+  </div>
+
+  <div class="doc-footer">
+    <div>
+      DankCoin Capital Recovery Services LLC<br>
+      <span id="footerInRe">In re: Phil a/k/a das_phyllis a/k/a Mr. McChicken</span><br>
+      Not a real financial institution. Very real debt.
+    </div>
+    <div style="text-align:right">
+      Originated: 08:00 CDT, 06/09/2026<br>
+      $100k threshold triggers 5% penalty rate<br>
+      Proj. $1M: <span id="millionDate">calculating...</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  /*
+   * CONFIGURATION
+   *
+   * Option 1 — encoded (preferred, opaque to casual users):
+   *   Build a JSON object, base64 encode it, pass as ?d=
+   *   Keys: name, aliases (comma-separated), principal, rate, rate_normal, threshold, start (ISO)
+   *   Example: ?d=eyJuYW1lIjogIkRhdmUiLCAiYWxpYXNlcyI6ICJiaWdfZGF2ZSxUaGVfU2l0dWF0aW9uIiwgInByaW5jaXBhbCI6IDUwMDAsICJyYXRlIjogMC4wOCwgInJhdGVfbm9ybWFsIjogMC4wMywgInRocmVzaG9sZCI6IDUwMDAwLCAic3RhcnQiOiAiMjAyNi0wNi0xMFQxNDowMDowMC4wMDBaIn0=
+   *
+   * Option 2 — raw params (also supported):
+   *   ?name=Dave&aliases=big_dave,The_Situation&principal=5000&rate=0.08&rate_normal=0.03&threshold=50000&start=2026-06-10T14:00:00.000Z
+   *
+   * Omit all params to use Phil defaults.
+   *
+   * To generate a ?d= value, run this in a browser console:
+   *   btoa(JSON.stringify({
+   *     name: "Dave",
+   *     aliases: "big_dave,The_Situation",
+   *     principal: 5000,
+   *     rate: 0.08,
+   *     rate_normal: 0.03,
+   *     threshold: 50000,
+   *     start: "2026-06-10T14:00:00.000Z"
+   *   }))
+   */
+
+  function getConfig() {
+    const raw = new URLSearchParams(window.location.search);
+    // Try encoded ?d= param first
+    const encoded = raw.get('d');
+    if (encoded) {
+      try {
+        return JSON.parse(atob(encoded));
+      } catch(e) {
+        console.warn('Invalid ?d= param, falling back to raw params');
+      }
+    }
+    // Fall back to raw params
+    const cfg = {};
+    ['name','aliases','principal','rate','rate_normal','threshold','start'].forEach(k => {
+      if (raw.get(k)) cfg[k] = raw.get(k);
+    });
+    return cfg;
+  }
+
+  const cfg = getConfig();
+
+  const PRINCIPAL = parseFloat(cfg.principal) || 37000;
+  const RATE_NORMAL = parseFloat(cfg.rate_normal) || 0.03;
+  const RATE_PENALTY = parseFloat(cfg.rate) || 0.06;
+  const PENALTY_THRESHOLD = parseFloat(cfg.threshold) || 100000;
+  const START_TIME = cfg.start
+    ? new Date(cfg.start).getTime()
+    : new Date('2026-06-09T13:00:00.000Z').getTime();
+
+  const DEBTOR_NAME = cfg.name || 'Phil';
+  const ALIASES = cfg.aliases
+    ? cfg.aliases.split(',').map(a => a.trim())
+    : ['das_phyllis', 'Mr. McChicken'];
+
+  function formatMoney(n) {
+    return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function computeDebt(now) {
+    const elapsed = now - START_TIME;
+    if (elapsed < 0) return { debt: PRINCIPAL, hours: 0, msIntoHour: 0, inPenalty: false };
+    const completedHours = Math.floor(elapsed / 3600000);
+    const msIntoHour = elapsed - completedHours * 3600000;
+    let pivotHour = null;
+    for (let h = 0; h <= completedHours; h++) {
+      if (PRINCIPAL * Math.pow(1 + RATE_NORMAL, h) >= PENALTY_THRESHOLD) { pivotHour = h; break; }
+    }
+    let debt, inPenalty = false;
+    if (pivotHour === null) {
+      debt = PRINCIPAL * Math.pow(1 + RATE_NORMAL, completedHours);
+    } else {
+      inPenalty = true;
+      const debtAtPivot = PRINCIPAL * Math.pow(1 + RATE_NORMAL, pivotHour);
+      debt = debtAtPivot * Math.pow(1 + RATE_PENALTY, completedHours - pivotHour);
+    }
+    return { debt, hours: completedHours, msIntoHour, inPenalty };
+  }
+
+  let lastHour = -1;
+  let lastPenalty = false;
+  let overlayShown = false;
+
+  function update() {
+    const now = Date.now();
+    const { debt, hours, msIntoHour, inPenalty } = computeDebt(now);
+    const rate = inPenalty ? RATE_PENALTY : RATE_NORMAL;
+    const interest = debt - PRINCIPAL;
+    const nextHit = debt * rate;
+    const elapsed = now - START_TIME;
+    const totalSec = Math.max(0, Math.floor(elapsed / 1000));
+    const hh = Math.floor(totalSec / 3600);
+    const mm = Math.floor((totalSec % 3600) / 60);
+    const pct = (msIntoHour / 3600000) * 100;
+    const msLeft = 3600000 - msIntoHour;
+    const mLeft = Math.floor(msLeft / 60000);
+    const sLeft = Math.floor((msLeft % 60000) / 1000);
+
+    const today = new Date();
+    document.getElementById('stmtDate').textContent = today.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    document.getElementById('balanceAmount').textContent = '$' + formatMoney(debt);
+    document.getElementById('interestAccrued').textContent = '$' + formatMoney(interest);
+    document.getElementById('timeElapsed').textContent = `${hh}h ${mm}m`;
+    document.getElementById('periodsElapsed').textContent = hours;
+    document.getElementById('currentRate').textContent = inPenalty ? `${(RATE_PENALTY*100).toFixed(2)}% / hour (PENALTY)` : `${(RATE_NORMAL*100).toFixed(2)}% / hour`;
+    document.getElementById('nextCompound').textContent = '$' + formatMoney(nextHit);
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('nextTickLabel').textContent = `${String(mLeft).padStart(2,'0')}:${String(sLeft).padStart(2,'0')}`;
+
+    document.getElementById('rateLabel').textContent = inPenalty ? `${(RATE_PENALTY*100).toFixed(2)}% / hr — PENALTY RATE` : `${(RATE_NORMAL*100).toFixed(2)}% / hr compounding`;
+    if (inPenalty) {
+      document.getElementById('rateLabel').classList.add('penalty-active');
+      document.getElementById('balanceAmount').classList.add('penalty');
+      document.getElementById('progressFill').classList.add('penalty');
+      document.getElementById('penaltyBanner').classList.add('visible');
+      document.getElementById('accountStatus').textContent = 'DELINQUENT — PENALTY TIER ACTIVE';
+      document.getElementById('currentRate').classList.add('penalty-val');
+    }
+
+    if (inPenalty) {
+      document.getElementById('marqueeBar').classList.add('penalty-bar');
+    }
+
+    if (inPenalty && !lastPenalty && !overlayShown) {
+      overlayShown = true;
+      const o = document.getElementById('penaltyOverlay');
+      o.classList.add('show');
+      setTimeout(() => o.style.display = 'none', 5000);
+    }
+    lastPenalty = inPenalty;
+
+    if (hours !== lastHour && lastHour !== -1) {
+      const el = document.getElementById('balanceAmount');
+      el.classList.add('tick');
+      setTimeout(() => el.classList.remove('tick'), 300);
+    }
+    lastHour = hours;
+
+    // Project when balance hits $1M
+    const TARGET = 1000000;
+    const currentDebt = debt;
+    const currentRate = rate;
+    // Solve for hours remaining: TARGET = currentDebt * (1+r)^h
+    const hoursRemaining = Math.log(TARGET / currentDebt) / Math.log(1 + currentRate);
+    if (hoursRemaining > 0) {
+      const msRemaining = hoursRemaining * 3600000;
+      const millionTime = new Date(now + msRemaining);
+      const opts = { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Chicago', timeZoneName: 'short' };
+      document.getElementById('millionDate').textContent = millionTime.toLocaleString('en-US', opts);
+    } else {
+      document.getElementById('millionDate').textContent = 'threshold passed';
+    }
+  }
+
+  // Apply name and aliases to DOM
+  document.title = `Account Statement — ${DEBTOR_NAME} a/k/a ${ALIASES[0] || ''}`;
+
+  const debtorValEl = document.querySelector('.account-block-value');
+  debtorValEl.innerHTML = `${DEBTOR_NAME}<br>` +
+    ALIASES.map(a => `<span style="font-size:0.75rem; color:#888070;">a/k/a <em>${a}</em></span><br>`).join('') +
+    `<span style="font-size:0.7rem; color:#b8b0a0;">Account Holder Since ${new Date(START_TIME).toLocaleDateString('en-US', {month:'2-digit',day:'2-digit',year:'numeric'})}</span>`;
+
+  // Marquee
+  const aliasStr = ALIASES.map((a, i) => `<span>${DEBTOR_NAME.toUpperCase()} A/K/A ${a.toUpperCase()} — ${i % 2 === 0 ? 'ACCOUNT DELINQUENT' : 'PAYMENT OVERDUE'}</span>`).join('<span>COMPOUND INTEREST ACCRUING</span>');
+  const marqueeInner = document.querySelector('.marquee-inner');
+  marqueeInner.innerHTML = aliasStr + '<span>COMPOUND INTEREST ACCRUING</span><span>THIS ACCOUNT IS IN DEFAULT</span>' + aliasStr + '<span>COMPOUND INTEREST ACCRUING</span><span>THIS ACCOUNT IS IN DEFAULT</span>';
+
+  // Statement meta alias line
+  document.getElementById('metaAliases').textContent = ALIASES.join('; ');
+
+  // Ref line
+  document.getElementById('metaRef').textContent = `${DEBTOR_NAME.toUpperCase()} / HIGH PRIORITY`;
+
+  // Legalese paragraph
+  const aliasPhrase = ALIASES.map(a => `<em>${a}</em>`).join(' and ');
+  const principalWords = PRINCIPAL.toLocaleString('en-US', {style:'currency', currency:'USD', minimumFractionDigits:2});
+  document.getElementById('legaleseP').innerHTML =
+    `<em>Whereas</em> the above-named Debtor, ${DEBTOR_NAME}, known also by the aliases ${aliasPhrase}, did incur an obligation in the principal sum of <strong style="color:#1a1a1a;">${principalWords}</strong> on ${new Date(START_TIME).toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'})}; and <em>whereas</em> said obligation accrues compound interest at the rate established herein, compounding at the top of each hour without interruption; the Debtor is hereby placed on formal notice that this balance is due and owing in full, immediately and without condition.`;
+
+  // Footer in re line
+  document.getElementById('closingName').textContent = DEBTOR_NAME;
+  document.getElementById('footerInRe').textContent = `In re: ${DEBTOR_NAME} a/k/a ` + ALIASES.join(' a/k/a ');
+
+
+  update();
+  setInterval(update, 1000);
+</script>
+</body>
+</html>
