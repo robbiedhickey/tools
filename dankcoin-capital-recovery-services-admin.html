@@ -218,6 +218,42 @@
     .preview-box .preview-row:last-child { border-bottom: none; }
     .preview-box .preview-val { color: #1a1a1a; font-weight: 500; text-align: right; }
 
+    .mode-toggle {
+      display: flex;
+      border: 1px solid #ddd9d0;
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+
+    .mode-btn {
+      flex: 1;
+      padding: 0.6rem 1rem;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border: none;
+      cursor: pointer;
+      background: #fff;
+      color: #888070;
+      transition: all 0.15s;
+    }
+
+    .mode-btn + .mode-btn { border-left: 1px solid #ddd9d0; }
+
+    .mode-btn.active { background: #1a1a1a; color: #f5f4f1; }
+    .mode-btn.active.paid-active { background: #15803d; color: #fff; }
+
+    .paid-fields { display: none; }
+    .paid-fields.visible { display: block; }
+
+    .url-box.paid-url { border-left-color: #15803d; }
+
+    .open-btn.paid-open { background: #15803d; border-color: #15803d; }
+    .open-btn.paid-open:hover { background: #166534; }
+
     .doc-footer {
       border-top: 1px solid #ddd9d0;
       padding-top: 1rem;
@@ -285,8 +321,30 @@
   </div>
 
   <hr class="divider">
+  <div class="section-label">Statement Mode</div>
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="modeActive" onclick="setMode('active')">Active Debt</button>
+    <button class="mode-btn" id="modePaid" onclick="setMode('paid')">Paid Off</button>
+  </div>
 
-  <button class="generate-btn" onclick="generate()">Generate Debtor URL</button>
+  <div class="paid-fields" id="paidFields">
+    <div class="section-label">Settlement Details</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="paid_at">Settlement Date/Time (UTC)</label>
+        <input type="datetime-local" id="paid_at">
+        <div class="hint">Defaults to current time</div>
+      </div>
+      <div class="form-group">
+        <label for="paid_amount">Amount Paid ($) — Optional</label>
+        <input type="number" id="paid_amount" placeholder="Auto-calculated" min="0" step="0.01">
+        <div class="hint">Leave blank to auto-calculate from debt at settlement date</div>
+      </div>
+    </div>
+    <hr class="divider">
+  </div>
+
+  <button class="generate-btn" id="generateBtn" onclick="generate()">Generate Debtor URL</button>
 
   <div class="output-section" id="outputSection">
     <hr class="divider">
@@ -294,7 +352,7 @@
     <div class="url-box" id="urlBox"></div>
     <div class="btn-row">
       <button class="copy-btn" id="copyBtn" onclick="copyUrl()">Copy URL</button>
-      <button class="open-btn" onclick="openUrl()">Open in New Tab</button>
+      <button class="open-btn" id="openBtn" onclick="openUrl()">Open in New Tab</button>
     </div>
 
     <div class="preview-box" id="previewBox"></div>
@@ -310,6 +368,23 @@
 <script>
   const BASE_URL = 'https://tools-kbt.pages.dev/dankcoin-capital-recovery-services';
   let currentUrl = '';
+  let currentMode = 'active';
+
+  function setMode(mode) {
+    currentMode = mode;
+    document.getElementById('modeActive').className = 'mode-btn' + (mode === 'active' ? ' active' : '');
+    document.getElementById('modePaid').className = 'mode-btn' + (mode === 'paid' ? ' active paid-active' : '');
+    document.getElementById('paidFields').classList.toggle('visible', mode === 'paid');
+    document.getElementById('generateBtn').textContent = mode === 'paid' ? 'Generate Settlement URL' : 'Generate Debtor URL';
+  }
+
+  // Initialize settlement date to current UTC time
+  (function() {
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    document.getElementById('paid_at').value =
+      `${now.getUTCFullYear()}-${pad(now.getUTCMonth()+1)}-${pad(now.getUTCDate())}T${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}`;
+  })();
 
   function generate() {
     const name = document.getElementById('name').value.trim() || 'Phil';
@@ -322,16 +397,27 @@
     const start = startRaw ? new Date(startRaw + ':00.000Z').toISOString() : '2026-06-09T13:00:00.000Z';
 
     const cfg = { name, aliases, principal, rate, rate_normal, threshold, start };
+
+    if (currentMode === 'paid') {
+      cfg.paid = true;
+      const paidAtRaw = document.getElementById('paid_at').value;
+      cfg.paid_at = paidAtRaw ? new Date(paidAtRaw + ':00.000Z').toISOString() : new Date().toISOString();
+      const paidAmountRaw = parseFloat(document.getElementById('paid_amount').value);
+      if (!isNaN(paidAmountRaw) && paidAmountRaw > 0) cfg.paid_amount = paidAmountRaw;
+    }
+
     const encoded = btoa(JSON.stringify(cfg));
     currentUrl = BASE_URL + '?d=' + encoded;
 
     document.getElementById('urlBox').textContent = currentUrl;
+    document.getElementById('urlBox').className = 'url-box' + (currentMode === 'paid' ? ' paid-url' : '');
     document.getElementById('copyBtn').textContent = 'Copy URL';
     document.getElementById('copyBtn').classList.remove('copied');
+    document.getElementById('openBtn').className = 'open-btn' + (currentMode === 'paid' ? ' paid-open' : '');
 
     // Preview
     const startDate = new Date(start).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-    document.getElementById('previewBox').innerHTML = `
+    let previewHTML = `
       <div class="preview-row"><span>Debtor</span><span class="preview-val">${name}</span></div>
       <div class="preview-row"><span>Aliases</span><span class="preview-val">${aliases}</span></div>
       <div class="preview-row"><span>Principal</span><span class="preview-val">$${principal.toLocaleString()}</span></div>
@@ -341,6 +427,21 @@
       <div class="preview-row"><span>Start</span><span class="preview-val">${startDate} (UTC)</span></div>
     `;
 
+    if (currentMode === 'paid') {
+      const paidDate = new Date(cfg.paid_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+      previewHTML += `
+        <div class="preview-row" style="border-top:2px solid #86efac;margin-top:0.25rem;padding-top:0.5rem;">
+          <span style="color:#15803d;font-weight:600;">Status</span>
+          <span class="preview-val" style="color:#15803d;">SETTLED — PAID IN FULL</span>
+        </div>
+        <div class="preview-row"><span>Settlement Date</span><span class="preview-val">${paidDate} (UTC)</span></div>
+        ${cfg.paid_amount
+          ? `<div class="preview-row"><span>Amount Paid</span><span class="preview-val">$${cfg.paid_amount.toLocaleString()}</span></div>`
+          : `<div class="preview-row"><span>Amount Paid</span><span class="preview-val" style="color:#888070;">Auto-calculated</span></div>`}
+      `;
+    }
+
+    document.getElementById('previewBox').innerHTML = previewHTML;
     document.getElementById('outputSection').classList.add('visible');
   }
 

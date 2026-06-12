@@ -368,6 +368,43 @@
       100% { opacity: 0; pointer-events: none; }
     }
 
+    /* Settled / Paid State */
+    body.paid-mode .marquee-bar {
+      background: #f0fdf4;
+      color: #15803d;
+      border-bottom-color: #86efac;
+    }
+
+    body.paid-mode .balance-header {
+      background: #dcfce7 !important;
+      border-bottom-color: #86efac !important;
+    }
+
+    body.paid-mode .balance-header-label,
+    body.paid-mode .balance-header-rate {
+      color: #15803d !important;
+    }
+
+    body.paid-mode .balance-amount {
+      color: #15803d !important;
+    }
+
+    body.paid-mode #interestAccrued { color: #15803d !important; }
+
+    .paid-in-full-stamp {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.5rem, 4vw, 2.4rem);
+      font-weight: 600;
+      color: #15803d;
+      border: 3px solid #15803d;
+      padding: 0.3rem 1.4rem;
+      display: inline-block;
+      transform: rotate(-4deg);
+      letter-spacing: 0.04em;
+      opacity: 0.85;
+      margin: 0.75rem 0 0.5rem;
+    }
+
     @media (prefers-color-scheme: dark) {
       html, body, .page, .account-block, .balance-section, .balance-body,
       .stats-table, .alert-banner, .marquee-bar {
@@ -485,7 +522,7 @@
     <div class="progress-fill" id="progressFill" style="width:0%"></div>
   </div>
 
-  <div style="border-top: 1px solid #ddd9d0; padding-top: 1.5rem; margin-bottom: 1.5rem;">
+  <div id="legaleseBlock" style="border-top: 1px solid #ddd9d0; padding-top: 1.5rem; margin-bottom: 1.5rem;">
     <div style="font-size:0.6rem; letter-spacing:0.2em; text-transform:uppercase; color:#b8b0a0; font-family:'Inter',sans-serif; margin-bottom:0.75rem;">Formal Notice & Governing Terms</div>
     <p style="font-size:0.75rem; line-height:1.9; color:#888070; margin-bottom:1rem;">
       <span id="legaleseP"><em>Whereas</em> the above-named Debtor, Phil, known also by the aliases <em>das_phyllis</em> and <em>Mr. McChicken</em>, did incur an obligation in the principal sum of <strong style="color:#1a1a1a;">Thirty-Seven Thousand Dollars ($37,000.00)</strong> on the ninth day of June, in the year Two Thousand and Twenty-Six, at eight o'clock in the morning, Central Daylight Time; and <em>whereas</em> said obligation accrues compound interest at the rate established herein, compounding at the top of each hour without interruption; the Debtor is hereby placed on formal notice that this balance is due and owing in full, immediately and without condition.</span>
@@ -640,6 +677,14 @@
     ? cfg.aliases.split(',').map(a => a.trim())
     : ['das_phyllis', 'Mr. McChicken'];
 
+  const IS_PAID = cfg.paid === true || cfg.paid === 'true';
+  const PAID_AT = IS_PAID && cfg.paid_at
+    ? new Date(cfg.paid_at).getTime()
+    : Date.now();
+  const PAID_AMOUNT_OVERRIDE = IS_PAID && cfg.paid_amount != null
+    ? parseFloat(cfg.paid_amount)
+    : null;
+
   function formatMoney(n) {
     return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
@@ -747,6 +792,121 @@
     }
   }
 
+  function launchConfetti() {
+    const canvas = document.createElement('canvas');
+    canvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:150;';
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+    resize();
+    window.addEventListener('resize', resize);
+    const COLORS = ['#15803d','#22c55e','#4ade80','#fbbf24','#f59e0b','#fef3c7','#ffffff','#d1fae5','#a3e635','#fde68a'];
+    const particles = Array.from({length: 160}, () => ({
+      x: Math.random() * window.innerWidth,
+      y: -(Math.random() * 800 + 20),
+      vx: (Math.random() - 0.5) * 3,
+      vy: Math.random() * 2.5 + 1,
+      w: Math.random() * 9 + 4,
+      h: Math.random() * 5 + 2,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      angle: Math.random() * Math.PI * 2,
+      spin: (Math.random() - 0.5) * 0.14,
+    }));
+    const TOTAL = 9000, FADE_START = 6500;
+    const t0 = Date.now();
+    (function tick() {
+      const elapsed = Date.now() - t0;
+      if (elapsed > TOTAL) { canvas.remove(); return; }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const alpha = elapsed < FADE_START ? 1 : 1 - (elapsed - FADE_START) / (TOTAL - FADE_START);
+      particles.forEach(p => {
+        p.y += p.vy; p.x += p.vx; p.angle += p.spin;
+        if (p.y > canvas.height && elapsed < FADE_START) {
+          p.y = -15; p.x = Math.random() * canvas.width;
+        }
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, alpha);
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.angle);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+        ctx.restore();
+      });
+      requestAnimationFrame(tick);
+    })();
+  }
+
+  function initPaidState() {
+    document.body.classList.add('paid-mode');
+    const settled = computeDebt(PAID_AT);
+    const finalDebt = PAID_AMOUNT_OVERRIDE !== null ? PAID_AMOUNT_OVERRIDE : settled.debt;
+    const finalInterest = finalDebt - PRINCIPAL;
+    const settledDate = new Date(PAID_AT);
+    const settledElapsed = Math.max(0, PAID_AT - START_TIME);
+    const totalSec = Math.floor(settledElapsed / 1000);
+    const hh = Math.floor(totalSec / 3600);
+    const mm = Math.floor((totalSec % 3600) / 60);
+    const settleDateStr = settledDate.toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'});
+
+    document.title = `Settled — ${DEBTOR_NAME} a/k/a ${ALIASES[0] || ''}`;
+    document.getElementById('stmtDate').textContent = settleDateStr;
+    document.getElementById('metaRef').textContent = `${DEBTOR_NAME.toUpperCase()} / SETTLED`;
+
+    document.getElementById('marqueeInner').innerHTML =
+      `<span>ACCOUNT SATISFIED</span><span>${DEBTOR_NAME.toUpperCase()} — DEBT PAID IN FULL</span><span>DCRS ACCOUNT CLOSED</span><span>CASE RESOLVED</span><span>ACCOUNT SATISFIED</span><span>${DEBTOR_NAME.toUpperCase()} — DEBT PAID IN FULL</span><span>DCRS ACCOUNT CLOSED</span><span>CASE RESOLVED</span>`;
+
+    const statusEl = document.getElementById('accountStatus');
+    statusEl.textContent = 'SETTLED — PAID IN FULL — ACCOUNT CLOSED';
+    statusEl.classList.remove('status-bad');
+    statusEl.style.color = '#15803d';
+    statusEl.style.fontWeight = '600';
+
+    const defaultBanner = document.querySelector('.alert-banner:not(.penalty)');
+    defaultBanner.style.background = '#f0fdf4';
+    defaultBanner.style.borderColor = '#86efac';
+    defaultBanner.style.borderLeftColor = '#15803d';
+    defaultBanner.style.color = '#15803d';
+    defaultBanner.innerHTML = `<strong>Debt Satisfied.</strong> This account was settled in full on ${settleDateStr}. Interest accrual has ceased. This statement serves as the official record of debt satisfaction. No further action is required.`;
+
+    document.getElementById('rateLabel').textContent = 'SETTLED — NO FURTHER ACCRUAL';
+    document.getElementById('balanceAmount').textContent = '$' + formatMoney(finalDebt);
+    const stamp = document.createElement('div');
+    stamp.className = 'paid-in-full-stamp';
+    stamp.textContent = 'Paid in Full';
+    const caption = document.querySelector('.balance-caption');
+    caption.parentNode.insertBefore(stamp, caption);
+    caption.innerHTML = 'Final settlement amount &mdash; account closed';
+
+    document.getElementById('interestAccrued').textContent = '$' + formatMoney(finalInterest);
+    document.getElementById('timeElapsed').textContent = `${hh}h ${mm}m`;
+    document.getElementById('periodsElapsed').textContent = settled.hours;
+    document.getElementById('currentRate').previousElementSibling.textContent = 'Final Rate Applied';
+    document.getElementById('currentRate').textContent = settled.inPenalty
+      ? `${(RATE_PENALTY*100).toFixed(2)}% / hour (penalty rate)`
+      : `${(RATE_NORMAL*100).toFixed(2)}% / hour`;
+    document.getElementById('nextCompound').previousElementSibling.textContent = 'Settlement Date';
+    document.getElementById('nextCompound').textContent = settleDateStr;
+    document.getElementById('nextCompound').classList.remove('danger');
+    document.getElementById('nextCompound').style.color = '#15803d';
+
+    document.querySelector('.progress-row').style.display = 'none';
+    document.querySelector('.progress-track').style.display = 'none';
+
+    const aliasPhrase = ALIASES.map(a => `<em>${a}</em>`).join(' and ');
+    const principalStr = PRINCIPAL.toLocaleString('en-US', {style:'currency',currency:'USD',minimumFractionDigits:2});
+    const finalStr = finalDebt.toLocaleString('en-US', {style:'currency',currency:'USD',minimumFractionDigits:2});
+    document.getElementById('legaleseP').innerHTML =
+      `<em>Whereas</em> the above-named Debtor, ${DEBTOR_NAME}, known also by the aliases ${aliasPhrase}, did incur an obligation in the principal sum of <strong style="color:#1a1a1a;">${principalStr}</strong>; and <em>whereas</em> said Debtor has remitted full payment in the amount of <strong style="color:#15803d;">${finalStr}</strong> on ${settleDateStr}; the Debtor is hereby formally released from this obligation in its entirety. This account is closed and the debt is discharged.`;
+    const legalParas = document.querySelectorAll('#legaleseBlock p');
+    if (legalParas[1]) legalParas[1].innerHTML = `Collection Agent Tito Ortiz has been formally stood down. DankCoin Capital Recovery Services acknowledges receipt of payment in full and hereby releases all claims arising from this obligation. This case is resolved.`;
+    if (legalParas[2]) legalParas[2].innerHTML = `DankCoin Capital Recovery Services notes for the record that it never doubted ${DEBTOR_NAME}. This has been a professionally managed collections engagement. We wish you well. <strong style="color:#15803d;">This debt is discharged. The clock has stopped.</strong>`;
+
+    document.getElementById('footerThreshold').textContent = `Settled: ${settledDate.toLocaleDateString('en-US',{month:'2-digit',day:'2-digit',year:'numeric'})}`;
+    document.getElementById('millionDate').textContent = 'N/A — satisfied';
+
+    launchConfetti();
+  }
+
   // Apply name and aliases to DOM
   // Footer threshold line
   document.getElementById('overlayRate').textContent = (RATE_PENALTY * 100).toFixed(2) + '%';
@@ -784,8 +944,12 @@
   document.getElementById('footerInRe').textContent = `In re: ${DEBTOR_NAME} a/k/a ` + ALIASES.join(' a/k/a ');
 
 
-  update();
-  setInterval(update, 1000);
+  if (IS_PAID) {
+    initPaidState();
+  } else {
+    update();
+    setInterval(update, 1000);
+  }
 })();
 </script>
 </body>
