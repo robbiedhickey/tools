@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/1001-albums", "destination": "/1001-albums/index.html" },
+    { "source": "/1001-albums/", "destination": "/1001-albums/index.html" },
+    { "source": "/1001-albums/**", "destination": "/1001-albums/index.html" }
+  ]
+}
