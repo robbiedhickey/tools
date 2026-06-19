@@ -241,6 +241,7 @@ const API_BASE = 'https://1001albumsgenerator.com/api/v1';
 const SITE_BASE = 'https://1001albumsgenerator.com';
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const ROUTE_PREFIX = '1001-albums';
+const APP_BASE = `/${ROUTE_PREFIX}/`;
 const LANKY_GIF_URL = 'https://media.tenor.com/lEKATqfPUrgAAAAi/lanky-kong-funny.gif';
 const LANKY_LOADING_GIF_URL = 'https://media.tenor.com/dk8ZbQriTFoAAAAi/video-games-me-at-a-party.gif';
 
@@ -477,31 +478,43 @@ function writeGlobalContextCache(url, context) {
 // ---------- routing ----------
 const VALID_TABS = new Set(['today', 'backlog', 'group', 'me']);
 
-function getRouteFromPath() {
-  const parts = location.pathname.split('/').filter(Boolean);
-  const idx = parts.indexOf(ROUTE_PREFIX);
-  if (idx < 0 || parts.length <= idx + 1) return { projectName: null, tab: 'today', backlogAlbumId: null, albumId: null };
-  if (parts[idx + 2] === 'albums' && parts.length > idx + 3) {
-    return { projectName: decodeURIComponent(parts[idx + 1]), tab: 'album', backlogAlbumId: null, albumId: decodeURIComponent(parts[idx + 3]) };
+function parseRouteParts(parts) {
+  if (!parts.length) return { projectName: null, tab: 'today', backlogAlbumId: null, albumId: null };
+  if (parts[1] === 'albums' && parts.length > 2) {
+    return {
+      projectName: decodeURIComponent(parts[0]),
+      tab: 'album',
+      backlogAlbumId: null,
+      albumId: decodeURIComponent(parts[2]),
+    };
   }
-  const tab = VALID_TABS.has(parts[idx + 2]) ? parts[idx + 2] : 'today';
+  const tab = VALID_TABS.has(parts[1]) ? parts[1] : 'today';
   return {
-    projectName: decodeURIComponent(parts[idx + 1]),
+    projectName: decodeURIComponent(parts[0]),
     tab,
-    backlogAlbumId: tab === 'backlog' && parts.length > idx + 3 ? decodeURIComponent(parts[idx + 3]) : null,
+    backlogAlbumId: tab === 'backlog' && parts.length > 2 ? decodeURIComponent(parts[2]) : null,
     albumId: null,
   };
 }
+
+function getRouteFromLocation() {
+  const hashParts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+  if (hashParts.length) return parseRouteParts(hashParts);
+
+  const parts = location.pathname.split('/').filter(Boolean);
+  const idx = parts.indexOf(ROUTE_PREFIX);
+  if (idx < 0 || parts.length <= idx + 1) return { projectName: null, tab: 'today', backlogAlbumId: null, albumId: null };
+  return parseRouteParts(parts.slice(idx + 1));
+}
 function routePath(projectName, tab = 'today', backlogAlbumId = null) {
-  const base = `/${ROUTE_PREFIX}/${encodeURIComponent(projectName)}`;
+  const base = `${APP_BASE}#/${encodeURIComponent(projectName)}`;
   if (tab === 'today') return `${base}/today`;
   if (tab === 'album' && backlogAlbumId) return `${base}/albums/${encodeURIComponent(backlogAlbumId)}`;
   if (tab === 'backlog' && backlogAlbumId) return `${base}/backlog/${encodeURIComponent(backlogAlbumId)}`;
   return `${base}/${tab}`;
 }
 function navigateTo(path) {
-  history.pushState({}, '', path);
-  window.dispatchEvent(new Event('hub:navigate'));
+  location.assign(path);
 }
 function navigateToProject(name) {
   navigateTo(routePath(name));
@@ -1271,16 +1284,16 @@ function MeView({ me }) {
 
 // ---------- App ----------
 function App() {
-  const [route, setRoute] = useState(getRouteFromPath());
+  const [route, setRoute] = useState(getRouteFromLocation());
   const { projectName, tab, backlogAlbumId, albumId } = route;
 
   useEffect(() => {
-    const onNav = () => setRoute(getRouteFromPath());
+    const onNav = () => setRoute(getRouteFromLocation());
+    window.addEventListener('hashchange', onNav);
     window.addEventListener('popstate', onNav);
-    window.addEventListener('hub:navigate', onNav);
     return () => {
+      window.removeEventListener('hashchange', onNav);
       window.removeEventListener('popstate', onNav);
-      window.removeEventListener('hub:navigate', onNav);
     };
   }, []);
 

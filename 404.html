@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Redirecting…</title>
+  <script>
+    (function () {
+      var path = location.pathname;
+      if (path.indexOf('/1001-albums') !== 0) return;
+      var next = path.replace(/^\/1001-albums\/?/, '');
+      location.replace('/1001-albums/#/' + next.replace(/^\/+/, '') + location.search + location.hash);
+    })();
+  </script>
+</head>
+<body>
+  <p>Redirecting to 1001 Albums Kongsole…</p>
+</body>
+</html>
