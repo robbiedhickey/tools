@@ -109,6 +109,12 @@
     display: inline-block; border: 0; cursor: pointer;
   }
   .banner a:hover, .pill-btn:hover { text-decoration: none; opacity: 0.85; }
+  .cta-btn {
+    background: var(--accent); color: #fff; padding: 12px 18px; border-radius: 10px;
+    font-size: 15px; font-weight: 700; border: 0; cursor: pointer;
+    display: block; width: 100%; text-align: center; margin: 4px 0 16px;
+  }
+  .cta-btn:hover { text-decoration: none; opacity: 0.9; }
 
   .today-grid { display: grid; grid-template-columns: 220px 1fr; gap: 20px; }
   @media (max-width: 700px) { .today-grid { grid-template-columns: 1fr; } }
@@ -185,9 +191,13 @@
   .modal iframe { border: 0; width: 100%; flex: 1; background: #fff; }
 
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .table-scroll { overflow-x: auto; }
+  .table-scroll table { white-space: nowrap; }
   th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); }
   th { color: var(--text-dim); font-weight: 600; font-size: 12px; text-transform: uppercase; }
   tr:last-child td { border-bottom: none; }
+  .row-link { color: var(--accent); font-weight: 600; }
+  .row-link::after { content: ' \203A'; }
   .sort-controls { display: flex; gap: 6px; margin-bottom: 10px; }
   .sort-controls button {
     border: 1px solid var(--border); background: var(--bg); border-radius: 999px; padding: 4px 10px; font-size: 12px; cursor: pointer;
@@ -423,10 +433,14 @@ function deriveGroupAlbumTable(membersMap) {
 function deriveAlignment(membersMap) {
   const names = Object.keys(membersMap).filter(n => membersMap[n] && !membersMap[n].__error);
   const ratingsByMember = {};
+  const albumsByUuid = new Map();
   for (const name of names) {
     const m = new Map();
     for (const entry of membersMap[name].history || []) {
-      if (entry.album && typeof entry.rating === 'number') m.set(entry.album.uuid, entry.rating);
+      if (entry.album && typeof entry.rating === 'number') {
+        m.set(entry.album.uuid, entry.rating);
+        if (!albumsByUuid.has(entry.album.uuid)) albumsByUuid.set(entry.album.uuid, entry.album);
+      }
     }
     ratingsByMember[name] = m;
   }
@@ -436,12 +450,19 @@ function deriveAlignment(membersMap) {
       const a = names[i], b = names[j];
       const ma = ratingsByMember[a], mb = ratingsByMember[b];
       let sum = 0, n = 0;
+      const details = [];
       for (const [uuid, ra] of ma) {
-        if (mb.has(uuid)) { sum += Math.abs(ra - mb.get(uuid)); n++; }
+        if (mb.has(uuid)) {
+          const rb = mb.get(uuid);
+          sum += Math.abs(ra - rb);
+          n++;
+          details.push({ album: albumsByUuid.get(uuid), ratingA: ra, ratingB: rb, diff: Math.abs(ra - rb) });
+        }
       }
       if (n >= 2) {
         const alignment = Math.max(0, Math.round(100 * (1 - (sum / n) / 4)));
-        pairs.push({ a, b, alignment, shared: n });
+        details.sort((x, y) => y.diff - x.diff);
+        pairs.push({ a, b, alignment, shared: n, details });
       }
     }
   }
@@ -501,6 +522,7 @@ function streamingLinks(album) {
 const cacheKey = (name) => `hub:${name}`;
 const globalReviewsCacheKey = (url) => `global-reviews:${url}`;
 const globalContextCacheKey = (url) => `global-context:${url}`;
+const appleTracksCacheKey = (id) => `apple-tracks:${id}`;
 function readCache(name) {
   try {
     const raw = localStorage.getItem(cacheKey(name));
@@ -532,27 +554,52 @@ function readGlobalContextCache(url) {
 function writeGlobalContextCache(url, context) {
   try { localStorage.setItem(globalContextCacheKey(url), JSON.stringify({ fetchedAt: Date.now(), context })); } catch (e) {}
 }
+function readAppleTracksCache(id) {
+  try {
+    const raw = localStorage.getItem(appleTracksCacheKey(id));
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) { return null; }
+}
+function writeAppleTracksCache(id, data) {
+  try { localStorage.setItem(appleTracksCacheKey(id), JSON.stringify({ fetchedAt: Date.now(), data })); } catch (e) {}
+}
 
 // ---------- routing ----------
 const VALID_TABS = new Set(['today', 'backlog', 'group', 'me']);
+// Sub-tabs within the album info panel (AlbumInfoTabs) — linkable as a trailing path segment
+// on album/backlog-album routes, e.g. .../backlog/{id}/group, so a specific tab is shareable.
+const VALID_SUBTABS = new Set(['summary', 'tracks', 'reviews', 'group']);
 
 function parseRouteParts(parts) {
-  if (!parts.length) return { projectName: null, tab: 'today', backlogAlbumId: null, albumId: null };
+  if (!parts.length) return { projectName: null, tab: 'today', backlogAlbumId: null, albumId: null, subTab: null, pairA: null, pairB: null };
   if (parts[1] === 'albums' && parts.length > 2) {
     return {
       projectName: decodeURIComponent(parts[0]),
       tab: 'album',
       backlogAlbumId: null,
       albumId: decodeURIComponent(parts[2]),
+      subTab: VALID_SUBTABS.has(parts[3]) ? parts[3] : null,
+      pairA: null,
+      pairB: null,
+    };
+  }
+  if (parts[1] === 'group' && parts[2] === 'pair' && parts.length > 4) {
+    return {
+      projectName: decodeURIComponent(parts[0]),
+      tab: 'pair',
+      backlogAlbumId: null,
+      albumId: null,
+      subTab: null,
+      pairA: decodeURIComponent(parts[3]),
+      pairB: decodeURIComponent(parts[4]),
     };
   }
   const tab = VALID_TABS.has(parts[1]) ? parts[1] : 'today';
-  return {
-    projectName: decodeURIComponent(parts[0]),
-    tab,
-    backlogAlbumId: tab === 'backlog' && parts.length > 2 ? decodeURIComponent(parts[2]) : null,
-    albumId: null,
-  };
+  const backlogAlbumId = tab === 'backlog' && parts.length > 2 ? decodeURIComponent(parts[2]) : null;
+  const subTabIndex = backlogAlbumId ? 3 : 2;
+  const subTab = (tab === 'today' || tab === 'backlog') && VALID_SUBTABS.has(parts[subTabIndex]) ? parts[subTabIndex] : null;
+  return { projectName: decodeURIComponent(parts[0]), tab, backlogAlbumId, albumId: null, subTab, pairA: null, pairB: null };
 }
 
 function getRouteFromLocation() {
@@ -561,14 +608,17 @@ function getRouteFromLocation() {
 
   const parts = location.pathname.split('/').filter(Boolean);
   const idx = parts.indexOf(ROUTE_PREFIX);
-  if (idx < 0 || parts.length <= idx + 1) return { projectName: null, tab: 'today', backlogAlbumId: null, albumId: null };
+  if (idx < 0 || parts.length <= idx + 1) return { projectName: null, tab: 'today', backlogAlbumId: null, albumId: null, subTab: null, pairA: null, pairB: null };
   return parseRouteParts(parts.slice(idx + 1));
 }
-function routePath(projectName, tab = 'today', backlogAlbumId = null) {
+function pairRoutePath(projectName, a, b) {
+  return `${APP_BASE}#/${encodeURIComponent(projectName)}/group/pair/${encodeURIComponent(a)}/${encodeURIComponent(b)}`;
+}
+function routePath(projectName, tab = 'today', backlogAlbumId = null, subTab = null) {
   const base = `${APP_BASE}#/${encodeURIComponent(projectName)}`;
-  if (tab === 'today') return `${base}/today`;
-  if (tab === 'album' && backlogAlbumId) return `${base}/albums/${encodeURIComponent(backlogAlbumId)}`;
-  if (tab === 'backlog' && backlogAlbumId) return `${base}/backlog/${encodeURIComponent(backlogAlbumId)}`;
+  if (tab === 'today') return `${base}/today${subTab ? `/${subTab}` : ''}`;
+  if (tab === 'album' && backlogAlbumId) return `${base}/albums/${encodeURIComponent(backlogAlbumId)}${subTab ? `/${subTab}` : ''}`;
+  if (tab === 'backlog' && backlogAlbumId) return `${base}/backlog/${encodeURIComponent(backlogAlbumId)}${subTab ? `/${subTab}` : ''}`;
   return `${base}/${tab}`;
 }
 function navigateTo(path) {
@@ -654,7 +704,7 @@ function WikipediaSummary({ url }) {
 
   return html`
     <div class="wiki-summary">
-      ${state.status === 'loading' && html`<p>Loading Wikipedia summary…</p>`}
+      ${state.status === 'loading' && html`<${LoadingNote} label="Loading Wikipedia summary…" className="" />`}
       ${state.status === 'ready' && html`
         <p>${state.data.extract}</p>
         <${SiteModalLink} href=${(state.data.content_urls && state.data.content_urls.desktop && state.data.content_urls.desktop.page) || url} title="Wikipedia" className="">Full Wikipedia Article →<//>
@@ -707,12 +757,62 @@ function formatRating(value) {
   return value;
 }
 
+function formatDurationMs(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return '—';
+  const totalSeconds = Math.round(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+function parseAppleLookupResults(data) {
+  const album = (data.results || []).find(row => row.wrapperType === 'collection') || null;
+  const tracks = (data.results || [])
+    .filter(row => row.wrapperType === 'track' && row.kind === 'song')
+    .sort((a, b) =>
+      (a.discNumber ?? 1) - (b.discNumber ?? 1) ||
+      (a.trackNumber ?? 0) - (b.trackNumber ?? 0)
+    )
+    .map(track => ({
+      discNumber: track.discNumber ?? 1,
+      trackNumber: track.trackNumber ?? null,
+      title: track.trackName || '',
+      durationMs: track.trackTimeMillis ?? null,
+      artistName: track.artistName ?? null,
+      appleTrackId: track.trackId != null ? String(track.trackId) : null,
+      appleAlbumId: track.collectionId != null ? String(track.collectionId) : null,
+      explicit: track.trackExplicitness === 'explicit' ? true : track.trackExplicitness === 'notExplicit' ? false : null,
+      streamable: typeof track.isStreamable === 'boolean' ? track.isStreamable : null,
+    }));
+  return {
+    album: album ? {
+      albumName: album.collectionName || null,
+      artistName: album.artistName || null,
+      releaseDate: album.releaseDate || null,
+      trackCount: album.trackCount ?? null,
+      totalRuntimeMs: tracks.reduce((sum, track) => sum + (track.durationMs || 0), 0) || null,
+      copyright: album.copyright || null,
+      appleAlbumId: album.collectionId != null ? String(album.collectionId) : null,
+    } : null,
+    tracks,
+  };
+}
+
+async function fetchAppleTrackMetadata(appleMusicId) {
+  const res = await fetch(`https://itunes.apple.com/lookup?id=${encodeURIComponent(appleMusicId)}&entity=song&country=US&media=music`);
+  if (!res.ok) {
+    throw new Error(`Apple track lookup failed (${res.status})`);
+  }
+  return res.json();
+}
+
 function discoveryLinks(album) {
   const query = `${album.name} ${album.artist}`;
   const videoContextQuery = `${query} album (documentary OR background OR analysis OR "story behind" OR making-of OR interview)`;
   return [
     { label: 'Discogs', url: `https://www.discogs.com/search/?q=${encodeURIComponent(query)}&type=all` },
     { label: 'RateYourMusic', url: `https://rateyourmusic.com/search?searchterm=${encodeURIComponent(query)}&searchtype=l` },
+    { label: 'MusicBrainz', url: `https://musicbrainz.org/search?query=${encodeURIComponent(query)}&type=release&method=indexed` },
     { label: 'Album of the Year', url: `https://www.albumoftheyear.org/search/?q=${encodeURIComponent(query)}` },
     { label: 'Musicboard', url: `https://musicboard.app/search/${encodeURIComponent(query.toLowerCase())}/album` },
     { label: 'YouTube', url: `https://www.youtube.com/results?search_query=${encodeURIComponent(videoContextQuery)}` },
@@ -761,7 +861,7 @@ function AlbumSummaryContext({ album, comparison = null }) {
         </div>
       `}
 
-      ${state.status === 'loading' && html`<p class="muted">Loading album details…</p>`}
+      ${state.status === 'loading' && html`<${LoadingNote} label="Loading album details…" />`}
       ${state.status === 'error' && html`<p class="muted">Couldn't load album details.</p>`}
       ${state.status === 'ready' && context && html`
         ${context.stats.rating && !(comparison && comparison.globalRating != null) && html`
@@ -771,7 +871,13 @@ function AlbumSummaryContext({ album, comparison = null }) {
         `}
         ${context.metadata.length > 0 && html`
           <div class="context-section-title">Genres & Styles</div>
-          <p class="muted">${context.metadata.join(' · ')}</p>
+          <div class="keyword-row">
+            ${context.metadata.flatMap(entry => {
+              const colonIndex = entry.indexOf(':');
+              const tags = colonIndex === -1 ? entry : entry.slice(colonIndex + 1);
+              return tags.split(',').map(t => t.trim()).filter(Boolean);
+            }).map(tag => html`<span class="keyword-chip">${tag}</span>`)}
+          </div>
         `}
       `}
 
@@ -817,7 +923,7 @@ function GlobalReviewsPreview({ url, limit = 25 }) {
 
   return html`
     <div>
-      ${state.status === 'loading' && html`<p class="muted">Loading global reviews…</p>`}
+      ${state.status === 'loading' && html`<${LoadingNote} label="Loading global reviews…" />`}
       ${state.status === 'error' && html`<p class="muted">Couldn't load global reviews.</p>`}
       ${state.status === 'ready' && html`
         ${state.context && html`
@@ -862,6 +968,71 @@ function GlobalReviewsPreview({ url, limit = 25 }) {
   `;
 }
 
+function TracksPreview({ album }) {
+  const [state, setState] = useState({ status: album.appleMusicId ? 'idle' : 'hidden', data: null });
+
+  useEffect(() => {
+    if (!album.appleMusicId) {
+      setState({ status: 'hidden', data: null });
+      return;
+    }
+    let cancelled = false;
+    const cached = readAppleTracksCache(album.appleMusicId);
+    if (cached && cached.data) {
+      setState({ status: 'ready', data: cached.data });
+      return;
+    }
+    setState({ status: 'loading', data: null });
+    fetchAppleTrackMetadata(album.appleMusicId)
+      .then((data) => {
+        const normalized = parseAppleLookupResults(data);
+        writeAppleTracksCache(album.appleMusicId, normalized);
+        if (!cancelled) setState({ status: 'ready', data: normalized });
+      })
+      .catch(() => {
+        if (!cancelled) setState({ status: 'error', data: null });
+      });
+    return () => { cancelled = true; };
+  }, [album.appleMusicId]);
+
+  return html`
+    <div>
+      ${state.status === 'hidden' && html`<p class="muted">No Apple Music ID is available for this album.</p>`}
+      ${state.status === 'loading' && html`<${LoadingNote} label="Loading track metadata…" />`}
+      ${state.status === 'error' && html`<p class="muted">Couldn't load track metadata.</p>`}
+      ${state.status === 'ready' && state.data && html`
+        ${state.data.album && html`
+          <div class="context-grid">
+            <div class="context-stat"><div class="value">${state.data.album.trackCount != null ? state.data.album.trackCount : state.data.tracks.length}</div><div class="label">Tracks</div></div>
+            <div class="context-stat"><div class="value">${formatDurationMs(state.data.album.totalRuntimeMs)}</div><div class="label">Runtime</div></div>
+            <div class="context-stat"><div class="value">${state.data.album.copyright || '—'}</div><div class="label">Label</div></div>
+          </div>
+          ${state.data.album.trackCount != null && state.data.album.trackCount !== state.data.tracks.length && html`
+            <p class="muted">Apple returned ${state.data.tracks.length} track rows for an album marked as ${state.data.album.trackCount} tracks.</p>
+          `}
+        `}
+        ${state.data.tracks.length === 0 ? html`
+          <p class="muted">No track rows were returned.</p>
+        ` : html`
+          <table>
+            <thead><tr><th>#</th><th>Track</th><th>Artist</th><th>Length</th></tr></thead>
+            <tbody>
+              ${state.data.tracks.map(track => html`
+                <tr>
+                  <td>${track.discNumber > 1 ? `${track.discNumber}-${track.trackNumber}` : track.trackNumber}</td>
+                  <td>${track.title}</td>
+                  <td>${track.artistName || '—'}</td>
+                  <td>${formatDurationMs(track.durationMs)}</td>
+                </tr>
+              `)}
+            </tbody>
+          </table>
+        `}
+      `}
+    </div>
+  `;
+}
+
 function GroupReviewsPreview({ groupSlug, album }) {
   const [state, setState] = useState({ status: 'loading', reviews: [] });
 
@@ -882,7 +1053,7 @@ function GroupReviewsPreview({ groupSlug, album }) {
 
   return html`
     <div>
-      ${state.status === 'loading' && html`<p class="muted">Loading group reviews…</p>`}
+      ${state.status === 'loading' && html`<${LoadingNote} label="Loading group reviews…" />`}
       ${state.status === 'error' && html`<p class="muted">Couldn't load group reviews.</p>`}
       ${state.status === 'ready' && html`
         ${state.reviews.length === 0 ? html`
@@ -905,25 +1076,26 @@ function GroupReviewsPreview({ groupSlug, album }) {
   `;
 }
 
-function AlbumInfoTabs({ album, groupSlug = null, comparison = null }) {
+function AlbumInfoTabs({ album, groupSlug = null, comparison = null, tab = 'summary', onTabChange }) {
   const hasGroupReviews = !!(groupSlug && album && album.uuid);
-  const [tab, setTab] = useState('summary');
 
   return html`
     <div class="album-panel">
       <div class="album-panel-tabs">
-        <button type="button" class=${`album-panel-tab ${tab === 'summary' ? 'active' : ''}`} onClick=${() => setTab('summary')}>Summary</button>
+        <button type="button" class=${`album-panel-tab ${tab === 'summary' ? 'active' : ''}`} onClick=${() => onTabChange('summary')}>Summary</button>
+        <button type="button" class=${`album-panel-tab ${tab === 'tracks' ? 'active' : ''}`} onClick=${() => onTabChange('tracks')}>Tracks</button>
         ${album.globalReviewsUrl && html`
-          <button type="button" class=${`album-panel-tab ${tab === 'reviews' ? 'active' : ''}`} onClick=${() => setTab('reviews')}>Global Reviews</button>
+        <button type="button" class=${`album-panel-tab ${tab === 'reviews' ? 'active' : ''}`} onClick=${() => onTabChange('reviews')}>Global Reviews</button>
         `}
         ${hasGroupReviews && html`
-          <button type="button" class=${`album-panel-tab ${tab === 'group' ? 'active' : ''}`} onClick=${() => setTab('group')}>Group Reviews</button>
+        <button type="button" class=${`album-panel-tab ${tab === 'group' ? 'active' : ''}`} onClick=${() => onTabChange('group')}>Group Reviews</button>
         `}
       </div>
       ${tab === 'summary' && html`
         ${album.wikipediaUrl && html`<${WikipediaSummary} url=${album.wikipediaUrl} />`}
         <${AlbumSummaryContext} album=${album} comparison=${comparison} />
       `}
+      ${tab === 'tracks' && html`<${TracksPreview} album=${album} />`}
       ${tab === 'reviews' && album.globalReviewsUrl && html`<${GlobalReviewsPreview} url=${album.globalReviewsUrl} />`}
       ${tab === 'group' && hasGroupReviews && html`<${GroupReviewsPreview} groupSlug=${groupSlug} album=${album} />`}
     </div>
@@ -972,6 +1144,10 @@ function Loading() {
       <div>Lanky's fetching your albums…</div>
     </div>
   `;
+}
+
+function LoadingNote({ label, className = 'muted' }) {
+  return html`<p class=${className}><${LankyPartyMascot} />${label}</p>`;
 }
 
 function LankyMascot({ className = '' }) {
@@ -1043,11 +1219,13 @@ function Nav({ projectName, tab, backlogCount }) {
 }
 
 // ---------- Today ----------
-function TodayView({ projectName, me, backlog }) {
+function TodayView({ projectName, me, backlog, subTab }) {
   const album = me.currentAlbum;
   const [siteModalOpen, setSiteModalOpen] = useState(false);
   const modalTitle = 'Original 1001 Albums site';
   const siteUrl = `${SITE_BASE}/${encodeURIComponent(projectName)}`;
+  const tab = subTab || 'summary';
+  const setTab = (t) => navigateTo(routePath(projectName, 'today', null, t === 'summary' ? null : t));
   return html`
     <div>
       ${backlog.length > 0 && html`
@@ -1069,7 +1247,7 @@ function TodayView({ projectName, me, backlog }) {
               <p class="album-artist">${album.artist}</p>
               <p class="album-year">${album.releaseDate}</p>
               <${StreamingLinks} album=${album} />
-              <${AlbumInfoTabs} album=${album} />
+              <${AlbumInfoTabs} album=${album} tab=${tab} onTabChange=${setTab} />
               <button class="pill-btn" type="button" onClick=${() => setSiteModalOpen(true)}>Open original site</button>
               <p class="muted" style=${{ marginTop: '8px' }}>This opens the original 1001 Albums site in a modal, where you leave notes and rate the album.</p>
               ${siteModalOpen && html`<${SiteModal} url=${siteUrl} title=${modalTitle} onClose=${() => setSiteModalOpen(false)} />`}
@@ -1082,7 +1260,7 @@ function TodayView({ projectName, me, backlog }) {
 }
 
 // ---------- Backlog ----------
-function BacklogAlbumView({ projectName, entry, groupSlug, comparison }) {
+function BacklogAlbumView({ projectName, entry, groupSlug, comparison, subTab }) {
   if (!entry) {
     return html`
       <div class="card">
@@ -1094,6 +1272,8 @@ function BacklogAlbumView({ projectName, entry, groupSlug, comparison }) {
   }
 
   const album = entry.album;
+  const tab = subTab || 'summary';
+  const setTab = (t) => navigateTo(routePath(projectName, 'backlog', backlogEntryId(entry), t === 'summary' ? null : t));
   return html`
     <div>
       <div class="banner warn">
@@ -1111,11 +1291,9 @@ function BacklogAlbumView({ projectName, entry, groupSlug, comparison }) {
             <p class="album-title">${album.name}</p>
             <p class="album-artist">${album.artist}</p>
             <p class="album-year">${album.releaseDate}</p>
+            <${SiteModalLink} className="cta-btn" href=${`${SITE_BASE}/${encodeURIComponent(projectName)}/history`} title="History">Rate this album →<//>
             <${StreamingLinks} album=${album} />
-            <${AlbumInfoTabs} album=${album} groupSlug=${groupSlug} comparison=${comparison} />
-            <p>
-              <${SiteModalLink} className="pill-btn" href=${`${SITE_BASE}/${encodeURIComponent(projectName)}/history`} title="History">Open history to rate it →<//>
-            </p>
+            <${AlbumInfoTabs} album=${album} groupSlug=${groupSlug} comparison=${comparison} tab=${tab} onTabChange=${setTab} />
           </div>
         </div>
       </div>
@@ -1123,7 +1301,7 @@ function BacklogAlbumView({ projectName, entry, groupSlug, comparison }) {
   `;
 }
 
-function AlbumDetailView({ projectName, albumRecord, groupSlug, comparison }) {
+function AlbumDetailView({ projectName, albumRecord, groupSlug, comparison, subTab }) {
   if (!albumRecord) {
     return html`
       <div class="card">
@@ -1135,6 +1313,8 @@ function AlbumDetailView({ projectName, albumRecord, groupSlug, comparison }) {
   }
 
   const album = albumRecord.album;
+  const tab = subTab || 'summary';
+  const setTab = (t) => navigateTo(routePath(projectName, 'album', album.uuid, t === 'summary' ? null : t));
   return html`
     <div>
       <div class="banner good">
@@ -1153,7 +1333,7 @@ function AlbumDetailView({ projectName, albumRecord, groupSlug, comparison }) {
             <p class="album-artist">${album.artist}</p>
             <p class="album-year">${album.releaseDate}</p>
             <${StreamingLinks} album=${album} />
-            <${AlbumInfoTabs} album=${album} groupSlug=${groupSlug} comparison=${comparison} />
+            <${AlbumInfoTabs} album=${album} groupSlug=${groupSlug} comparison=${comparison} tab=${tab} onTabChange=${setTab} />
           </div>
         </div>
       </div>
@@ -1161,7 +1341,13 @@ function AlbumDetailView({ projectName, albumRecord, groupSlug, comparison }) {
   `;
 }
 
-function BacklogView({ projectName, backlog }) {
+function BacklogView({ projectName, backlog, members }) {
+  const groupRatings = useMemo(() => {
+    const map = new Map();
+    for (const row of deriveGroupAlbumTable(members)) map.set(row.album.uuid, row);
+    return map;
+  }, [members]);
+
   return html`
     <div class="card">
       <h2>Unrated Albums</h2>
@@ -1170,17 +1356,21 @@ function BacklogView({ projectName, backlog }) {
       ` : html`
         <p class="muted">The real history page has no way to jump straight to a row, so the history button opens that page in a modal — find them by date.</p>
         <table>
-          <thead><tr><th>Date</th><th>Album</th><th>Artist</th><th>Global Rating</th><th></th></tr></thead>
+          <thead><tr><th>Date</th><th>Album</th><th>Artist</th><th>Rating</th></tr></thead>
           <tbody>
-            ${backlog.map(e => html`
+            ${backlog.map(e => {
+              const groupRow = groupRatings.get(e.album.uuid);
+              return html`
               <tr>
                 <td>${new Date(e.generatedAt).toLocaleDateString()}</td>
-                <td>${e.album.name}</td>
+                <td><a class="row-link" href=${routePath(projectName, 'backlog', backlogEntryId(e))} onClick=${(event) => { event.preventDefault(); navigateTo(routePath(projectName, 'backlog', backlogEntryId(e))); }}>${e.album.name}</a></td>
                 <td>${e.album.artist}</td>
-                <td>${e.globalRating != null ? e.globalRating : '—'}</td>
-                <td><a class="pill-btn" href=${routePath(projectName, 'backlog', backlogEntryId(e))} onClick=${(event) => { event.preventDefault(); navigateTo(routePath(projectName, 'backlog', backlogEntryId(e))); }}>View</a></td>
+                <td>
+                  <div>${formatRating(groupRow ? groupRow.averageRating : null)} <span class="muted" style=${{ fontSize: '11px' }}>grp${groupRow && groupRow.votes ? ` (${groupRow.votes})` : ''}</span></div>
+                  <div class="muted" style=${{ fontSize: '11px' }}>${e.globalRating != null ? e.globalRating : '—'} global</div>
+                </td>
               </tr>
-            `)}
+            `})}
           </tbody>
         </table>
         <p style=${{ marginTop: '12px' }}>
@@ -1263,15 +1453,14 @@ function GroupView({ group, members, projectName }) {
           <button class=${sortBy === 'date' ? 'active' : ''} onClick=${() => setSortBy('date')}>Date</button>
         </div>
         <table>
-          <thead><tr><th>Album</th><th>Artist</th><th>Rating</th><th>Votes</th><th></th></tr></thead>
+          <thead><tr><th>Album</th><th>Artist</th><th>Rating</th><th>Votes</th></tr></thead>
           <tbody>
             ${sortedAlbums.map(r => html`
               <tr>
-                <td>${r.album.name}</td>
+                <td><a class="row-link" href=${routePath(projectName, 'album', r.album.uuid)} onClick=${(event) => { event.preventDefault(); navigateTo(routePath(projectName, 'album', r.album.uuid)); }}>${r.album.name}</a></td>
                 <td>${r.album.artist}</td>
                 <td>${r.averageRating != null ? r.averageRating : '—'}</td>
                 <td>${r.votes}</td>
-                <td><a class="pill-btn" href=${routePath(projectName, 'album', r.album.uuid)} onClick=${(event) => { event.preventDefault(); navigateTo(routePath(projectName, 'album', r.album.uuid)); }}>View</a></td>
               </tr>
             `)}
           </tbody>
@@ -1285,10 +1474,59 @@ function GroupView({ group, members, projectName }) {
           <thead><tr><th>Pair</th><th>Alignment</th><th>Shared albums</th></tr></thead>
           <tbody>
             ${alignment.map(p => html`
-              <tr><td>${p.a} ↔ ${p.b}</td><td>${p.alignment}%</td><td>${p.shared}</td></tr>
+              <tr>
+                <td><a class="row-link" href=${pairRoutePath(projectName, p.a, p.b)} onClick=${(event) => { event.preventDefault(); navigateTo(pairRoutePath(projectName, p.a, p.b)); }}>${p.a} ↔ ${p.b}</a></td>
+                <td>${p.alignment}%</td>
+                <td>${p.shared}</td>
+              </tr>
             `)}
           </tbody>
         </table>
+      </div>
+    </div>
+  `;
+}
+
+// ---------- Pair ----------
+function PairDetailView({ projectName, members, pairA, pairB }) {
+  const alignment = useMemo(() => deriveAlignment(members), [members]);
+  const pair = alignment.find(p => (p.a === pairA && p.b === pairB) || (p.a === pairB && p.b === pairA));
+
+  if (!pair) {
+    return html`
+      <div class="card">
+        <h2>Taste Alignment</h2>
+        <p class="muted">Couldn't find a comparison for ${pairA} and ${pairB} — they may not have enough albums rated in common.</p>
+        <a class="pill-btn" href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'group')); }}>Back to group</a>
+      </div>
+    `;
+  }
+
+  return html`
+    <div>
+      <div class="banner good">
+        <strong>${pair.a} ↔ ${pair.b}: ${pair.alignment}% aligned</strong>
+        <span class="spacer"></span>
+        <a href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'group')); }}>Back to group</a>
+      </div>
+      <div class="card">
+        <h2>Shared Albums (${pair.shared})</h2>
+        <p class="muted">Sorted by biggest disagreement first.</p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Album</th><th>Artist</th><th>${pair.a}</th><th>${pair.b}</th></tr></thead>
+            <tbody>
+              ${pair.details.map(d => html`
+                <tr>
+                  <td>${d.album ? html`<a class="row-link" href=${routePath(projectName, 'album', d.album.uuid)} onClick=${(event) => { event.preventDefault(); navigateTo(routePath(projectName, 'album', d.album.uuid)); }}>${d.album.name}</a>` : '—'}</td>
+                  <td>${d.album ? d.album.artist : '—'}</td>
+                  <td>${formatRating(d.ratingA)}</td>
+                  <td>${formatRating(d.ratingB)}</td>
+                </tr>
+              `)}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   `;
@@ -1343,7 +1581,7 @@ function MeView({ me }) {
 // ---------- App ----------
 function App() {
   const [route, setRoute] = useState(getRouteFromLocation());
-  const { projectName, tab, backlogAlbumId, albumId } = route;
+  const { projectName, tab, backlogAlbumId, albumId, subTab, pairA, pairB } = route;
 
   useEffect(() => {
     const onNav = () => setRoute(getRouteFromLocation());
@@ -1354,6 +1592,13 @@ function App() {
       window.removeEventListener('popstate', onNav);
     };
   }, []);
+
+  // Hash-based navigation doesn't reset scroll position like a real page load does, so
+  // jumping between views (e.g. clicking a pair link from the bottom of Group) would
+  // otherwise leave you scrolled wherever the previous view left off.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [tab, backlogAlbumId, albumId, pairA, pairB]);
 
   const hub = useHub(projectName);
 
@@ -1372,7 +1617,7 @@ function App() {
 
   return html`
     <div>
-      <${Nav} projectName=${projectName} tab=${tab === 'album' ? 'group' : tab} backlogCount=${backlog.length} />
+      <${Nav} projectName=${projectName} tab=${(tab === 'album' || tab === 'pair') ? 'group' : tab} backlogCount=${backlog.length} />
       <${RefreshErrorToast} error=${hub.refreshError} onDismiss=${hub.dismissRefreshError} />
       <div class="page">
         ${hub.status === 'loading' && html`<${Loading} />`}
@@ -1384,13 +1629,14 @@ function App() {
               : `Updated ${new Date(hub.fetchedAt).toLocaleTimeString()}`}</span>
             <a href="#" onClick=${(e) => { e.preventDefault(); hub.refresh(); }}>Refresh</a>
           </div>
-          ${tab === 'today' && html`<${TodayView} projectName=${projectName} me=${hub.data.me} backlog=${backlog} />`}
+          ${tab === 'today' && html`<${TodayView} projectName=${projectName} me=${hub.data.me} backlog=${backlog} subTab=${subTab} />`}
           ${tab === 'backlog' && (backlogAlbumId
-            ? html`<${BacklogAlbumView} projectName=${projectName} entry=${backlogEntry} groupSlug=${groupSlug} comparison=${comparison} />`
-            : html`<${BacklogView} projectName=${projectName} backlog=${backlog} />`
+            ? html`<${BacklogAlbumView} projectName=${projectName} entry=${backlogEntry} groupSlug=${groupSlug} comparison=${comparison} subTab=${subTab} />`
+            : html`<${BacklogView} projectName=${projectName} backlog=${backlog} members=${hub.data.members} />`
           )}
-          ${tab === 'album' && html`<${AlbumDetailView} projectName=${projectName} albumRecord=${albumRecord} groupSlug=${groupSlug} comparison=${comparison} />`}
+          ${tab === 'album' && html`<${AlbumDetailView} projectName=${projectName} albumRecord=${albumRecord} groupSlug=${groupSlug} comparison=${comparison} subTab=${subTab} />`}
           ${tab === 'group' && html`<${GroupView} group=${hub.data.group} members=${hub.data.members} projectName=${projectName} />`}
+          ${tab === 'pair' && html`<${PairDetailView} projectName=${projectName} members=${hub.data.members} pairA=${pairA} pairB=${pairB} />`}
           ${tab === 'me' && html`<${MeView} me=${hub.data.me} />`}
         `}
         <p class="footer-note">Built for lankyserv <${LankyPartyMascot} /> Unofficial companion to 1001albumsgenerator.com</p>
