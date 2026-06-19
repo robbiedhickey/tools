@@ -247,17 +247,75 @@ const LANKY_LOADING_GIF_URL = 'https://media.tenor.com/dk8ZbQriTFoAAAAi/video-ga
 
 // ---------- data layer ----------
 class ApiError extends Error {
-  constructor(message, status) { super(message); this.status = status; }
+  constructor(message, status, details = {}) {
+    super(message);
+    this.status = status;
+    this.details = details;
+  }
+}
+
+function parseRetryAfterSeconds(value) {
+  if (!value) return null;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return seconds;
+  const date = Date.parse(value);
+  if (Number.isNaN(date)) return null;
+  return Math.max(0, Math.round((date - Date.now()) / 1000));
+}
+
+function formatRetryAfter(seconds) {
+  if (!Number.isFinite(seconds) || seconds == null) return null;
+  const minutes = Math.ceil(seconds / 60);
+  if (minutes <= 1) return 'about 1 minute';
+  if (minutes < 60) return `about ${minutes} minutes`;
+  const hours = Math.ceil(minutes / 60);
+  return hours === 1 ? 'about 1 hour' : `about ${hours} hours`;
+}
+
+function isRateLimitResponse(status, message, bodyText) {
+  const text = `${message || ''} ${bodyText || ''}`.toLowerCase();
+  return status === 429 || (status === 403 && /rate limit|too many requests|temporarily blocked|temporarily banned|blocked|retry later|try again later|wait/i.test(text));
+}
+
+function formatApiErrorMessage(res, body, bodyText) {
+  const message = body && typeof body.message === 'string' ? body.message.trim() : '';
+  const retryAfter = parseRetryAfterSeconds(res.headers.get('retry-after'));
+  const retryHint = formatRetryAfter(retryAfter);
+
+  if (isRateLimitResponse(res.status, message, bodyText)) {
+    const prefix = res.status === 403 ? 'Your IP has been temporarily blocked by the API.' : 'The API rate limit has been hit.';
+    return retryHint
+      ? `${prefix} Try again in ${retryHint}.`
+      : `${prefix} Try again in a little while.`;
+  }
+
+  if (message) return message;
+  if (bodyText) {
+    const trimmed = bodyText.trim();
+    if (trimmed && !/^[<{]/.test(trimmed) && trimmed.length <= 160) return trimmed;
+  }
+  return `Request failed (${res.status})`;
 }
 
 async function apiGet(path) {
-  const res = await fetch(`${API_BASE}${path}`);
-  if (!res.ok) {
-    let body = null;
-    try { body = await res.json(); } catch (e) {}
-    throw new ApiError((body && body.message) || `Request failed (${res.status})`, res.status);
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${path}`);
+  } catch (err) {
+    const message = navigator.onLine === false
+      ? 'Network is offline. Try again once you have a connection.'
+      : 'The API request was blocked before the response could be read. You may be rate limited or temporarily blocked; try again in a little while.';
+    throw new ApiError(message, 0, { cause: err });
   }
-  return res.json();
+  const bodyText = await res.text();
+  let body = null;
+  if (bodyText) {
+    try { body = JSON.parse(bodyText); } catch (e) {}
+  }
+  if (!res.ok) {
+    throw new ApiError(formatApiErrorMessage(res, body, bodyText), res.status, { body, bodyText });
+  }
+  return body;
 }
 
 const fetchProject = (name) => apiGet(`/projects/${encodeURIComponent(name)}`);
