@@ -120,7 +120,9 @@
     background: var(--text); color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 13px; white-space: nowrap;
     display: inline-block; border: 0; cursor: pointer;
   }
+  .pill-btn:disabled { opacity: 0.55; cursor: not-allowed; }
   .banner a:hover, .pill-btn:hover { text-decoration: none; opacity: 0.85; }
+  .pill-btn:disabled:hover { opacity: 0.55; }
   .cta-btn {
     background: var(--accent); color: #fff; padding: 12px 18px; border-radius: 10px;
     font-size: 15px; font-weight: 700; border: 0; cursor: pointer;
@@ -474,6 +476,27 @@ async function saveRating(projectName, albumUuid, generatedAlbumId, rating, note
   const body = await res.json().catch(() => null);
   if (!res.ok || !body || body.success !== true) {
     throw new Error('Failed to submit rating — it may already be rated.');
+  }
+  return body;
+}
+
+// Undocumented endpoint the live site uses when its notification bell is opened. Keep this behind
+// an explicit button so the Kongsole doesn't clear unread state as a side effect of browsing.
+async function markAllNotificationsRead(projectName) {
+  let res;
+  try {
+    res = await fetch(`${SITE_BASE}/api/notifications/${encodeURIComponent(projectName)}/read-all`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+  } catch (err) {
+    throw new Error(describeFetchFailure(err));
+  }
+  if (isRateLimitStatus(res.status)) throw new Error(describeRateLimit(res));
+  const body = await res.json().catch(() => null);
+  if (!res.ok || (body && body.success === false)) {
+    throw new Error('Failed to mark notifications read.');
   }
   return body;
 }
@@ -912,24 +935,33 @@ function useHub(projectName) {
 }
 
 // The site's own notification bell is backed by /api/notifications/:projectName, a separate,
-// undocumented (and CORS-open) endpoint from the v1 API. We only ever call it with `read=false`
-// (a safe GET) — never the `read-all` POST the site's own page fires when you open the bell there —
-// so viewing this tab never marks anything as read on the real site.
+// undocumented (and CORS-open) endpoint from the v1 API. Loading this hook uses `read=false`
+// (a safe GET) so viewing the tab never marks anything as read on the real site.
 function useNotifications(projectName) {
-  const [state, setState] = useState({ status: 'idle', notifications: [], errorMessage: '' });
+  const [state, setState] = useState({ status: 'idle', notifications: [], errorMessage: '', markingRead: false, markReadMessage: '' });
 
   useEffect(() => {
     if (!projectName) return;
     let cancelled = false;
-    setState({ status: 'loading', notifications: [], errorMessage: '' });
+    setState({ status: 'loading', notifications: [], errorMessage: '', markingRead: false, markReadMessage: '' });
     fetch(`${SITE_BASE}/api/notifications/${encodeURIComponent(projectName)}?read=false`)
       .then((r) => { if (!r.ok) throw new Error(isRateLimitStatus(r.status) ? describeRateLimit(r) : 'lookup failed'); return r.json(); })
-      .then((data) => { if (!cancelled) setState({ status: 'ready', notifications: data.notifications || [], errorMessage: '' }); })
-      .catch((e) => { if (!cancelled) setState({ status: 'error', notifications: [], errorMessage: e.message === 'lookup failed' ? '' : describeFetchFailure(e) }); });
+      .then((data) => { if (!cancelled) setState({ status: 'ready', notifications: data.notifications || [], errorMessage: '', markingRead: false, markReadMessage: '' }); })
+      .catch((e) => { if (!cancelled) setState({ status: 'error', notifications: [], errorMessage: e.message === 'lookup failed' ? '' : describeFetchFailure(e), markingRead: false, markReadMessage: '' }); });
     return () => { cancelled = true; };
   }, [projectName]);
 
-  return state;
+  const markAllRead = useCallback(async () => {
+    setState(s => ({ ...s, markingRead: true, markReadMessage: '' }));
+    try {
+      await markAllNotificationsRead(projectName);
+      setState(s => ({ ...s, status: 'ready', notifications: [], errorMessage: '', markingRead: false, markReadMessage: 'Marked all notifications read.' }));
+    } catch (e) {
+      setState(s => ({ ...s, markingRead: false, markReadMessage: e.message || "Couldn't mark notifications read." }));
+    }
+  }, [projectName]);
+
+  return { ...state, markAllRead };
 }
 
 // ---------- small components ----------
@@ -1944,8 +1976,16 @@ function ActivityView({ members, projectName, group, notifications }) {
   return html`
     <div>
       <div class="card">
-        <h2>Notifications${notifications.notifications.length > 0 ? html` <span class="badge">${notifications.notifications.length} unread</span>` : ''}</h2>
+        <div style=${{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '8px' }}>
+          <h2 style=${{ margin: 0 }}>Notifications${notifications.notifications.length > 0 ? html` <span class="badge">${notifications.notifications.length} unread</span>` : ''}</h2>
+          ${notifications.status === 'ready' && notifications.notifications.length > 0 && html`
+            <button type="button" class="pill-btn" disabled=${notifications.markingRead} onClick=${notifications.markAllRead}>
+              ${notifications.markingRead ? 'Marking…' : 'Mark as read'}
+            </button>
+          `}
+        </div>
         <p class="muted">Mirrors the bell on the real site. Viewing this never marks them read there.</p>
+        ${notifications.markReadMessage && html`<p class="muted">${notifications.markReadMessage}</p>`}
         ${notifications.status === 'loading' && html`<${LoadingNote} label="Loading notifications…" />`}
         ${notifications.status === 'error' && html`<p class="muted">${notifications.errorMessage || "Couldn't load notifications."}</p>`}
         ${notifications.status === 'ready' && (notifications.notifications.length === 0 ? html`
