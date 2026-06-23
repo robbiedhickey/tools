@@ -699,6 +699,7 @@ function streamingLinks(album) {
 }
 
 // ---------- localStorage cache ----------
+const CURRENT_PROJECT_KEY = 'current-project-name';
 const cacheKey = (name) => `hub:${name}`;
 const globalReviewsCacheKey = (url) => `global-reviews:${url}`;
 const globalContextCacheKey = (url) => `global-context:${url}`;
@@ -706,6 +707,15 @@ const globalContextCacheKey = (url) => `global-context:${url}`;
 // cached entries (missing newly-added fields) get invalidated instead of silently served forever.
 const APPLE_TRACKS_CACHE_VERSION = 'v2';
 const appleTracksCacheKey = (id) => `apple-tracks:${APPLE_TRACKS_CACHE_VERSION}:${id}`;
+function readCurrentProjectName() {
+  try { return localStorage.getItem(CURRENT_PROJECT_KEY) || ''; } catch (e) { return ''; }
+}
+function writeCurrentProjectName(name) {
+  try { localStorage.setItem(CURRENT_PROJECT_KEY, name); } catch (e) {}
+}
+function clearCurrentProjectName() {
+  try { localStorage.removeItem(CURRENT_PROJECT_KEY); } catch (e) {}
+}
 function readCache(name) {
   try {
     const raw = localStorage.getItem(cacheKey(name));
@@ -877,6 +887,7 @@ function useHub(projectName) {
     if (!force) {
       const cached = readCache(projectName);
       if (cached) {
+        writeCurrentProjectName(projectName);
         setState({ status: 'ready', data: cached.data, error: null, refreshError: null, fetchedAt: cached.fetchedAt, stale: cached.stale, refreshing: cached.stale });
         if (!cached.stale) return;
       } else {
@@ -888,6 +899,7 @@ function useHub(projectName) {
     try {
       const data = await loadHub(projectName);
       writeCache(projectName, data);
+      writeCurrentProjectName((data.me && data.me.name) || projectName);
       setState({ status: 'ready', data, error: null, refreshError: null, fetchedAt: Date.now(), stale: false, refreshing: false });
     } catch (err) {
       setState(s => (s.data ? { ...s, refreshError: err, refreshing: false } : { status: 'error', data: null, error: err, refreshError: null, fetchedAt: null, stale: false, refreshing: false }));
@@ -2035,8 +2047,17 @@ function PairDetailView({ projectName, members, pairA, pairB }) {
 // ---------- Me ----------
 function MeView({ me, projectName }) {
   const stats = useMemo(() => computeUserStats(me), [me]);
+  const switchUser = () => {
+    clearCurrentProjectName();
+    navigateTo(APP_BASE);
+  };
   return html`
     <div>
+      <div class="card">
+        <h2>${projectName}</h2>
+        <p class="muted">This browser opens your Today page by default.</p>
+        <button type="button" class="pill-btn" onClick=${switchUser}>Switch user</button>
+      </div>
       <div class="card">
         <h2>Crate Stats</h2>
         <div class="grid cols-3">
@@ -2173,6 +2194,7 @@ function BreakdownStats({ genres, styles, decades, projectName }) {
 function App() {
   const [route, setRoute] = useState(getRouteFromLocation());
   const { projectName, tab, backlogAlbumId, albumId, subTab, pairA, pairB } = route;
+  const currentProjectName = !projectName ? readCurrentProjectName() : '';
 
   useEffect(() => {
     const onNav = () => setRoute(getRouteFromLocation());
@@ -2184,6 +2206,11 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (projectName || !currentProjectName) return;
+    navigateTo(routePath(currentProjectName));
+  }, [projectName, currentProjectName]);
+
   // Hash-based navigation doesn't reset scroll position like a real page load does, so
   // jumping between views (e.g. clicking a pair link from the bottom of Group) would
   // otherwise leave you scrolled wherever the previous view left off.
@@ -2194,6 +2221,7 @@ function App() {
   const hub = useHub(projectName);
   const notifications = useNotifications(projectName);
 
+  if (!projectName && currentProjectName) return null;
   if (!projectName) return html`<${NameEntry} />`;
 
   const backlog = hub.data ? deriveBacklog(hub.data.me) : [];
