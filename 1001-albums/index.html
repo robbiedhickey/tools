@@ -69,7 +69,15 @@
   }
   .tab:hover { background: var(--bg); text-decoration: none; }
   .tab.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-  .real-site-link { margin-left: auto; font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+  .nav-actions { margin-left: auto; display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
+  .real-site-link { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+  .bell-link { position: relative; font-size: 17px; line-height: 1; cursor: pointer; display: inline-block; }
+  .bell-badge {
+    position: absolute; top: -7px; right: -9px;
+    background: var(--accent); color: #fff; border-radius: 999px;
+    padding: 1px 5px; font-size: 10px; font-weight: 700; line-height: 1.3;
+    min-width: 15px; text-align: center;
+  }
   .status-row {
     margin-bottom: 10px; font-size: 12px; color: var(--text-dim);
     display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
@@ -273,6 +281,17 @@
     border: 1px solid var(--border); background: var(--bg); border-radius: 999px; padding: 4px 10px; font-size: 12px; cursor: pointer;
   }
   .sort-controls button.active { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+  .star-btn { border: 0; background: transparent; cursor: pointer; font-size: 16px; line-height: 1; padding: 0; color: var(--text-dim); }
+  .star-btn.active { color: var(--warn); }
+  .rating-stars { display: flex; gap: 4px; }
+  .star-pick { border: 0; background: transparent; cursor: pointer; font-size: 26px; line-height: 1; padding: 0; color: var(--border); }
+  .star-pick.active { color: var(--warn); }
+  .apple-music-link {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 999px; vertical-align: middle;
+    border: 1px solid var(--border); background: var(--bg); color: #fa233b;
+  }
+  .track-link { color: var(--accent); font-weight: 600; }
 
   .badge { background: var(--accent); color: #fff; border-radius: 999px; padding: 1px 7px; font-size: 11px; margin-left: 4px; }
   .muted { color: var(--text-dim); font-size: 13px; }
@@ -352,23 +371,28 @@ function formatRetryAfter(seconds) {
   return hours === 1 ? 'about 1 hour' : `about ${hours} hours`;
 }
 
-function isRateLimitResponse(status, message, bodyText) {
-  const text = `${message || ''} ${bodyText || ''}`.toLowerCase();
-  return status === 429 || (status === 403 && /rate limit|too many requests|temporarily blocked|temporarily banned|blocked|retry later|try again later|wait/i.test(text));
+// Every 403 observed from 1001albumsgenerator.com across this project's research has been the
+// same IP-ban response (confirmed live 2026-06-23: "Your IP has been temporarily banned...").
+// Nothing in the API ever documents 403 for any other reason, so treating any 403 as a rate
+// limit — without needing to parse a JSON body — lets this cover endpoints that return HTML or
+// a body shape we don't otherwise parse (Wikipedia-style scraping, listening-note, notifications).
+function isRateLimitStatus(status) {
+  return status === 429 || status === 403;
+}
+
+function describeRateLimit(res) {
+  const retryAfter = parseRetryAfterSeconds(res.headers.get('retry-after'));
+  const retryHint = formatRetryAfter(retryAfter);
+  const prefix = res.status === 403 ? 'Your IP has been temporarily blocked by the API.' : 'The API rate limit has been hit.';
+  return retryHint
+    ? `${prefix} Try again in ${retryHint}.`
+    : `${prefix} Try again in a little while.`;
 }
 
 function formatApiErrorMessage(res, body, bodyText) {
+  if (isRateLimitStatus(res.status)) return describeRateLimit(res);
+
   const message = body && typeof body.message === 'string' ? body.message.trim() : '';
-  const retryAfter = parseRetryAfterSeconds(res.headers.get('retry-after'));
-  const retryHint = formatRetryAfter(retryAfter);
-
-  if (isRateLimitResponse(res.status, message, bodyText)) {
-    const prefix = res.status === 403 ? 'Your IP has been temporarily blocked by the API.' : 'The API rate limit has been hit.';
-    return retryHint
-      ? `${prefix} Try again in ${retryHint}.`
-      : `${prefix} Try again in a little while.`;
-  }
-
   if (message) return message;
   if (bodyText) {
     const trimmed = bodyText.trim();
@@ -377,15 +401,23 @@ function formatApiErrorMessage(res, body, bodyText) {
   return `Request failed (${res.status})`;
 }
 
+// A banned/rate-limited response from this site omits CORS headers entirely (confirmed live
+// 2026-06-23: a normal 403 has `Access-Control-Allow-Origin: *`, a banned one has no CORS
+// headers at all) — so from a browser, fetch() rejects with an opaque TypeError before any
+// status code is readable. This is the only signal available in that case.
+function describeFetchFailure(err) {
+  if (!(err instanceof TypeError)) return err.message;
+  return navigator.onLine === false
+    ? 'Network is offline. Try again once you have a connection.'
+    : 'The request was blocked before the response could be read. You may be rate limited or temporarily blocked; try again in a little while.';
+}
+
 async function apiGet(path) {
   let res;
   try {
     res = await fetch(`${API_BASE}${path}`);
   } catch (err) {
-    const message = navigator.onLine === false
-      ? 'Network is offline. Try again once you have a connection.'
-      : 'The API request was blocked before the response could be read. You may be rate limited or temporarily blocked; try again in a little while.';
-    throw new ApiError(message, 0, { cause: err });
+    throw new ApiError(describeFetchFailure(err), 0, { cause: err });
   }
   const bodyText = await res.text();
   let body = null;
@@ -401,6 +433,50 @@ async function apiGet(path) {
 const fetchProject = (name) => apiGet(`/projects/${encodeURIComponent(name)}`);
 const fetchGroup = (slug) => apiGet(`/groups/${encodeURIComponent(slug)}`);
 const fetchGroupAlbumReviews = (groupSlug, albumUuid) => apiGet(`/groups/${encodeURIComponent(groupSlug)}/albums/${encodeURIComponent(albumUuid)}`);
+
+// Undocumented write endpoint, confirmed live to require no auth/cookie/CORS preflight beyond a
+// plain POST — see 1001-albums/WRITE_API_PLAN.md. Lives under the bare /api root, not /api/v1.
+async function saveListeningNote(projectName, albumId, notes) {
+  let res;
+  try {
+    res = await fetch(`${SITE_BASE}/api/${encodeURIComponent(projectName)}/${encodeURIComponent(albumId)}/listening-note`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes, isUserAlbum: false }),
+    });
+  } catch (err) {
+    throw new Error(describeFetchFailure(err));
+  }
+  if (isRateLimitStatus(res.status)) throw new Error(describeRateLimit(res));
+  const body = await res.json().catch(() => null);
+  if (!res.ok || !body || body.success !== true) {
+    throw new Error('Failed to save listening note.');
+  }
+  return body;
+}
+
+// Verified live 2026-06-23 — requires no auth/cookie/CORS preflight beyond a plain POST, and
+// works against any unrated history entry, not just the one the real site's daily card defaults
+// to. Rejects (still HTTP 200, success:false) if the entry is already rated, or if albumUuid and
+// generatedAlbumId don't both belong to the same entry — see 1001-albums/WRITE_API_PLAN.md.
+async function saveRating(projectName, albumUuid, generatedAlbumId, rating, notes) {
+  let res;
+  try {
+    res = await fetch(`${SITE_BASE}/api/${encodeURIComponent(projectName)}/${encodeURIComponent(albumUuid)}/rate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating, notes: notes || '', fromHistoryView: true, generatedAlbumId, isUserAlbum: false }),
+    });
+  } catch (err) {
+    throw new Error(describeFetchFailure(err));
+  }
+  if (isRateLimitStatus(res.status)) throw new Error(describeRateLimit(res));
+  const body = await res.json().catch(() => null);
+  if (!res.ok || !body || body.success !== true) {
+    throw new Error('Failed to submit rating — it may already be rated.');
+  }
+  return body;
+}
 async function loadHub(projectName) {
   const me = await fetchProject(projectName);
   if (!me.group || !me.group.slug) {
@@ -498,6 +574,21 @@ function deriveGroupAlbumTable(membersMap) {
       return { album, ratings, votes, earliestAt, averageRating: avg !== null ? Math.round(avg * 100) / 100 : null };
     })
     .filter(r => r.votes > 0);
+}
+
+// The API has no separate "rated at" timestamp — only generatedAt (when the album was
+// assigned). Ratings are almost always submitted within a day or two of generation, so it's
+// the closest available proxy for "recent activity" across the group.
+function deriveActivityFeed(membersMap, limit = 50) {
+  const feed = [];
+  for (const [name, project] of Object.entries(membersMap)) {
+    if (!project || project.__error) continue;
+    for (const entry of project.history || []) {
+      if (!entry.album || !('rating' in entry)) continue;
+      feed.push({ member: name, album: entry.album, rating: entry.rating, review: entry.review || '', generatedAt: entry.generatedAt });
+    }
+  }
+  return feed.sort((a, b) => new Date(b.generatedAt) - new Date(a.generatedAt)).slice(0, limit);
 }
 
 function deriveAlignment(membersMap) {
@@ -611,7 +702,10 @@ function streamingLinks(album) {
 const cacheKey = (name) => `hub:${name}`;
 const globalReviewsCacheKey = (url) => `global-reviews:${url}`;
 const globalContextCacheKey = (url) => `global-context:${url}`;
-const appleTracksCacheKey = (id) => `apple-tracks:${id}`;
+// Bump this version segment whenever parseAppleLookupResults's output shape changes, so stale
+// cached entries (missing newly-added fields) get invalidated instead of silently served forever.
+const APPLE_TRACKS_CACHE_VERSION = 'v2';
+const appleTracksCacheKey = (id) => `apple-tracks:${APPLE_TRACKS_CACHE_VERSION}:${id}`;
 function readCache(name) {
   try {
     const raw = localStorage.getItem(cacheKey(name));
@@ -654,8 +748,65 @@ function writeAppleTracksCache(id, data) {
   try { localStorage.setItem(appleTracksCacheKey(id), JSON.stringify({ fetchedAt: Date.now(), data })); } catch (e) {}
 }
 
+// ---------- favorite tracks (local only, no backend yet) ----------
+const FAVORITE_TRACKS_KEY = 'favorite-track-ids';
+function readFavoriteTracks() {
+  try {
+    const raw = localStorage.getItem(FAVORITE_TRACKS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    // Migrate from the original shape (a bare array of track ID strings) to a {id: metadata}
+    // map, so the favorites list can render track/album/artist/Apple Music link on its own.
+    if (Array.isArray(parsed)) {
+      const migrated = {};
+      parsed.forEach((id) => { migrated[id] = { appleTrackId: id }; });
+      return migrated;
+    }
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (e) { return {}; }
+}
+function writeFavoriteTracks(map) {
+  try { localStorage.setItem(FAVORITE_TRACKS_KEY, JSON.stringify(map)); } catch (e) {}
+}
+function useFavoriteTracks() {
+  const [favorites, setFavorites] = useState(readFavoriteTracks);
+  const toggle = useCallback((track) => {
+    setFavorites((prev) => {
+      const next = { ...prev };
+      if (next[track.appleTrackId]) {
+        delete next[track.appleTrackId];
+      } else {
+        next[track.appleTrackId] = { ...track, favoritedAt: Date.now() };
+      }
+      writeFavoriteTracks(next);
+      return next;
+    });
+  }, []);
+  // Refreshes a favorite's stored metadata snapshot whenever its track data is on hand again
+  // (e.g. revisiting the album). Always overwrites rather than gating on "already has a title" —
+  // a favorite saved before a field was added (or from a stale cache) would otherwise get stuck
+  // with an incomplete snapshot forever, since having *a* title doesn't mean it has every field.
+  const sync = useCallback((track) => {
+    setFavorites((prev) => {
+      const existing = prev[track.appleTrackId];
+      if (!existing) return prev;
+      const merged = { ...track, favoritedAt: existing.favoritedAt || Date.now() };
+      const unchanged = Object.keys(merged).every((key) => existing[key] === merged[key]);
+      if (unchanged) return prev;
+      const next = { ...prev, [track.appleTrackId]: merged };
+      writeFavoriteTracks(next);
+      return next;
+    });
+  }, []);
+  const list = useMemo(
+    () => Object.values(favorites).sort((a, b) => (b.favoritedAt || 0) - (a.favoritedAt || 0)),
+    [favorites]
+  );
+  return { isFavorite: (trackId) => !!favorites[trackId], toggle, sync, list };
+}
+
 // ---------- routing ----------
-const VALID_TABS = new Set(['today', 'backlog', 'group', 'me']);
+const VALID_TABS = new Set(['today', 'backlog', 'group', 'activity', 'me']);
 // Sub-tabs within the album info panel (AlbumInfoTabs) — linkable as a trailing path segment
 // on album/backlog-album routes, e.g. .../backlog/{id}/group, so a specific tab is shareable.
 const VALID_SUBTABS = new Set(['summary', 'tracks', 'reviews', 'group']);
@@ -746,6 +897,27 @@ function useHub(projectName) {
   useEffect(() => { load(false); }, [load]);
 
   return { ...state, refresh: () => load(true), dismissRefreshError: () => setState(s => ({ ...s, refreshError: null })) };
+}
+
+// The site's own notification bell is backed by /api/notifications/:projectName, a separate,
+// undocumented (and CORS-open) endpoint from the v1 API. We only ever call it with `read=false`
+// (a safe GET) — never the `read-all` POST the site's own page fires when you open the bell there —
+// so viewing this tab never marks anything as read on the real site.
+function useNotifications(projectName) {
+  const [state, setState] = useState({ status: 'idle', notifications: [], errorMessage: '' });
+
+  useEffect(() => {
+    if (!projectName) return;
+    let cancelled = false;
+    setState({ status: 'loading', notifications: [], errorMessage: '' });
+    fetch(`${SITE_BASE}/api/notifications/${encodeURIComponent(projectName)}?read=false`)
+      .then((r) => { if (!r.ok) throw new Error(isRateLimitStatus(r.status) ? describeRateLimit(r) : 'lookup failed'); return r.json(); })
+      .then((data) => { if (!cancelled) setState({ status: 'ready', notifications: data.notifications || [], errorMessage: '' }); })
+      .catch((e) => { if (!cancelled) setState({ status: 'error', notifications: [], errorMessage: e.message === 'lookup failed' ? '' : describeFetchFailure(e) }); });
+    return () => { cancelled = true; };
+  }, [projectName]);
+
+  return state;
 }
 
 // ---------- small components ----------
@@ -846,6 +1018,31 @@ function formatRating(value) {
   return value;
 }
 
+// Notification `type` values observed live: groupReview, albumsRated, groupAlbumsGenerated,
+// custom, newGroupMember, donationPush, signup. Undocumented, so unknown future types fall
+// back to just showing the raw type name rather than breaking.
+function formatNotification(n) {
+  const d = n.data || {};
+  switch (n.type) {
+    case 'groupReview':
+      return { text: `${d.projectName} rated "${d.albumName}" ${d.rating}/5 in the group`, albumId: d.albumId };
+    case 'albumsRated':
+      return { text: `You've rated ${d.numberOfAlbums} albums` };
+    case 'groupAlbumsGenerated':
+      return { text: `Your group has generated ${d.numberOfAlbums} albums` };
+    case 'custom':
+      return { text: d.heading ? `${d.heading} — ${d.body || ''}` : (d.body || 'Announcement') };
+    case 'newGroupMember':
+      return { text: 'A new member joined your group' };
+    case 'donationPush':
+      return { text: 'Reminder to support the site' };
+    case 'signup':
+      return { text: 'Project created — welcome!' };
+    default:
+      return { text: n.type };
+  }
+}
+
 function ratingTier(avg) {
   return avg >= 4 ? 'green' : avg >= 3 ? 'yellow' : avg >= 2 ? 'orange' : 'red';
 }
@@ -872,8 +1069,11 @@ function parseAppleLookupResults(data) {
       title: track.trackName || '',
       durationMs: track.trackTimeMillis ?? null,
       artistName: track.artistName ?? null,
+      albumName: track.collectionName ?? null,
       appleTrackId: track.trackId != null ? String(track.trackId) : null,
       appleAlbumId: track.collectionId != null ? String(track.collectionId) : null,
+      trackViewUrl: track.trackViewUrl || null,
+      artworkUrl: track.artworkUrl100 || null,
       explicit: track.trackExplicitness === 'explicit' ? true : track.trackExplicitness === 'notExplicit' ? false : null,
       streamable: typeof track.isStreamable === 'boolean' ? track.isStreamable : null,
     }));
@@ -891,8 +1091,14 @@ function parseAppleLookupResults(data) {
   };
 }
 
+// Apple's iTunes Lookup API reflects the request's Origin in Access-Control-Allow-Origin
+// correctly, but Akamai (its CDN) caches the response keyed only by URL — no `Vary: Origin` — for
+// 24h. So whichever origin first requests a given lookup URL gets its Origin baked into the
+// cached response, and every other origin requesting that same URL gets served that stale,
+// mismatched CORS header and is blocked by the browser. Appending the calling origin to the
+// query string gives each origin its own cache entry, so the cached CORS header always matches.
 async function fetchAppleTrackMetadata(appleMusicId) {
-  const res = await fetch(`https://itunes.apple.com/lookup?id=${encodeURIComponent(appleMusicId)}&entity=song&country=US&media=music`);
+  const res = await fetch(`https://itunes.apple.com/lookup?id=${encodeURIComponent(appleMusicId)}&entity=song&country=US&media=music&_origin=${encodeURIComponent(location.origin)}`);
   if (!res.ok) {
     throw new Error(`Apple track lookup failed (${res.status})`);
   }
@@ -913,29 +1119,33 @@ function discoveryLinks(album) {
 }
 
 function AlbumSummaryContext({ album, comparison = null }) {
-  const [state, setState] = useState({ status: album.globalReviewsUrl ? 'loading' : 'ready', context: null });
+  const [state, setState] = useState({ status: album.globalReviewsUrl ? 'loading' : 'ready', context: null, errorMessage: '' });
 
   useEffect(() => {
     if (!album.globalReviewsUrl) {
-      setState({ status: 'ready', context: null });
+      setState({ status: 'ready', context: null, errorMessage: '' });
       return;
     }
     let cancelled = false;
     const cached = readGlobalContextCache(album.globalReviewsUrl);
     if (cached && cached.context) {
-      setState({ status: 'ready', context: cached.context });
+      setState({ status: 'ready', context: cached.context, errorMessage: '' });
       return;
     }
-    setState({ status: 'loading', context: null });
+    setState({ status: 'loading', context: null, errorMessage: '' });
     fetch(album.globalReviewsUrl)
-      .then((r) => { if (!r.ok) throw new Error('lookup failed'); return r.text(); })
+      // This page has no CORS headers, so a rate-limit block and a normal CORS block both
+      // surface as an opaque network error with no readable status — only catch this when the
+      // browser actually let us read a response (e.g. the page started sending CORS headers, or
+      // this particular failure mode wasn't CORS-opaque).
+      .then((r) => { if (!r.ok) throw new Error(isRateLimitStatus(r.status) ? describeRateLimit(r) : 'lookup failed'); return r.text(); })
       .then((text) => {
         const context = parseGlobalAlbumContext(text);
         writeGlobalContextCache(album.globalReviewsUrl, context);
-        if (!cancelled) setState({ status: 'ready', context });
+        if (!cancelled) setState({ status: 'ready', context, errorMessage: '' });
       })
-      .catch(() => {
-        if (!cancelled) setState({ status: 'error', context: null });
+      .catch((e) => {
+        if (!cancelled) setState({ status: 'error', context: null, errorMessage: e.message === 'lookup failed' ? '' : describeFetchFailure(e) });
       });
     return () => { cancelled = true; };
   }, [album.globalReviewsUrl]);
@@ -955,7 +1165,7 @@ function AlbumSummaryContext({ album, comparison = null }) {
       `}
 
       ${state.status === 'loading' && html`<${LoadingNote} label="Loading album details…" />`}
-      ${state.status === 'error' && html`<p class="muted">Couldn't load album details.</p>`}
+      ${state.status === 'error' && html`<p class="muted">${state.errorMessage || "Couldn't load album details."}</p>`}
       ${state.status === 'ready' && context && html`
         ${context.stats.rating && !(comparison && comparison.globalRating != null) && html`
           <div class="context-grid">
@@ -983,7 +1193,7 @@ function AlbumSummaryContext({ album, comparison = null }) {
 }
 
 function GlobalReviewsPreview({ url, limit = 25 }) {
-  const [state, setState] = useState({ status: 'loading', reviews: [], context: null });
+  const [state, setState] = useState({ status: 'loading', reviews: [], context: null, errorMessage: '' });
 
   useEffect(() => {
     if (!url) return;
@@ -991,24 +1201,26 @@ function GlobalReviewsPreview({ url, limit = 25 }) {
     const cached = readGlobalReviewsCache(url);
     const cachedContext = readGlobalContextCache(url);
     if (cached && cached.reviews && cachedContext && cachedContext.context) {
-      setState({ status: 'ready', reviews: cached.reviews, context: cachedContext.context });
+      setState({ status: 'ready', reviews: cached.reviews, context: cachedContext.context, errorMessage: '' });
       return;
     }
-    setState({ status: 'loading', reviews: [], context: null });
+    setState({ status: 'loading', reviews: [], context: null, errorMessage: '' });
     fetch(url)
-      .then((r) => { if (!r.ok) throw new Error('lookup failed'); return r.text(); })
+      // Same CORS-opacity caveat as AlbumSummaryContext above — only catchable when the browser
+      // actually let us read a response.
+      .then((r) => { if (!r.ok) throw new Error(isRateLimitStatus(r.status) ? describeRateLimit(r) : 'lookup failed'); return r.text(); })
       .then((text) => {
         const reviews = parseGlobalReviews(text, limit);
         const context = parseGlobalAlbumContext(text);
         writeGlobalReviewsCache(url, reviews);
         writeGlobalContextCache(url, context);
-        if (!cancelled) setState({ status: 'ready', reviews, context });
+        if (!cancelled) setState({ status: 'ready', reviews, context, errorMessage: '' });
       })
-      .catch(() => {
+      .catch((e) => {
         if (!cancelled && cached && cached.reviews) {
-          setState({ status: 'ready', reviews: cached.reviews, context: cachedContext ? cachedContext.context : null });
+          setState({ status: 'ready', reviews: cached.reviews, context: cachedContext ? cachedContext.context : null, errorMessage: '' });
         } else if (!cancelled) {
-          setState({ status: 'error', reviews: [], context: null });
+          setState({ status: 'error', reviews: [], context: null, errorMessage: e.message === 'lookup failed' ? '' : describeFetchFailure(e) });
         }
       });
     return () => { cancelled = true; };
@@ -1017,7 +1229,7 @@ function GlobalReviewsPreview({ url, limit = 25 }) {
   return html`
     <div>
       ${state.status === 'loading' && html`<${LoadingNote} label="Loading global reviews…" />`}
-      ${state.status === 'error' && html`<p class="muted">Couldn't load global reviews.</p>`}
+      ${state.status === 'error' && html`<p class="muted">${state.errorMessage || "Couldn't load global reviews."}</p>`}
       ${state.status === 'ready' && html`
         ${state.context && html`
           ${state.context.distribution.length > 0 && html`
@@ -1063,6 +1275,7 @@ function GlobalReviewsPreview({ url, limit = 25 }) {
 
 function TracksPreview({ album }) {
   const [state, setState] = useState({ status: album.appleMusicId ? 'idle' : 'hidden', data: null });
+  const favorites = useFavoriteTracks();
 
   useEffect(() => {
     if (!album.appleMusicId) {
@@ -1088,6 +1301,11 @@ function TracksPreview({ album }) {
     return () => { cancelled = true; };
   }, [album.appleMusicId]);
 
+  useEffect(() => {
+    if (!state.data) return;
+    state.data.tracks.forEach((track) => { if (track.appleTrackId) favorites.sync(track); });
+  }, [state.data]);
+
   return html`
     <div>
       ${state.status === 'hidden' && html`<p class="muted">No Apple Music ID is available for this album.</p>`}
@@ -1108,16 +1326,29 @@ function TracksPreview({ album }) {
           <p class="muted">No track rows were returned.</p>
         ` : html`
           <table>
-            <thead><tr><th>#</th><th>Track</th><th>Artist</th><th>Length</th></tr></thead>
+            <thead><tr><th></th><th>#</th><th>Track</th><th>Artist</th><th>Length</th></tr></thead>
             <tbody>
-              ${state.data.tracks.map(track => html`
+              ${state.data.tracks.map(track => {
+                const favorited = track.appleTrackId && favorites.isFavorite(track.appleTrackId);
+                return html`
                 <tr>
+                  <td>
+                    ${track.appleTrackId && html`
+                      <button
+                        type="button"
+                        class=${`star-btn ${favorited ? 'active' : ''}`}
+                        aria-label=${favorited ? 'Unfavorite track' : 'Favorite track'}
+                        onClick=${() => favorites.toggle(track)}
+                      >${favorited ? '★' : '☆'}</button>
+                    `}
+                  </td>
                   <td>${track.discNumber > 1 ? `${track.discNumber}-${track.trackNumber}` : track.trackNumber}</td>
                   <td>${track.title}</td>
                   <td>${track.artistName || '—'}</td>
                   <td>${formatDurationMs(track.durationMs)}</td>
                 </tr>
-              `)}
+              `;
+              })}
             </tbody>
           </table>
         `}
@@ -1243,6 +1474,16 @@ function LoadingNote({ label, className = 'muted' }) {
   return html`<p class=${className}><${LankyPartyMascot} />${label}</p>`;
 }
 
+// Official Apple Music glyph (Simple Icons, single-color path), used as a compact icon-only
+// link instead of a text pill to save horizontal space in dense rows.
+function AppleMusicIcon({ size = 16 }) {
+  return html`
+    <svg viewBox="0 0 24 24" width=${size} height=${size} fill="currentColor" aria-hidden="true">
+      <path d="M23.994 6.124a9.23 9.23 0 00-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043a5.022 5.022 0 00-1.877-.726 10.496 10.496 0 00-1.564-.15c-.04-.003-.083-.01-.124-.013H5.986c-.152.01-.303.017-.455.026-.747.043-1.49.123-2.193.4-1.336.53-2.3 1.452-2.865 2.78-.192.448-.292.925-.363 1.408-.056.392-.088.785-.1 1.18 0 .032-.007.062-.01.093v12.223c.01.14.017.283.027.424.05.815.154 1.624.497 2.373.65 1.42 1.738 2.353 3.234 2.801.42.127.856.187 1.293.228.555.053 1.11.06 1.667.06h11.03a12.5 12.5 0 001.57-.1c.822-.106 1.596-.35 2.295-.81a5.046 5.046 0 001.88-2.207c.186-.42.293-.87.37-1.324.113-.675.138-1.358.137-2.04-.002-3.8 0-7.595-.003-11.393zm-6.423 3.99v5.712c0 .417-.058.827-.244 1.206-.29.59-.76.962-1.388 1.14-.35.1-.706.157-1.07.173-.95.045-1.773-.6-1.943-1.536a1.88 1.88 0 011.038-2.022c.323-.16.67-.25 1.018-.324.378-.082.758-.153 1.134-.24.274-.063.457-.23.51-.516a.904.904 0 00.02-.193c0-1.815 0-3.63-.002-5.443a.725.725 0 00-.026-.185c-.04-.15-.15-.243-.304-.234-.16.01-.318.035-.475.066-.76.15-1.52.303-2.28.456l-2.325.47-1.374.278c-.016.003-.032.01-.048.013-.277.077-.377.203-.39.49-.002.042 0 .086 0 .13-.002 2.602 0 5.204-.003 7.805 0 .42-.047.836-.215 1.227-.278.64-.77 1.04-1.434 1.233-.35.1-.71.16-1.075.172-.96.036-1.755-.6-1.92-1.544-.14-.812.23-1.685 1.154-2.075.357-.15.73-.232 1.108-.31.287-.06.575-.116.86-.177.383-.083.583-.323.6-.714v-.15c0-2.96 0-5.922.002-8.882 0-.123.013-.25.042-.37.07-.285.273-.448.546-.518.255-.066.515-.112.774-.165.733-.15 1.466-.296 2.2-.444l2.27-.46c.67-.134 1.34-.27 2.01-.403.22-.043.442-.088.663-.106.31-.025.523.17.554.482.008.073.012.148.012.223.002 1.91.002 3.822 0 5.732z"/>
+    </svg>
+  `;
+}
+
 function LankyMascot({ className = '' }) {
   return html`<img class=${`mascot ${className}`} src=${LANKY_GIF_URL} alt="" aria-hidden="true" />`;
 }
@@ -1289,7 +1530,7 @@ function NameEntry() {
 }
 
 // ---------- nav ----------
-function Nav({ projectName, tab, backlogCount }) {
+function Nav({ projectName, tab, backlogCount, unreadCount }) {
   const tabs = [
     { id: 'today', label: 'Today' },
     { id: 'backlog', label: `Backlog${backlogCount ? ` (${backlogCount})` : ''}` },
@@ -1305,9 +1546,112 @@ function Nav({ projectName, tab, backlogCount }) {
             <a class=${`tab ${tab === t.id ? 'active' : ''}`} href=${routePath(projectName, t.id)} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, t.id)); }}>${t.label}</a>
           `)}
         </nav>
-        <a class="real-site-link" href=${`${SITE_BASE}/${encodeURIComponent(projectName)}`} target="_blank" rel="noopener">Open real site ↗</a>
+        <div class="nav-actions">
+          <a
+            class="bell-link"
+            href=${routePath(projectName, 'activity')}
+            onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'activity')); }}
+            aria-label=${`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}
+            title="Recent activity"
+          >
+            🔔${unreadCount > 0 && html`<span class="bell-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>`}
+          </a>
+          <a class="real-site-link" href=${`${SITE_BASE}/${encodeURIComponent(projectName)}`} target="_blank" rel="noopener">Open real site ↗</a>
+        </div>
       </div>
     </header>
+  `;
+}
+
+function ListeningNoteEditor({ projectName, albumId, initialNotes }) {
+  const [notes, setNotes] = useState(initialNotes || '');
+  const [status, setStatus] = useState('idle');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => { setNotes(initialNotes || ''); setStatus('idle'); setErrorMessage(''); }, [albumId, initialNotes]);
+
+  const save = async () => {
+    setStatus('saving');
+    try {
+      await saveListeningNote(projectName, albumId, notes);
+      setStatus('saved');
+    } catch (e) {
+      setStatus('error');
+      setErrorMessage(e.message || "Couldn't save — try again.");
+    }
+  };
+
+  return html`
+    <div style=${{ marginTop: '12px' }}>
+      <textarea
+        class="rate-optional-notes"
+        style=${{ width: '100%', minHeight: '90px', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border)', font: 'inherit', resize: 'vertical' }}
+        placeholder="Optional listening note…"
+        value=${notes}
+        onInput=${(e) => { setNotes(e.target.value); setStatus('idle'); }}
+      ></textarea>
+      <div style=${{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
+        <button class="pill-btn" type="button" disabled=${status === 'saving'} onClick=${save}>
+          ${status === 'saving' ? 'Saving…' : 'Save note'}
+        </button>
+        ${status === 'saved' && html`<span class="muted">Saved.</span>`}
+        ${status === 'error' && html`<span class="muted">${errorMessage}</span>`}
+      </div>
+    </div>
+  `;
+}
+
+function RatingEditor({ projectName, albumUuid, generatedAlbumId, initialNotes, onRated }) {
+  const [rating, setRating] = useState(0);
+  const [notes, setNotes] = useState(initialNotes || '');
+  const [status, setStatus] = useState('idle');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  // Carries over any note already saved on this entry (e.g. via the listening-note editor while
+  // it was still currentAlbum) — same field (`review`) the real site's history page reads to
+  // pre-fill its own rating form, so you can edit or accept it rather than starting blank.
+  useEffect(() => { setNotes(initialNotes || ''); }, [albumUuid, initialNotes]);
+
+  const submit = async () => {
+    if (!rating) return;
+    setStatus('saving');
+    try {
+      await saveRating(projectName, albumUuid, generatedAlbumId, rating, notes);
+      setStatus('saved');
+      if (onRated) onRated();
+    } catch (e) {
+      setStatus('error');
+      setErrorMessage(e.message || "Couldn't submit rating — try again.");
+    }
+  };
+
+  return html`
+    <div style=${{ marginTop: '12px', marginBottom: '16px' }}>
+      <div class="rating-stars" role="group" aria-label="Rating">
+        ${[1, 2, 3, 4, 5].map(n => html`
+          <button
+            type="button"
+            class=${`star-pick ${n <= rating ? 'active' : ''}`}
+            aria-label=${`${n} star${n === 1 ? '' : 's'}`}
+            onClick=${() => { setRating(n); setStatus('idle'); }}
+          >★</button>
+        `)}
+      </div>
+      <textarea
+        class="rate-optional-notes"
+        style=${{ width: '100%', minHeight: '90px', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border)', font: 'inherit', resize: 'vertical', marginTop: '8px' }}
+        placeholder="Optional review…"
+        value=${notes}
+        onInput=${(e) => { setNotes(e.target.value); setStatus('idle'); }}
+      ></textarea>
+      <div style=${{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
+        <button class="pill-btn" type="button" disabled=${status === 'saving' || !rating} onClick=${submit}>
+          ${status === 'saving' ? 'Submitting…' : 'Submit rating'}
+        </button>
+        ${status === 'saved' && html`<span class="muted">Saved.</span>`}
+        ${status === 'error' && html`<span class="muted">${errorMessage}</span>`}
+      </div>
+    </div>
   `;
 }
 
@@ -1341,8 +1685,9 @@ function TodayView({ projectName, me, backlog, subTab }) {
               <p class="album-year">${album.releaseDate}</p>
               <${StreamingLinks} album=${album} />
               <${AlbumInfoTabs} album=${album} tab=${tab} onTabChange=${setTab} />
-              <button class="pill-btn" type="button" onClick=${() => setSiteModalOpen(true)}>Open original site</button>
-              <p class="muted" style=${{ marginTop: '8px' }}>This opens the original 1001 Albums site in a modal, where you leave notes and rate the album.</p>
+              <${ListeningNoteEditor} projectName=${projectName} albumId=${album.uuid} initialNotes=${me.currentAlbumNotes} />
+              <button class="pill-btn" type="button" style=${{ marginTop: '12px' }} onClick=${() => setSiteModalOpen(true)}>Open original site</button>
+              <p class="muted" style=${{ marginTop: '8px' }}>Rating still requires the original site — open it below.</p>
               ${siteModalOpen && html`<${SiteModal} url=${siteUrl} title=${modalTitle} onClose=${() => setSiteModalOpen(false)} />`}
             </div>
           </div>
@@ -1353,7 +1698,7 @@ function TodayView({ projectName, me, backlog, subTab }) {
 }
 
 // ---------- Backlog ----------
-function BacklogAlbumView({ projectName, entry, groupSlug, comparison, subTab }) {
+function BacklogAlbumView({ projectName, entry, groupSlug, comparison, subTab, onRated }) {
   if (!entry) {
     return html`
       <div class="card">
@@ -1384,7 +1729,7 @@ function BacklogAlbumView({ projectName, entry, groupSlug, comparison, subTab })
             <p class="album-title">${album.name}</p>
             <p class="album-artist">${album.artist}</p>
             <p class="album-year">${album.releaseDate}</p>
-            <${SiteModalLink} className="cta-btn" href=${`${SITE_BASE}/${encodeURIComponent(projectName)}/history`} title="History">Rate this album →<//>
+            <${RatingEditor} projectName=${projectName} albumUuid=${album.uuid} generatedAlbumId=${entry.generatedAlbumId} initialNotes=${entry.review} onRated=${onRated} />
             <${StreamingLinks} album=${album} />
             <${AlbumInfoTabs} album=${album} groupSlug=${groupSlug} comparison=${comparison} tab=${tab} onTabChange=${setTab} />
           </div>
@@ -1475,17 +1820,20 @@ function BacklogView({ projectName, backlog, members }) {
 }
 
 // ---------- Group ----------
+const GROUP_ALBUMS_VISIBLE_DEFAULT = 50;
+
 function GroupView({ group, members, projectName }) {
-  const [sortBy, setSortBy] = useState('rating');
+  const [sortBy, setSortBy] = useState('date');
+  const [showAllAlbums, setShowAllAlbums] = useState(false);
   const albumTable = useMemo(() => deriveGroupAlbumTable(members), [members]);
   const alignment = useMemo(() => deriveAlignment(members), [members]);
   const sortedAlbums = useMemo(() => {
     const rows = albumTable.slice();
     if (sortBy === 'rating') rows.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
-    else if (sortBy === 'votes') rows.sort((a, b) => b.votes - a.votes);
     else if (sortBy === 'date') rows.sort((a, b) => new Date(b.earliestAt) - new Date(a.earliestAt));
     return rows;
   }, [albumTable, sortBy]);
+  const visibleAlbums = showAllAlbums ? sortedAlbums : sortedAlbums.slice(0, GROUP_ALBUMS_VISIBLE_DEFAULT);
 
   if (!group) return html`<div class="card"><p class="muted">This project isn't part of a group.</p></div>`;
 
@@ -1541,14 +1889,13 @@ function GroupView({ group, members, projectName }) {
         <h2>All Rated Albums (${sortedAlbums.length})</h2>
         <p class="muted">Computed client-side from every member's history — the public API only exposes the top/bottom 5.</p>
         <div class="sort-controls">
-          <button class=${sortBy === 'rating' ? 'active' : ''} onClick=${() => setSortBy('rating')}>Rating</button>
-          <button class=${sortBy === 'votes' ? 'active' : ''} onClick=${() => setSortBy('votes')}>Votes</button>
-          <button class=${sortBy === 'date' ? 'active' : ''} onClick=${() => setSortBy('date')}>Date</button>
+          <button class=${sortBy === 'date' ? 'active' : ''} onClick=${() => { setSortBy('date'); setShowAllAlbums(false); }}>Date</button>
+          <button class=${sortBy === 'rating' ? 'active' : ''} onClick=${() => { setSortBy('rating'); setShowAllAlbums(false); }}>Rating</button>
         </div>
         <table>
           <thead><tr><th>Album</th><th>Artist</th><th>Rating</th><th>Votes</th></tr></thead>
           <tbody>
-            ${sortedAlbums.map(r => html`
+            ${visibleAlbums.map(r => html`
               <tr>
                 <td><a class="row-link" href=${routePath(projectName, 'album', r.album.uuid)} onClick=${(event) => { event.preventDefault(); navigateTo(routePath(projectName, 'album', r.album.uuid)); }}>${r.album.name}</a></td>
                 <td>${r.album.artist}</td>
@@ -1558,6 +1905,9 @@ function GroupView({ group, members, projectName }) {
             `)}
           </tbody>
         </table>
+        ${sortedAlbums.length > GROUP_ALBUMS_VISIBLE_DEFAULT && html`
+          <a href="#" onClick=${(e) => { e.preventDefault(); setShowAllAlbums(!showAllAlbums); }}>${showAllAlbums ? 'Show fewer' : `Show all ${sortedAlbums.length} →`}</a>
+        `}
       </div>
 
       <div class="card">
@@ -1575,6 +1925,63 @@ function GroupView({ group, members, projectName }) {
             `)}
           </tbody>
         </table>
+      </div>
+    </div>
+  `;
+}
+
+// ---------- Activity ----------
+function ActivityView({ members, projectName, group, notifications }) {
+  const feed = useMemo(() => deriveActivityFeed(members), [members]);
+  return html`
+    <div>
+      <div class="card">
+        <h2>Notifications${notifications.notifications.length > 0 ? html` <span class="badge">${notifications.notifications.length} unread</span>` : ''}</h2>
+        <p class="muted">Mirrors the bell on the real site. Viewing this never marks them read there.</p>
+        ${notifications.status === 'loading' && html`<${LoadingNote} label="Loading notifications…" />`}
+        ${notifications.status === 'error' && html`<p class="muted">${notifications.errorMessage || "Couldn't load notifications."}</p>`}
+        ${notifications.status === 'ready' && (notifications.notifications.length === 0 ? html`
+          <p class="muted"><${LankyMascot} />No unread notifications.</p>
+        ` : html`
+          <div class="review-list" style=${{ maxHeight: 'none' }}>
+            ${notifications.notifications.map(n => {
+              const { text, albumId } = formatNotification(n);
+              return html`
+                <article class="review-item" key=${n._id}>
+                  <div class="review-meta">
+                    <span class="muted">${new Date(n.createdAt).toLocaleString()}</span>
+                  </div>
+                  <p class="review-text">
+                    ${albumId ? html`<a class="row-link" href=${routePath(projectName, 'album', albumId)} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'album', albumId)); }}>${text}</a>` : text}
+                  </p>
+                </article>
+              `;
+            })}
+          </div>
+        `)}
+      </div>
+
+      <div class="card">
+        <h2>Group Activity History</h2>
+        ${!group && html`<p class="muted">This project isn't part of a group — showing your own rating history.</p>`}
+        ${feed.length === 0 ? html`
+          <p class="muted"><${LankyMascot} />No one's rated anything yet.</p>
+        ` : html`
+          <div class="review-list" style=${{ maxHeight: 'none' }}>
+            ${feed.map((item, i) => html`
+              <article class="review-item" key=${`${item.member}-${item.album.uuid}-${i}`}>
+                <div class="review-meta">
+                  <strong>${item.member}${item.member === projectName ? ' (you)' : ''}</strong>
+                  <span>${item.rating === 'did-not-listen' ? 'Did not listen' : `Rated ${item.rating}/5`}</span>
+                  <a class="row-link" href=${routePath(projectName, 'album', item.album.uuid)} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'album', item.album.uuid)); }}>${item.album.name}</a>
+                  <span class="muted">${item.album.artist}</span>
+                  <span class="muted">${new Date(item.generatedAt).toLocaleDateString()}</span>
+                </div>
+                ${item.review ? html`<p class="review-text">${item.review}</p>` : ''}
+              </article>
+            `)}
+          </div>
+        `}
       </div>
     </div>
   `;
@@ -1649,7 +2056,59 @@ function MeView({ me, projectName }) {
         `)}
       </div>
       <${BreakdownStats} genres=${stats.genres} styles=${stats.styles} decades=${stats.decades} projectName=${projectName} />
+      <${FavoriteTracksSection} />
       <p class="muted">For a fuller polished writeup, see your <${SiteModalLink} href=${`${SITE_BASE}/shares/${encodeURIComponent(me.shareableUrl ? me.shareableUrl.split('/').pop() : '')}`} title="Official summary">official Summary page<//>.</p>
+    </div>
+  `;
+}
+
+const FAVORITE_TRACKS_VISIBLE_DEFAULT = 50;
+
+function FavoriteTracksSection() {
+  const favorites = useFavoriteTracks();
+  const [showAll, setShowAll] = useState(false);
+  const visible = showAll ? favorites.list : favorites.list.slice(0, FAVORITE_TRACKS_VISIBLE_DEFAULT);
+
+  if (favorites.list.length === 0) {
+    return html`
+      <div class="card">
+        <h3>Favorite Tracks</h3>
+        <p class="muted">Star tracks on an album's Tracks tab to collect them here.</p>
+      </div>
+    `;
+  }
+  return html`
+    <div class="card">
+      <h3>Favorite Tracks (${favorites.list.length})</h3>
+      <p class="muted">Stored in this browser only — not synced to your 1001 Albums account.</p>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th></th><th>Track</th><th>Artist</th><th>Album</th><th>Length</th><th></th></tr></thead>
+          <tbody>
+            ${visible.map(track => html`
+              <tr>
+                <td>
+                  ${track.artworkUrl && html`<img src=${track.artworkUrl} alt="" width="32" height="32" loading="lazy" style=${{ borderRadius: '4px', display: 'block' }} />`}
+                </td>
+                <td>
+                  ${track.trackViewUrl
+                    ? html`<a href=${track.trackViewUrl} target="_blank" rel="noopener" class="track-link" title="Open in Apple Music">${track.title || `Unknown track (${track.appleTrackId})`}</a>`
+                    : (track.title || `Unknown track (${track.appleTrackId})`)}
+                </td>
+                <td>${track.artistName || '—'}</td>
+                <td>${track.albumName || '—'}</td>
+                <td>${formatDurationMs(track.durationMs)}</td>
+                <td>
+                  <button type="button" class="star-btn active" aria-label="Unfavorite track" onClick=${() => favorites.toggle(track)}>★</button>
+                </td>
+              </tr>
+            `)}
+          </tbody>
+        </table>
+      </div>
+      ${favorites.list.length > FAVORITE_TRACKS_VISIBLE_DEFAULT && html`
+        <a href="#" onClick=${(e) => { e.preventDefault(); setShowAll(!showAll); }}>${showAll ? 'Show fewer' : `Show all ${favorites.list.length} →`}</a>
+      `}
     </div>
   `;
 }
@@ -1733,6 +2192,7 @@ function App() {
   }, [tab, backlogAlbumId, albumId, pairA, pairB]);
 
   const hub = useHub(projectName);
+  const notifications = useNotifications(projectName);
 
   if (!projectName) return html`<${NameEntry} />`;
 
@@ -1749,25 +2209,26 @@ function App() {
 
   return html`
     <div>
-      <${Nav} projectName=${projectName} tab=${(tab === 'album' || tab === 'pair') ? 'group' : tab} backlogCount=${backlog.length} />
+      <${Nav} projectName=${projectName} tab=${(tab === 'album' || tab === 'pair') ? 'group' : tab} backlogCount=${backlog.length} unreadCount=${notifications.notifications.length} />
       <${RefreshErrorToast} error=${hub.refreshError} onDismiss=${hub.dismissRefreshError} />
       <div class="page">
         ${hub.status === 'loading' && html`<${Loading} />`}
         ${hub.status === 'error' && html`<${ErrorCard} error=${hub.error} onRetry=${hub.refresh} />`}
         ${hub.status === 'ready' && html`
           <div class="status-row">
-            <span>${hub.stale
-              ? `Showing cached data${hub.refreshing ? ', refreshing…' : ''}`
-              : `Updated ${new Date(hub.fetchedAt).toLocaleTimeString()}`}</span>
+            ${hub.refreshing
+              ? html`<span><${LankyPartyMascot} />Refreshing…</span>`
+              : html`<span>${hub.stale ? 'Showing cached data' : `Updated ${new Date(hub.fetchedAt).toLocaleTimeString()}`}</span>`}
             <a href="#" onClick=${(e) => { e.preventDefault(); hub.refresh(); }}>Refresh</a>
           </div>
           ${tab === 'today' && html`<${TodayView} projectName=${projectName} me=${hub.data.me} backlog=${backlog} subTab=${subTab} />`}
           ${tab === 'backlog' && (backlogAlbumId
-            ? html`<${BacklogAlbumView} projectName=${projectName} entry=${backlogEntry} groupSlug=${groupSlug} comparison=${comparison} subTab=${subTab} />`
+            ? html`<${BacklogAlbumView} projectName=${projectName} entry=${backlogEntry} groupSlug=${groupSlug} comparison=${comparison} subTab=${subTab} onRated=${() => { Promise.resolve(hub.refresh()).then(() => navigateTo(routePath(projectName, 'backlog'))); }} />`
             : html`<${BacklogView} projectName=${projectName} backlog=${backlog} members=${hub.data.members} />`
           )}
           ${tab === 'album' && html`<${AlbumDetailView} projectName=${projectName} albumRecord=${albumRecord} groupSlug=${groupSlug} comparison=${comparison} subTab=${subTab} />`}
           ${tab === 'group' && html`<${GroupView} group=${hub.data.group} members=${hub.data.members} projectName=${projectName} />`}
+          ${tab === 'activity' && html`<${ActivityView} members=${hub.data.members} projectName=${projectName} group=${hub.data.group} notifications=${notifications} />`}
           ${tab === 'pair' && html`<${PairDetailView} projectName=${projectName} members=${hub.data.members} pairA=${pairA} pairB=${pairB} />`}
           ${tab === 'me' && html`<${MeView} me=${hub.data.me} projectName=${projectName} />`}
         `}
