@@ -1804,7 +1804,6 @@ function BacklogView({ projectName, backlog, members }) {
       ${backlog.length === 0 ? html`
         <p class="muted"><${LankyMascot} />Lanky says: you're all caught up!</p>
       ` : html`
-        <p class="muted">The real history page has no way to jump straight to a row, so the history button opens that page in a modal — find them by date.</p>
         <table>
           <thead><tr><th>Date</th><th>Album</th><th>Artist</th><th>Rating</th></tr></thead>
           <tbody>
@@ -1823,9 +1822,6 @@ function BacklogView({ projectName, backlog, members }) {
             `})}
           </tbody>
         </table>
-        <p style=${{ marginTop: '12px' }}>
-          <${SiteModalLink} className="pill-btn" href=${`${SITE_BASE}/${encodeURIComponent(projectName)}/history`} title="History">Open history to rate them →<//>
-        </p>
       `}
     </div>
   `;
