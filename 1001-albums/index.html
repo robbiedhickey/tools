@@ -488,6 +488,41 @@ async function saveRating(projectName, albumUuid, generatedAlbumId, rating, note
   return body;
 }
 
+// Backed by this site's own Pages Function + KV (functions/1001-albums/api/favorites/), not the
+// 1001albumsgenerator.com API — so these hit our own origin with a relative path, not SITE_BASE.
+async function fetchFavorites(projectName) {
+  let res;
+  try {
+    res = await fetch(`${APP_BASE}api/favorites/${encodeURIComponent(projectName)}`);
+  } catch (err) {
+    throw new Error(describeFetchFailure(err));
+  }
+  if (!res.ok) throw new Error('Failed to load favorites.');
+  return res.json();
+}
+async function putFavoriteTrack(projectName, trackId, entry) {
+  let res;
+  try {
+    res = await fetch(`${APP_BASE}api/favorites/${encodeURIComponent(projectName)}/${encodeURIComponent(trackId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry),
+    });
+  } catch (err) {
+    throw new Error(describeFetchFailure(err));
+  }
+  if (!res.ok) throw new Error('Failed to save favorite.');
+}
+async function deleteFavoriteTrack(projectName, trackId) {
+  let res;
+  try {
+    res = await fetch(`${APP_BASE}api/favorites/${encodeURIComponent(projectName)}/${encodeURIComponent(trackId)}`, { method: 'DELETE' });
+  } catch (err) {
+    throw new Error(describeFetchFailure(err));
+  }
+  if (!res.ok) throw new Error('Failed to remove favorite.');
+}
+
 // Undocumented endpoint the live site uses when its notification bell is opened. Keep this behind
 // an explicit button so the Kongsole doesn't clear unread state as a side effect of browsing.
 async function markAllNotificationsRead(projectName) {
@@ -789,61 +824,69 @@ function writeAppleTracksCache(id, data) {
   try { localStorage.setItem(appleTracksCacheKey(id), JSON.stringify({ fetchedAt: Date.now(), data })); } catch (e) {}
 }
 
-// ---------- favorite tracks (local only, no backend yet) ----------
-const FAVORITE_TRACKS_KEY = 'favorite-track-ids';
-function readFavoriteTracks() {
-  try {
-    const raw = localStorage.getItem(FAVORITE_TRACKS_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    // Migrate from the original shape (a bare array of track ID strings) to a {id: metadata}
-    // map, so the favorites list can render track/album/artist/Apple Music link on its own.
-    if (Array.isArray(parsed)) {
-      const migrated = {};
-      parsed.forEach((id) => { migrated[id] = { appleTrackId: id }; });
-      return migrated;
-    }
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch (e) { return {}; }
-}
-function writeFavoriteTracks(map) {
-  try { localStorage.setItem(FAVORITE_TRACKS_KEY, JSON.stringify(map)); } catch (e) {}
-}
-function useFavoriteTracks() {
-  const [favorites, setFavorites] = useState(readFavoriteTracks);
+// ---------- favorite tracks (backed by functions/1001-albums/api/favorites/, see _lib/favorites.js) ----------
+function useFavoriteTracks(projectName) {
+  const [favorites, setFavorites] = useState({});
+  const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    if (!projectName) return;
+    let cancelled = false;
+    fetchFavorites(projectName)
+      .then((data) => { if (!cancelled) setFavorites(data); })
+      .catch((err) => { if (!cancelled) setErrorMessage(err.message); });
+    return () => { cancelled = true; };
+  }, [projectName]);
+
+  // Optimistic: flip local state immediately, fire the API call in the background, and roll back
+  // (restoring the prior map) if it fails so the star never lies about what's actually saved.
   const toggle = useCallback((track) => {
+    if (!projectName) return;
     setFavorites((prev) => {
       const next = { ...prev };
-      if (next[track.appleTrackId]) {
+      const wasFavorited = !!next[track.appleTrackId];
+      if (wasFavorited) {
         delete next[track.appleTrackId];
+        deleteFavoriteTrack(projectName, track.appleTrackId).catch((err) => {
+          setErrorMessage(err.message);
+          setFavorites((current) => ({ ...current, [track.appleTrackId]: prev[track.appleTrackId] }));
+        });
       } else {
-        next[track.appleTrackId] = { ...track, favoritedAt: Date.now() };
+        const entry = { ...track, favoritedAt: Date.now() };
+        next[track.appleTrackId] = entry;
+        putFavoriteTrack(projectName, track.appleTrackId, entry).catch((err) => {
+          setErrorMessage(err.message);
+          setFavorites((current) => {
+            const reverted = { ...current };
+            delete reverted[track.appleTrackId];
+            return reverted;
+          });
+        });
       }
-      writeFavoriteTracks(next);
       return next;
     });
-  }, []);
+  }, [projectName]);
   // Refreshes a favorite's stored metadata snapshot whenever its track data is on hand again
   // (e.g. revisiting the album). Always overwrites rather than gating on "already has a title" —
   // a favorite saved before a field was added (or from a stale cache) would otherwise get stuck
   // with an incomplete snapshot forever, since having *a* title doesn't mean it has every field.
   const sync = useCallback((track) => {
+    if (!projectName) return;
     setFavorites((prev) => {
       const existing = prev[track.appleTrackId];
       if (!existing) return prev;
       const merged = { ...track, favoritedAt: existing.favoritedAt || Date.now() };
       const unchanged = Object.keys(merged).every((key) => existing[key] === merged[key]);
       if (unchanged) return prev;
-      const next = { ...prev, [track.appleTrackId]: merged };
-      writeFavoriteTracks(next);
-      return next;
+      putFavoriteTrack(projectName, track.appleTrackId, merged).catch((err) => setErrorMessage(err.message));
+      return { ...prev, [track.appleTrackId]: merged };
     });
-  }, []);
+  }, [projectName]);
   const list = useMemo(
     () => Object.values(favorites).sort((a, b) => (b.favoritedAt || 0) - (a.favoritedAt || 0)),
     [favorites]
   );
-  return { isFavorite: (trackId) => !!favorites[trackId], toggle, sync, list };
+  return { isFavorite: (trackId) => !!favorites[trackId], toggle, sync, list, errorMessage, clearError: () => setErrorMessage('') };
 }
 
 // ---------- routing ----------
@@ -1325,9 +1368,9 @@ function GlobalReviewsPreview({ url, limit = 25 }) {
   `;
 }
 
-function TracksPreview({ album }) {
+function TracksPreview({ album, projectName }) {
   const [state, setState] = useState({ status: album.appleMusicId ? 'idle' : 'hidden', data: null });
-  const favorites = useFavoriteTracks();
+  const favorites = useFavoriteTracks(projectName);
 
   useEffect(() => {
     if (!album.appleMusicId) {
@@ -1360,6 +1403,7 @@ function TracksPreview({ album }) {
 
   return html`
     <div>
+      ${favorites.errorMessage && html`<p class="muted">${favorites.errorMessage}</p>`}
       ${state.status === 'hidden' && html`<p class="muted">No Apple Music ID is available for this album.</p>`}
       ${state.status === 'loading' && html`<${LoadingNote} label="Loading track metadata…" />`}
       ${state.status === 'error' && html`<p class="muted">Couldn't load track metadata.</p>`}
@@ -1452,7 +1496,7 @@ function GroupReviewsPreview({ groupSlug, album }) {
   `;
 }
 
-function AlbumInfoTabs({ album, groupSlug = null, comparison = null, tab = 'summary', onTabChange }) {
+function AlbumInfoTabs({ album, projectName = null, groupSlug = null, comparison = null, tab = 'summary', onTabChange }) {
   const hasGroupReviews = !!(groupSlug && album && album.uuid);
 
   return html`
@@ -1471,7 +1515,7 @@ function AlbumInfoTabs({ album, groupSlug = null, comparison = null, tab = 'summ
         ${album.wikipediaUrl && html`<${WikipediaSummary} url=${album.wikipediaUrl} />`}
         <${AlbumSummaryContext} album=${album} comparison=${comparison} />
       `}
-      ${tab === 'tracks' && html`<${TracksPreview} album=${album} />`}
+      ${tab === 'tracks' && html`<${TracksPreview} album=${album} projectName=${projectName} />`}
       ${tab === 'reviews' && album.globalReviewsUrl && html`<${GlobalReviewsPreview} url=${album.globalReviewsUrl} />`}
       ${tab === 'group' && hasGroupReviews && html`<${GroupReviewsPreview} groupSlug=${groupSlug} album=${album} />`}
     </div>
@@ -1736,7 +1780,7 @@ function TodayView({ projectName, me, backlog, subTab }) {
               <p class="album-artist">${album.artist}</p>
               <p class="album-year">${album.releaseDate}</p>
               <${StreamingLinks} album=${album} />
-              <${AlbumInfoTabs} album=${album} tab=${tab} onTabChange=${setTab} />
+              <${AlbumInfoTabs} album=${album} projectName=${projectName} tab=${tab} onTabChange=${setTab} />
               <${ListeningNoteEditor} projectName=${projectName} albumId=${album.uuid} initialNotes=${me.currentAlbumNotes} />
               <button class="pill-btn" type="button" style=${{ marginTop: '12px' }} onClick=${() => setSiteModalOpen(true)}>Open original site</button>
               <p class="muted" style=${{ marginTop: '8px' }}>Rating still requires the original site — open it below.</p>
@@ -1783,7 +1827,7 @@ function BacklogAlbumView({ projectName, entry, groupSlug, comparison, subTab, o
             <p class="album-year">${album.releaseDate}</p>
             <${RatingEditor} projectName=${projectName} albumUuid=${album.uuid} generatedAlbumId=${entry.generatedAlbumId} initialNotes=${entry.review} onRated=${onRated} />
             <${StreamingLinks} album=${album} />
-            <${AlbumInfoTabs} album=${album} groupSlug=${groupSlug} comparison=${comparison} tab=${tab} onTabChange=${setTab} />
+            <${AlbumInfoTabs} album=${album} projectName=${projectName} groupSlug=${groupSlug} comparison=${comparison} tab=${tab} onTabChange=${setTab} />
           </div>
         </div>
       </div>
@@ -1823,7 +1867,7 @@ function AlbumDetailView({ projectName, albumRecord, groupSlug, comparison, subT
             <p class="album-artist">${album.artist}</p>
             <p class="album-year">${album.releaseDate}</p>
             <${StreamingLinks} album=${album} />
-            <${AlbumInfoTabs} album=${album} groupSlug=${groupSlug} comparison=${comparison} tab=${tab} onTabChange=${setTab} />
+            <${AlbumInfoTabs} album=${album} projectName=${projectName} groupSlug=${groupSlug} comparison=${comparison} tab=${tab} onTabChange=${setTab} />
           </div>
         </div>
       </div>
@@ -2121,7 +2165,7 @@ function MeView({ me, projectName }) {
         `)}
       </div>
       <${BreakdownStats} genres=${stats.genres} styles=${stats.styles} decades=${stats.decades} projectName=${projectName} />
-      <${FavoriteTracksSection} />
+      <${FavoriteTracksSection} projectName=${projectName} />
       <p class="muted">For a fuller polished writeup, see your <${SiteModalLink} href=${`${SITE_BASE}/shares/${encodeURIComponent(me.shareableUrl ? me.shareableUrl.split('/').pop() : '')}`} title="Official summary">official Summary page<//>.</p>
     </div>
   `;
@@ -2129,8 +2173,8 @@ function MeView({ me, projectName }) {
 
 const FAVORITE_TRACKS_VISIBLE_DEFAULT = 50;
 
-function FavoriteTracksSection() {
-  const favorites = useFavoriteTracks();
+function FavoriteTracksSection({ projectName }) {
+  const favorites = useFavoriteTracks(projectName);
   const [showAll, setShowAll] = useState(false);
   const visible = showAll ? favorites.list : favorites.list.slice(0, FAVORITE_TRACKS_VISIBLE_DEFAULT);
 
@@ -2139,13 +2183,15 @@ function FavoriteTracksSection() {
       <div class="card">
         <h3>Favorite Tracks</h3>
         <p class="muted">Star tracks on an album's Tracks tab to collect them here.</p>
+        ${favorites.errorMessage && html`<p class="muted">${favorites.errorMessage}</p>`}
       </div>
     `;
   }
   return html`
     <div class="card">
       <h3>Favorite Tracks (${favorites.list.length})</h3>
-      <p class="muted">Stored in this browser only — not synced to your 1001 Albums account.</p>
+      <p class="muted">Synced to this 1001 Albums project name — anyone using the same name shares this list.</p>
+      ${favorites.errorMessage && html`<p class="muted">${favorites.errorMessage}</p>`}
       <div class="table-scroll">
         <table>
           <thead><tr><th></th><th>Track</th><th>Artist</th><th>Album</th><th>Length</th><th></th></tr></thead>
