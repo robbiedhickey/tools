@@ -202,6 +202,7 @@
   .style-chip-rating.tier-red { color: var(--bad); }
   .style-chip-count { color: var(--text-dim); }
   .style-chip.active { background: var(--accent-soft); border-color: var(--accent); }
+  .review-meta .style-chip-rating { font-size: 13px; }
 
   /* TEMP demo styles for ChipStyleGallery — delete alongside that component */
   .demo-b-chip {
@@ -1484,7 +1485,9 @@ function GroupReviewsPreview({ groupSlug, album }) {
               <article class="review-item">
                 <div class="review-meta">
                   <span>${review.projectName}</span>
-                  ${review.rating != null && html`<span>${review.rating === 'did-not-listen' ? 'Did not listen' : `${review.rating}/5`}</span>`}
+                  ${review.rating != null
+                    ? html`<span class=${review.rating === 'did-not-listen' ? 'muted' : `style-chip-rating tier-${ratingTier(review.rating)}`}>${review.rating === 'did-not-listen' ? 'Did not listen' : `${review.rating}/5`}</span>`
+                    : html`<span class="muted">Not yet rated</span>`}
                 </div>
                 ${review.review ? html`<p class="review-text">${review.review}</p>` : html`<p class="review-text muted">No written review.</p>`}
               </article>
@@ -2052,7 +2055,7 @@ function ActivityView({ members, projectName, group, notifications }) {
                     <span class="muted">${new Date(n.createdAt).toLocaleString()}</span>
                   </div>
                   <p class="review-text">
-                    ${albumId ? html`<a class="row-link" href=${routePath(projectName, 'album', albumId)} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'album', albumId)); }}>${text}</a>` : text}
+                    ${albumId ? html`<a class="row-link" href=${routePath(projectName, 'album', albumId, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'album', albumId, 'group')); }}>${text}</a>` : text}
                   </p>
                 </article>
               `;
@@ -2073,7 +2076,7 @@ function ActivityView({ members, projectName, group, notifications }) {
                 <div class="review-meta">
                   <strong>${item.member}${item.member === projectName ? ' (you)' : ''}</strong>
                   <span>${item.rating === 'did-not-listen' ? 'Did not listen' : `Rated ${item.rating}/5`}</span>
-                  <a class="row-link" href=${routePath(projectName, 'album', item.album.uuid)} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'album', item.album.uuid)); }}>${item.album.name}</a>
+                  <a class="row-link" href=${routePath(projectName, 'album', item.album.uuid, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'album', item.album.uuid, 'group')); }}>${item.album.name}</a>
                   <span class="muted">${item.album.artist}</span>
                   <span class="muted">${new Date(item.generatedAt).toLocaleDateString()}</span>
                 </div>
