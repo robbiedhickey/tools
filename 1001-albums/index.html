@@ -2,9 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>1001 Albums Kongsole</title>
-<link rel="icon" href="https://media.tenor.com/dk8ZbQriTFoAAAAi/video-games-me-at-a-party.gif">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" sizes="32x32" href="favicon-32.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="1001 Albums">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#f6f5f3">
 <style>
   :root {
     --bg: #f6f5f3;
@@ -31,6 +37,7 @@
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     line-height: 1.5;
+    padding-bottom: env(safe-area-inset-bottom);
   }
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
@@ -40,10 +47,11 @@
     position: sticky; top: 0; z-index: 20;
     background: var(--card);
     border-bottom: 1px solid var(--border);
+    padding-top: env(safe-area-inset-top);
   }
   .topbar-inner {
     max-width: 980px; margin: 0 auto;
-    padding: 10px 16px;
+    padding: 10px max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
     display: flex; align-items: center; gap: 16px;
     flex-wrap: nowrap;
   }
