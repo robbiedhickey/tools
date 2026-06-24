@@ -1338,6 +1338,7 @@ function GlobalReviewsPreview({ url, limit = 100 }) {
   // reviews than the page actually embeds in static HTML — clicking one filters only the reviews
   // we actually loaded (see the "loaded reviews" wording below), not every review that mentions it.
   const [activeKeyword, setActiveKeyword] = useState(null);
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   useEffect(() => {
     setActiveKeyword(null);
@@ -1345,7 +1346,8 @@ function GlobalReviewsPreview({ url, limit = 100 }) {
     let cancelled = false;
     const cached = readGlobalReviewsCache(url);
     const cachedContext = readGlobalContextCache(url);
-    if (cached && cached.reviews && cachedContext && cachedContext.context) {
+    const forceRefresh = refreshNonce > 0;
+    if (!forceRefresh && cached && cached.reviews && cachedContext && cachedContext.context) {
       setState({ status: 'ready', reviews: cached.reviews, context: cachedContext.context, errorMessage: '' });
       return;
     }
@@ -1369,7 +1371,7 @@ function GlobalReviewsPreview({ url, limit = 100 }) {
         }
       });
     return () => { cancelled = true; };
-  }, [url, limit]);
+  }, [url, limit, refreshNonce]);
 
   const filteredReviews = useMemo(() => {
     if (!activeKeyword) return state.reviews;
@@ -1410,12 +1412,14 @@ function GlobalReviewsPreview({ url, limit = 100 }) {
           `}
         `}
         ${state.reviews.length === 0 ? html`
-          <p class="muted">No global reviews found.</p>
+          <p class="muted">No global reviews found. <a href="#" onClick=${(e) => { e.preventDefault(); setRefreshNonce(n => n + 1); }}>Refresh</a></p>
         ` : html`
           <p class="muted">
             ${activeKeyword
-              ? html`Showing ${filteredReviews.length} of ${state.reviews.length} loaded reviews mentioning “${activeKeyword}”. <a href="#" onClick=${(e) => { e.preventDefault(); setActiveKeyword(null); }}>Clear</a>`
-              : `Showing ${state.reviews.length} popular global review${state.reviews.length === 1 ? '' : 's'}.`}
+              ? `Showing ${filteredReviews.length} of ${state.reviews.length} loaded reviews mentioning “${activeKeyword}”. `
+              : `Showing ${state.reviews.length} popular global review${state.reviews.length === 1 ? '' : 's'}. `}
+            ${activeKeyword && html`<a href="#" onClick=${(e) => { e.preventDefault(); setActiveKeyword(null); }}>Clear</a>${' · '}`}
+            <a href="#" onClick=${(e) => { e.preventDefault(); setRefreshNonce(n => n + 1); }}>Refresh</a>
           </p>
           ${filteredReviews.length === 0 ? html`
             <p class="muted">None of the loaded reviews mention “${activeKeyword}” — the keyword cloud may be drawn from more reviews than this page loaded.</p>
