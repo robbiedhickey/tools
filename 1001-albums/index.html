@@ -887,7 +887,7 @@ function getRouteFromLocation() {
   const hashParts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
   if (hashParts.length) return parseRouteParts(hashParts);
 
-  const parts = location.pathname.split('/').filter(Boolean);
+  const parts = location.pathname.split('/').filter(Boolean).filter(p => p !== 'index.html');
   const idx = parts.indexOf(ROUTE_PREFIX);
   if (idx < 0 || parts.length <= idx + 1) return { projectName: null, tab: 'today', backlogAlbumId: null, albumId: null, subTab: null, pairA: null, pairB: null };
   return parseRouteParts(parts.slice(idx + 1));
@@ -1544,10 +1544,10 @@ function LankyPartyMascot({ className = '' }) {
   return html`<img class=${`mascot ${className}`} src=${LANKY_LOADING_GIF_URL} alt="" aria-hidden="true" />`;
 }
 
-function ErrorCard({ error, onRetry }) {
+function ErrorCard({ error, projectName, onRetry }) {
   return html`
     <div class="card">
-      <p>${error && error.status === 404 ? "Couldn't find that project. Check the spelling?" : `Something went wrong: ${error && error.message}`}</p>
+      <p>${error && error.status === 404 ? `Couldn't find a project named "${projectName}". Check the spelling?` : `Something went wrong: ${error && error.message}`}</p>
       <button class="pill-btn" onClick=${onRetry}>Try again</button>
     </div>
   `;
@@ -2285,7 +2285,7 @@ function App() {
       <${RefreshErrorToast} error=${hub.refreshError} onDismiss=${hub.dismissRefreshError} />
       <div class="page">
         ${hub.status === 'loading' && html`<${Loading} />`}
-        ${hub.status === 'error' && html`<${ErrorCard} error=${hub.error} onRetry=${hub.refresh} />`}
+        ${hub.status === 'error' && html`<${ErrorCard} error=${hub.error} projectName=${projectName} onRetry=${hub.refresh} />`}
         ${hub.status === 'ready' && html`
           <div class="status-row">
             ${hub.refreshing

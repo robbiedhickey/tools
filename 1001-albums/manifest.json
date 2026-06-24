@@ -2,7 +2,7 @@
   "id": "/1001-albums/index.html",
   "name": "1001 Albums Kongsole",
   "short_name": "1001 Albums",
-  "start_url": "./index.html",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f6f5f3",
