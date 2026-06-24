@@ -1,4 +1,4 @@
-import { readFavorites, writeFavorites } from '../../../../_lib/favorites.js';
+import { readFavorites, writeFavorites } from '../../../_lib/favorites.js';
 
 // POST /1001-albums/api/favorites/:projectName/:trackId — body is the track entry, upserted by id.
 export async function onRequestPost({ params, env, request }) {

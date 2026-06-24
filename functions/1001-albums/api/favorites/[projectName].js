@@ -1,4 +1,4 @@
-import { readFavorites } from '../../../_lib/favorites.js';
+import { readFavorites } from '../../_lib/favorites.js';
 
 // GET /1001-albums/api/favorites/:projectName
 // Returns the full favorites map ({ [appleTrackId]: entry }) for a project, or {} if none exist.
