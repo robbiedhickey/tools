@@ -201,6 +201,9 @@
     border: 1px solid var(--border); border-radius: 999px; padding: 3px 9px;
     background: var(--bg); color: var(--text-dim); font-size: 12px;
   }
+  button.keyword-chip { cursor: pointer; font: inherit; }
+  button.keyword-chip:hover { border-color: var(--accent); color: var(--accent); }
+  button.keyword-chip.active { background: var(--accent-soft); color: var(--accent); border-color: transparent; font-weight: 600; }
   .style-chip {
     display: inline-flex; align-items: center; gap: 6px;
     border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px;
@@ -1135,8 +1138,7 @@ function parseGlobalAlbumContext(htmlText) {
     .filter(Boolean);
   const keywords = [...doc.querySelectorAll('.keyword-cloud .keyword')]
     .map(keyword => keyword.textContent.trim())
-    .filter(Boolean)
-    .slice(0, 18);
+    .filter(Boolean);
   return { stats, distribution, metadata, keywords };
 }
 
@@ -1330,10 +1332,15 @@ function AlbumSummaryContext({ album, comparison = null, sections = null }) {
   `;
 }
 
-function GlobalReviewsPreview({ url, limit = 25 }) {
+function GlobalReviewsPreview({ url, limit = 100 }) {
   const [state, setState] = useState({ status: 'loading', reviews: [], context: null, errorMessage: '' });
+  // Keyword chips are scraped from the site's own keyword cloud, which may be computed from more
+  // reviews than the page actually embeds in static HTML — clicking one filters only the reviews
+  // we actually loaded (see the "loaded reviews" wording below), not every review that mentions it.
+  const [activeKeyword, setActiveKeyword] = useState(null);
 
   useEffect(() => {
+    setActiveKeyword(null);
     if (!url) return;
     let cancelled = false;
     const cached = readGlobalReviewsCache(url);
@@ -1364,6 +1371,13 @@ function GlobalReviewsPreview({ url, limit = 25 }) {
     return () => { cancelled = true; };
   }, [url, limit]);
 
+  const filteredReviews = useMemo(() => {
+    if (!activeKeyword) return state.reviews;
+    // Word-boundary match so e.g. "Fun" doesn't also match "function" or "funny".
+    const pattern = new RegExp(`\\b${activeKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    return state.reviews.filter(r => pattern.test(r.review));
+  }, [state.reviews, activeKeyword]);
+
   return html`
     <div>
       ${state.status === 'loading' && html`<${LoadingNote} label="Loading global reviews…" />`}
@@ -1385,25 +1399,39 @@ function GlobalReviewsPreview({ url, limit = 25 }) {
           ${state.context.keywords.length > 0 && html`
             <div class="context-section-title">Keywords from Reviews</div>
             <div class="keyword-row">
-              ${state.context.keywords.map(keyword => html`<span class="keyword-chip">${keyword}</span>`)}
+              ${state.context.keywords.map(keyword => html`
+                <button
+                  type="button"
+                  class=${`keyword-chip ${activeKeyword === keyword ? 'active' : ''}`}
+                  onClick=${() => setActiveKeyword(k => k === keyword ? null : keyword)}
+                >${keyword}</button>
+              `)}
             </div>
           `}
         `}
         ${state.reviews.length === 0 ? html`
           <p class="muted">No global reviews found.</p>
         ` : html`
-          <p class="muted">Showing ${state.reviews.length} popular global review${state.reviews.length === 1 ? '' : 's'}.</p>
-          <div class="review-list">
-            ${state.reviews.map(review => html`
-              <article class="review-item">
-                <div class="review-meta">
-                  ${review.rating && html`<span>${review.rating}/5</span>`}
-                  ${review.date && html`<span>${review.date}</span>`}
-                </div>
-                <p class="review-text">${review.review}</p>
-              </article>
-            `)}
-          </div>
+          <p class="muted">
+            ${activeKeyword
+              ? html`Showing ${filteredReviews.length} of ${state.reviews.length} loaded reviews mentioning “${activeKeyword}”. <a href="#" onClick=${(e) => { e.preventDefault(); setActiveKeyword(null); }}>Clear</a>`
+              : `Showing ${state.reviews.length} popular global review${state.reviews.length === 1 ? '' : 's'}.`}
+          </p>
+          ${filteredReviews.length === 0 ? html`
+            <p class="muted">None of the loaded reviews mention “${activeKeyword}” — the keyword cloud may be drawn from more reviews than this page loaded.</p>
+          ` : html`
+            <div class="review-list">
+              ${filteredReviews.map(review => html`
+                <article class="review-item">
+                  <div class="review-meta">
+                    ${review.rating && html`<span>${review.rating}/5</span>`}
+                    ${review.date && html`<span>${review.date}</span>`}
+                  </div>
+                  <p class="review-text">${review.review}</p>
+                </article>
+              `)}
+            </div>
+          `}
         `}
         <${SiteModalLink} href=${url} title="Global reviews" className="">All Global Reviews →<//>
       `}
