@@ -2112,7 +2112,7 @@ function GroupView({ group, members, projectName }) {
           <tbody>
             ${visibleAlbums.map(r => html`
               <tr>
-                <td><a class="row-link" href=${routePath(projectName, 'album', r.album.uuid)} onClick=${(event) => { event.preventDefault(); navigateTo(routePath(projectName, 'album', r.album.uuid)); }}>${r.album.name}</a></td>
+                <td><a class="row-link" href=${routePath(projectName, 'album', r.album.uuid, 'group')} onClick=${(event) => { event.preventDefault(); navigateTo(routePath(projectName, 'album', r.album.uuid, 'group')); }}>${r.album.name}</a></td>
                 <td>${r.album.artist}</td>
                 <td>${r.averageRating != null ? html`<span class=${`rating-tier-${ratingTier(r.averageRating)}`} style=${{ fontWeight: 700 }}>${r.averageRating}</span>` : '—'}</td>
                 <td>${r.votes}</td>
@@ -2258,7 +2258,7 @@ function PairDetailView({ projectName, members, pairA, pairB }) {
             <tbody>
               ${pair.details.map(d => html`
                 <tr>
-                  <td>${d.album ? html`<a class="row-link" href=${routePath(projectName, 'album', d.album.uuid)} onClick=${(event) => { event.preventDefault(); navigateTo(routePath(projectName, 'album', d.album.uuid)); }}>${d.album.name}</a>` : '—'}</td>
+                  <td>${d.album ? html`<a class="row-link" href=${routePath(projectName, 'album', d.album.uuid, 'group')} onClick=${(event) => { event.preventDefault(); navigateTo(routePath(projectName, 'album', d.album.uuid, 'group')); }}>${d.album.name}</a>` : '—'}</td>
                   <td>${d.album ? d.album.artist : '—'}</td>
                   <td>${formatRating(d.ratingA)}</td>
                   <td>${formatRating(d.ratingB)}</td>
