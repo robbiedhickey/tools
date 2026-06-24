@@ -1,0 +1,9 @@
+# Local dev only — Cloudflare Pages' git integration ignores this file and uses the
+# dashboard-configured bindings/build settings for actual deploys (see Pages project settings).
+name = "tools"
+compatibility_date = "2026-06-24"
+pages_build_output_dir = "."
+
+[[kv_namespaces]]
+binding = "TOOLS_KV"
+id = "e4257701cfa34e85bdacd76315317062"

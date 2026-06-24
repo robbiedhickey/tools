@@ -2,9 +2,11 @@
   "name": "tools.robbiehickey.com",
   "private": true,
   "scripts": {
-    "dev": "serve ."
+    "dev": "wrangler pages dev",
+    "dev:static": "serve ."
   },
   "devDependencies": {
-    "serve": "^14.2.3"
+    "serve": "^14.2.3",
+    "wrangler": "^4.104.0"
   }
 }
