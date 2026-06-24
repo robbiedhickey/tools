@@ -149,7 +149,7 @@
   .link-chip {
     border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; font-size: 13px; background: var(--bg);
   }
-  button.link-chip { color: var(--accent); cursor: pointer; font: inherit; }
+  button.link-chip { color: var(--accent); cursor: pointer; font-family: inherit; line-height: inherit; }
   .wiki-summary {
     margin: 12px 0 14px; padding: 12px 14px; border-left: 3px solid var(--accent);
     background: var(--accent-soft); border-radius: 8px; font-size: 14px; color: var(--text-dim);
@@ -195,6 +195,10 @@
   }
   .distribution-bars { display: grid; gap: 4px; margin-bottom: 12px; }
   .distribution-row { display: grid; grid-template-columns: 24px 1fr 40px; gap: 8px; align-items: center; font-size: 12px; color: var(--text-dim); }
+  button.distribution-row { width: 100%; border: none; background: none; padding: 9px 4px; margin: 0 -4px; font-family: inherit; text-align: left; }
+  button.distribution-row.clickable { cursor: pointer; border-radius: 6px; }
+  button.distribution-row.clickable:hover { background: var(--bg); }
+  button.distribution-row.active { background: var(--accent-soft); color: var(--text); font-weight: 700; }
   .distribution-track { height: 7px; border-radius: 999px; background: var(--bg); overflow: hidden; border: 1px solid var(--border); }
   .distribution-fill { height: 100%; }
   .keyword-row, .discovery-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 12px; }
@@ -306,6 +310,13 @@
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   .table-scroll { overflow-x: auto; }
   .table-scroll table { white-space: nowrap; }
+  .tracks-table { table-layout: fixed; width: 100%; }
+  .tracks-table th:nth-child(1), .tracks-table td:nth-child(1) { width: 28px; }
+  .tracks-table th:nth-child(2), .tracks-table td:nth-child(2) { width: 32px; }
+  .tracks-table th:nth-child(3), .tracks-table td:nth-child(3) { width: 240px; }
+  .tracks-table th:nth-child(4), .tracks-table td:nth-child(4) { width: 160px; }
+  .tracks-table th:nth-child(5), .tracks-table td:nth-child(5) { width: 60px; }
+  .tracks-table .truncate-cell { overflow: hidden; text-overflow: ellipsis; cursor: default; }
   th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); }
   th { color: var(--text-dim); font-weight: 600; font-size: 12px; text-transform: uppercase; }
   tr:last-child td { border-bottom: none; }
@@ -1349,10 +1360,12 @@ function GlobalReviewsPreview({ url, limit = 100 }) {
   // reviews than the page actually embeds in static HTML — clicking one filters only the reviews
   // we actually loaded (see the "loaded reviews" wording below), not every review that mentions it.
   const [activeKeyword, setActiveKeyword] = useState(null);
+  const [activeRating, setActiveRating] = useState(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   useEffect(() => {
     setActiveKeyword(null);
+    setActiveRating(null);
     if (!url) return;
     let cancelled = false;
     const cached = readGlobalReviewsCache(url);
@@ -1385,11 +1398,16 @@ function GlobalReviewsPreview({ url, limit = 100 }) {
   }, [url, limit, refreshNonce]);
 
   const filteredReviews = useMemo(() => {
-    if (!activeKeyword) return state.reviews;
+    if (!activeKeyword && !activeRating) return state.reviews;
     // Word-boundary match so e.g. "Fun" doesn't also match "function" or "funny".
-    const pattern = new RegExp(`\\b${escapeRegExp(activeKeyword)}\\b`, 'i');
-    return state.reviews.filter(r => pattern.test(r.review));
-  }, [state.reviews, activeKeyword]);
+    const pattern = activeKeyword ? new RegExp(`\\b${escapeRegExp(activeKeyword)}\\b`, 'i') : null;
+    return state.reviews.filter(r =>
+      (!pattern || pattern.test(r.review)) && (!activeRating || Number(r.rating) === activeRating)
+    );
+  }, [state.reviews, activeKeyword, activeRating]);
+
+  const hasActiveFilter = activeKeyword || activeRating;
+  const clearFilters = () => { setActiveKeyword(null); setActiveRating(null); };
 
   return html`
     <div>
@@ -1400,13 +1418,23 @@ function GlobalReviewsPreview({ url, limit = 100 }) {
           ${state.context.distribution.length > 0 && html`
             <div class="context-section-title">Distribution</div>
             <div class="distribution-bars">
-              ${state.context.distribution.map(row => html`
-                <div class="distribution-row">
-                  <span>${row.label}★</span>
-                  <div class="distribution-track"><div class=${`distribution-fill ${Number.isFinite(Number(row.label)) ? `fill-tier-${ratingTier(Number(row.label))}` : ''}`} style=${{ width: row.percent }}></div></div>
-                  <span>${row.percent}</span>
-                </div>
-              `)}
+              ${state.context.distribution.map(row => {
+                const ratingValue = Number(row.label);
+                const clickable = Number.isFinite(ratingValue);
+                const isActive = clickable && activeRating === ratingValue;
+                const Tag = clickable ? 'button' : 'div';
+                return html`
+                  <${Tag}
+                    type=${clickable ? 'button' : undefined}
+                    class=${`distribution-row ${clickable ? 'clickable' : ''} ${isActive ? 'active' : ''}`}
+                    onClick=${clickable ? () => setActiveRating(r => r === ratingValue ? null : ratingValue) : undefined}
+                  >
+                    <span>${row.label}★</span>
+                    <div class="distribution-track"><div class=${`distribution-fill ${clickable ? `fill-tier-${ratingTier(ratingValue)}` : ''}`} style=${{ width: row.percent }}></div></div>
+                    <span>${row.percent}</span>
+                  <//>
+                `;
+              })}
             </div>
           `}
           ${state.context.keywords.length > 0 && html`
@@ -1426,20 +1454,20 @@ function GlobalReviewsPreview({ url, limit = 100 }) {
           <p class="muted">No global reviews found. <a href="#" onClick=${(e) => { e.preventDefault(); setRefreshNonce(n => n + 1); }}>Refresh</a></p>
         ` : html`
           <p class="muted">
-            ${activeKeyword
-              ? `Showing ${filteredReviews.length} of ${state.reviews.length} loaded reviews mentioning “${activeKeyword}”. `
+            ${hasActiveFilter
+              ? `Showing ${filteredReviews.length} of ${state.reviews.length} loaded reviews${activeKeyword ? ` mentioning “${activeKeyword}”` : ''}${activeRating ? `${activeKeyword ? ' and' : ''} rated ${activeRating}★` : ''}. `
               : `Showing ${state.reviews.length} popular global review${state.reviews.length === 1 ? '' : 's'}. `}
-            ${activeKeyword && html`<a href="#" onClick=${(e) => { e.preventDefault(); setActiveKeyword(null); }}>Clear</a>${' · '}`}
+            ${hasActiveFilter && html`<a href="#" onClick=${(e) => { e.preventDefault(); clearFilters(); }}>Clear</a>${' · '}`}
             <a href="#" onClick=${(e) => { e.preventDefault(); setRefreshNonce(n => n + 1); }}>Refresh</a>
           </p>
           ${filteredReviews.length === 0 ? html`
-            <p class="muted">None of the loaded reviews mention “${activeKeyword}” — the keyword cloud may be drawn from more reviews than this page loaded.</p>
+            <p class="muted">None of the loaded reviews match this filter — the distribution/keyword cloud may be drawn from more reviews than this page loaded.</p>
           ` : html`
             <div class="review-list">
               ${filteredReviews.map(review => html`
                 <article class="review-item">
                   <div class="review-meta">
-                    ${review.rating && html`<span>${review.rating}/5</span>`}
+                    ${review.rating && html`<span class=${`style-chip-rating tier-${ratingTier(Number(review.rating))}`}>${review.rating}/5</span>`}
                     ${review.date && html`<span>${review.date}</span>`}
                   </div>
                   <p class="review-text">${highlightKeyword(review.review, activeKeyword)}</p>
@@ -1508,7 +1536,7 @@ function TracksPreview({ album, projectName }) {
           <p class="muted">No track rows were returned.</p>
         ` : html`
           <div class="table-scroll">
-            <table>
+            <table class="tracks-table">
               <thead><tr><th></th><th>#</th><th>Track</th><th>Artist</th><th>Length</th></tr></thead>
               <tbody>
                 ${state.data.tracks.map(track => {
@@ -1526,8 +1554,8 @@ function TracksPreview({ album, projectName }) {
                       `}
                     </td>
                     <td>${track.discNumber > 1 ? `${track.discNumber}-${track.trackNumber}` : track.trackNumber}</td>
-                    <td>${track.title}</td>
-                    <td>${track.artistName || '—'}</td>
+                    <td class="truncate-cell" title=${track.title}>${track.title}</td>
+                    <td class="truncate-cell" title=${track.artistName || ''}>${track.artistName || '—'}</td>
                     <td>${formatDurationMs(track.durationMs)}</td>
                   </tr>
                 `;
