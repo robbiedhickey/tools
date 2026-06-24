@@ -138,8 +138,6 @@
   }
   .banner a.primary:hover, .pill-btn.primary:hover { background: var(--accent); opacity: 0.88; }
 
-  .today-grid { display: grid; grid-template-columns: 220px 1fr; gap: 20px; }
-  @media (max-width: 700px) { .today-grid { grid-template-columns: 1fr; } }
   .today-layout { display: grid; grid-template-columns: minmax(0, 320px) 1fr; gap: 28px; align-items: start; }
   @media (max-width: 760px) { .today-layout { grid-template-columns: 1fr; } }
   .today-secondary { padding-top: 2px; min-width: 0; }
@@ -147,7 +145,6 @@
   .album-art { width: 100%; border-radius: var(--radius); display: block; }
   .album-title { font-size: 22px; font-weight: 700; margin: 0 0 2px; }
   .album-artist { font-size: 16px; color: var(--text-dim); margin: 0 0 2px; }
-  .album-year { font-size: 13px; color: var(--text-dim); margin: 0 0 12px; }
   .links-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
   .link-chip {
     border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; font-size: 13px; background: var(--bg);
@@ -1806,7 +1803,7 @@ function RatingEditor({ projectName, albumUuid, generatedAlbumId, initialNotes, 
 // the left, the info tabs (wiki summary, How We Compare, discovery links) plus a caller-supplied
 // action (listening note editor, rating editor, ...) on the right. Used by both Today and the
 // Backlog album view so the two stay visually consistent as one gets tweaked.
-function AlbumSpotlight({ album, projectName, groupSlug = null, comparison = null, tab, onTabChange, action }) {
+function AlbumSpotlight({ album, projectName, groupSlug = null, comparison = null, tab, onTabChange, action = null }) {
   return html`
     <div class="today-layout">
       <div class="today-primary">
@@ -1916,18 +1913,14 @@ function AlbumDetailView({ projectName, albumRecord, groupSlug, comparison, subT
       </div>
       <div class="card">
         <h2>Album Snapshot</h2>
-        <div class="today-grid">
-          <div>
-            ${album.images && album.images[0] && html`<img class="album-art" src=${album.images[0].url} alt=${album.name} />`}
-          </div>
-          <div>
-            <p class="album-title">${album.name}</p>
-            <p class="album-artist">${album.artist}</p>
-            <p class="album-year">${album.releaseDate}</p>
-            <${StreamingLinks} album=${album} />
-            <${AlbumInfoTabs} album=${album} projectName=${projectName} groupSlug=${groupSlug} comparison=${comparison} tab=${tab} onTabChange=${setTab} />
-          </div>
-        </div>
+        <${AlbumSpotlight}
+          album=${album}
+          projectName=${projectName}
+          groupSlug=${groupSlug}
+          comparison=${comparison}
+          tab=${tab}
+          onTabChange=${setTab}
+        />
       </div>
     </div>
   `;
