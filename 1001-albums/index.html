@@ -1048,6 +1048,29 @@ function useTheme() {
   return { theme, toggle };
 }
 
+// Multiple components can call useCachedFetch with the same cacheKey (e.g. the Summary tab's
+// genres section and the Global Reviews tab both fetch the same scraped album page) but each
+// holds its own independent hook state. Without this, hitting "Refresh" in one of them rewrites
+// localStorage but leaves the other showing its stale (possibly empty) value until it remounts —
+// which is why closing and reopening the app "fixed" missing genre pills but an in-app refresh
+// didn't. This pub/sub lets a successful refresh in any instance push the new value to every
+// other mounted instance sharing the same key.
+const cacheKeySubscribers = new Map();
+function subscribeCacheKey(cacheKey, onUpdate) {
+  if (!cacheKey) return () => {};
+  let subs = cacheKeySubscribers.get(cacheKey);
+  if (!subs) { subs = new Set(); cacheKeySubscribers.set(cacheKey, subs); }
+  subs.add(onUpdate);
+  return () => {
+    subs.delete(onUpdate);
+    if (subs.size === 0) cacheKeySubscribers.delete(cacheKey);
+  };
+}
+function broadcastCacheKeyUpdate(cacheKey, value) {
+  const subs = cacheKeySubscribers.get(cacheKey);
+  if (subs) subs.forEach((onUpdate) => onUpdate(value));
+}
+
 // Centralizes the "fetch once, cache forever in localStorage, but distrust an empty/bad cached
 // result and allow a manual refresh" pattern used by every scraped/external lookup in this app
 // (global reviews+context, Apple track metadata). Without the isEmpty distrust check, a single
@@ -1074,6 +1097,7 @@ function useCachedFetch(cacheKey, fetcher, { isEmpty } = {}) {
       .then((value) => {
         writeJsonCache(cacheKey, value);
         if (!cancelled) setState({ status: 'ready', value, error: null });
+        broadcastCacheKeyUpdate(cacheKey, value);
       })
       .catch((error) => {
         if (!cancelled) setState({ status: 'error', value: null, error });
@@ -1082,6 +1106,10 @@ function useCachedFetch(cacheKey, fetcher, { isEmpty } = {}) {
     // fetcher is intentionally excluded — cacheKey already captures "what to fetch" (e.g. the
     // URL), so a fresh fetcher closure on every render doesn't need to retrigger the effect.
   }, [cacheKey, refreshNonce]);
+
+  useEffect(() => subscribeCacheKey(cacheKey, (value) => {
+    setState({ status: 'ready', value, error: null });
+  }), [cacheKey]);
 
   return { ...state, refresh: () => setRefreshNonce(n => n + 1) };
 }
