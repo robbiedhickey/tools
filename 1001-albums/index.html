@@ -161,7 +161,7 @@
   /* bottom tab bar — hidden on desktop, shown on mobile */
   .bottom-nav {
     display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
-    width: 100%; max-width: 100vw; overflow: hidden;
+    width: 100%; max-width: 100vw; height: calc(58px + env(safe-area-inset-bottom)); overflow: hidden;
     background: rgba(246, 245, 243, 0.88);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
     backdrop-filter: saturate(180%) blur(20px);
@@ -170,7 +170,7 @@
   }
   :root[data-theme="dark"] .bottom-nav { background: rgba(23, 21, 18, 0.88); }
   .bottom-nav-item {
-    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    flex: 1 1 0; height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 2px; padding: 10px 4px 8px; border: 0; background: none; cursor: pointer;
     color: var(--text-dim); text-decoration: none; font-family: inherit;
     min-width: 0; user-select: none; touch-action: manipulation; -webkit-touch-callout: none; position: relative;
@@ -208,15 +208,25 @@
     .brand-text-mobile { display: inline; }
     .tabs { display: none; }
     body { padding-bottom: 0; }
-    .page { padding-bottom: calc(60px + env(safe-area-inset-bottom)); flex: 1; }
     .toast { bottom: calc(68px + env(safe-area-inset-bottom)); }
     .bottom-nav { display: flex; }
   }
 
-  .page { max-width: 980px; margin: 0 auto; padding: 20px 16px 60px; }
+  .page {
+    width: 100%; max-width: 980px; min-width: 0; margin: 0 auto;
+    padding: 20px 16px 60px; overflow-x: hidden;
+  }
+  .page > div { min-width: 0; max-width: 100%; }
+  @media (max-width: 620px) {
+    .page {
+      flex: 1;
+      padding: 20px max(16px, env(safe-area-inset-right)) calc(74px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    }
+  }
   .card {
     background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
     padding: 18px; margin-bottom: 16px;
+    min-width: 0; max-width: 100%;
   }
   .card h2 { margin: 0 0 12px; font-size: 16px; }
   .card h3 { margin: 0 0 8px; font-size: 14px; color: var(--text-dim); }
@@ -2437,24 +2447,26 @@ function BacklogView({ projectName, backlog, members }) {
       ${backlog.length === 0 ? html`
         <p class="muted"><${LankyMascot} />Lanky says: you're all caught up!</p>
       ` : html`
-        <table>
-          <thead><tr><th>Date</th><th>Album</th><th>Artist</th><th>Rating</th></tr></thead>
-          <tbody>
-            ${backlog.map(e => {
-              const groupRow = groupRatings.get(e.album.uuid);
-              return html`
-              <tr>
-                <td>${new Date(e.generatedAt).toLocaleDateString()}</td>
-                <td><a class="row-link" href=${routePath(projectName, 'backlog', backlogEntryId(e))} onClick=${(event) => { event.preventDefault(); navigateTo(routePath(projectName, 'backlog', backlogEntryId(e))); }}>${e.album.name}</a></td>
-                <td>${e.album.artist}</td>
-                <td>
-                  <div>${groupRow && groupRow.averageRating != null ? html`<span class=${`rating-tier-${ratingTier(groupRow.averageRating)}`} style=${{ fontWeight: 700 }}>${formatRating(groupRow.averageRating)}</span>` : formatRating(null)} <span class="muted" style=${{ fontSize: '11px' }}>grp${groupRow && groupRow.votes ? ` (${groupRow.votes})` : ''}</span></div>
-                  <div class="muted" style=${{ fontSize: '11px' }}>${e.globalRating != null ? e.globalRating : '—'} global</div>
-                </td>
-              </tr>
-            `})}
-          </tbody>
-        </table>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Date</th><th>Album</th><th>Artist</th><th>Rating</th></tr></thead>
+            <tbody>
+              ${backlog.map(e => {
+                const groupRow = groupRatings.get(e.album.uuid);
+                return html`
+                <tr>
+                  <td>${new Date(e.generatedAt).toLocaleDateString()}</td>
+                  <td><a class="row-link" href=${routePath(projectName, 'backlog', backlogEntryId(e))} onClick=${(event) => { event.preventDefault(); navigateTo(routePath(projectName, 'backlog', backlogEntryId(e))); }}>${e.album.name}</a></td>
+                  <td>${e.album.artist}</td>
+                  <td>
+                    <div>${groupRow && groupRow.averageRating != null ? html`<span class=${`rating-tier-${ratingTier(groupRow.averageRating)}`} style=${{ fontWeight: 700 }}>${formatRating(groupRow.averageRating)}</span>` : formatRating(null)} <span class="muted" style=${{ fontSize: '11px' }}>grp${groupRow && groupRow.votes ? ` (${groupRow.votes})` : ''}</span></div>
+                    <div class="muted" style=${{ fontSize: '11px' }}>${e.globalRating != null ? e.globalRating : '—'} global</div>
+                  </td>
+                </tr>
+              `})}
+            </tbody>
+          </table>
+        </div>
       `}
     </div>
   `;
