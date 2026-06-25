@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="1001 Albums">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#f6f5f3">
+<meta name="color-scheme" content="light dark">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,500,1,0&display=block">
 <style>
   :root {
@@ -152,15 +153,41 @@
     text-transform: uppercase; letter-spacing: 0.04em;
     display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   }
+  /* bottom tab bar — hidden on desktop, shown on mobile */
+  .bottom-nav {
+    display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
+    background: rgba(246, 245, 243, 0.88);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    border-top: 1px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  :root[data-theme="dark"] .bottom-nav { background: rgba(23, 21, 18, 0.88); }
+  .bottom-nav-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; padding: 10px 4px 8px; border: 0; background: none; cursor: pointer;
+    color: var(--text-dim); text-decoration: none; font-family: inherit;
+    user-select: none; touch-action: manipulation; -webkit-touch-callout: none; position: relative;
+  }
+  .bottom-nav-item:hover { text-decoration: none; color: var(--text); }
+  .bottom-nav-item:active { opacity: 0.6; }
+  .bottom-nav-item.active { color: var(--accent); }
+  .bottom-nav-icon { font-family: 'Material Symbols Outlined'; font-size: 22px; line-height: 1; }
+  .bottom-nav-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; }
+  }
   @media (max-width: 620px) {
     .topbar-inner { gap: 7px; padding: 9px 11px; }
     .brand { font-size: 13px; }
     .brand .mascot { width: 22px; height: 22px; margin-right: 0.14em; }
     .brand-text { display: none; }
     .brand-text-mobile { display: inline; }
-    .tabs { flex: 1; min-width: 0; gap: 4px; }
-    .tab-sep { font-size: 10px; }
-    .tab { font-size: 12px; }
+    .tabs { display: none; }
+    body { padding-bottom: 0; }
+    .page { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
+    .toast { bottom: calc(68px + env(safe-area-inset-bottom)); }
+    .bottom-nav { display: flex; }
   }
 
   .page { max-width: 980px; margin: 0 auto; padding: 20px 16px 60px; }
@@ -212,7 +239,7 @@
   @media (max-width: 760px) { .today-layout { grid-template-columns: 1fr; gap: 8px; } }
   .today-secondary { min-width: 0; }
   .today-secondary .album-panel { margin-top: 0; }
-  .album-art { width: 100%; border-radius: var(--radius); display: block; }
+  .album-art { width: 100%; border-radius: var(--radius); display: block; -webkit-touch-callout: none; }
   .album-title { font-size: 22px; font-weight: 700; margin: 0 0 2px; }
   .album-artist { font-size: 16px; color: var(--text-dim); margin: 0 0 2px; }
   .links-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -240,10 +267,12 @@
   .review-list {
     display: grid; gap: 10px; margin-bottom: 10px;
     max-height: 420px; overflow-y: auto; padding-right: 4px;
+    overscroll-behavior: contain;
   }
   .review-item {
     border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
     background: var(--bg); font-size: 13px;
+    content-visibility: auto; contain-intrinsic-size: 0 88px;
   }
   .review-item.is-you { border-left: 3px solid var(--accent); padding-left: 9px; }
   .notification-list { display: grid; }
@@ -522,7 +551,7 @@
   .star-btn { border: 0; background: transparent; cursor: pointer; font-size: 16px; line-height: 1; padding: 0; color: var(--text-dim); }
   .star-btn.active { color: var(--warn); }
   .rating-stars { display: flex; gap: 4px; }
-  .star-pick { border: 0; background: transparent; cursor: pointer; font-size: 26px; line-height: 1; padding: 0; color: var(--border); }
+  .star-pick { border: 0; background: transparent; cursor: pointer; font-size: 26px; line-height: 1; padding: 0; color: var(--border); -webkit-touch-callout: none; user-select: none; }
   .star-pick.active { color: var(--warn); }
   .apple-music-link {
     display: inline-flex; align-items: center; justify-content: center;
@@ -1187,6 +1216,9 @@ function navigateTo(path) {
 }
 function navigateToProject(name) {
   navigateTo(routePath(name));
+}
+function haptic(ms) {
+  if (navigator.vibrate) navigator.vibrate(ms);
 }
 
 // ---------- hook ----------
@@ -2023,7 +2055,9 @@ function NameEntry({ theme }) {
       <h1><${LankyMascot} />1001 Albums Kongsole</h1>
       <p class="muted">Enter your 1001albumsgenerator.com username to get started.</p>
       <form onSubmit=${go}>
-        <input value=${name} onInput=${e => setName(e.target.value)} placeholder="Username" autofocus />
+        <input value=${name} onInput=${e => setName(e.target.value)} placeholder="Username" autofocus
+          autocapitalize="none" autocorrect="off" spellcheck="false"
+          autocomplete="username" enterkeyhint="go" />
         <button type="submit">Go</button>
       </form>
     </main>
@@ -2032,11 +2066,17 @@ function NameEntry({ theme }) {
 
 // ---------- nav ----------
 function Nav({ projectName, tab, backlogCount, unreadCount, theme }) {
-  const tabs = [
+  const topTabs = [
     { id: 'today', label: 'Today' },
     { id: 'backlog', label: `Backlog${backlogCount ? ` (${backlogCount})` : ''}` },
     { id: 'group', label: 'Group' },
     { id: 'me', label: 'Me' },
+  ];
+  const bottomTabs = [
+    { id: 'today', label: 'Today', icon: 'home' },
+    { id: 'backlog', label: 'Backlog', icon: 'queue_music', badge: backlogCount },
+    { id: 'group', label: 'Group', icon: 'group' },
+    { id: 'me', label: 'Me', icon: 'person' },
   ];
   // The tab strip scrolls horizontally on narrow screens (it no longer wraps), so without this
   // the active tab can land scrolled out of view on load — e.g. opening straight to Me shows
@@ -2047,29 +2087,46 @@ function Nav({ projectName, tab, backlogCount, unreadCount, theme }) {
     if (active) active.scrollIntoView({ inline: 'nearest', block: 'nearest' });
   }, [tab]);
   return html`
-    <header class="topbar">
-      <div class="topbar-inner">
-        <div class="brand"><${LankyMascot} /><span class="brand-text">1001 Albums Kongsole</span><span class="brand-text-mobile">Kongsole</span></div>
-        <nav class="tabs" ref=${tabsRef}>
-          ${tabs.map((t, i) => html`
-            ${i > 0 && html`<span class="tab-sep">|</span>`}
-            <a class=${`tab ${tab === t.id ? 'active' : ''}`} href=${routePath(projectName, t.id)} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, t.id)); }}>${t.label}</a>
-          `)}
-        </nav>
-        <div class="nav-actions">
-          <a
-            class=${`bell-link ${tab === 'activity' ? 'active' : ''}`}
-            href=${routePath(projectName, 'activity')}
-            onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'activity')); }}
-            aria-label=${`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}
-            title="Recent activity"
-          >
-            <span class="icon-symbol">notifications</span>${unreadCount > 0 && html`<span class="bell-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>`}
-          </a>
-          <${ThemeToggle} theme=${theme.theme} toggle=${theme.toggle} />
+    <${Fragment}>
+      <header class="topbar">
+        <div class="topbar-inner">
+          <div class="brand"><${LankyMascot} /><span class="brand-text">1001 Albums Kongsole</span><span class="brand-text-mobile">Kongsole</span></div>
+          <nav class="tabs" ref=${tabsRef}>
+            ${topTabs.map((t, i) => html`
+              ${i > 0 && html`<span class="tab-sep">|</span>`}
+              <a class=${`tab ${tab === t.id ? 'active' : ''}`} href=${routePath(projectName, t.id)} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, t.id)); }}>${t.label}</a>
+            `)}
+          </nav>
+          <div class="nav-actions">
+            <a
+              class=${`bell-link ${tab === 'activity' ? 'active' : ''}`}
+              href=${routePath(projectName, 'activity')}
+              onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'activity')); }}
+              aria-label=${`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}
+              title="Recent activity"
+            >
+              <span class="icon-symbol">notifications</span>${unreadCount > 0 && html`<span class="bell-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>`}
+            </a>
+            <${ThemeToggle} theme=${theme.theme} toggle=${theme.toggle} />
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+      <nav class="bottom-nav" aria-label="Main navigation">
+        ${bottomTabs.map(t => html`
+          <a
+            class=${`bottom-nav-item ${tab === t.id ? 'active' : ''}`}
+            href=${routePath(projectName, t.id)}
+            onClick=${(e) => { e.preventDefault(); haptic(6); navigateTo(routePath(projectName, t.id)); }}
+            aria-label=${t.badge ? `${t.label}, ${t.badge} items` : t.label}
+            aria-current=${tab === t.id ? 'page' : undefined}
+          >
+            <span class="bottom-nav-icon" aria-hidden="true">${t.icon}</span>
+            <span class="bottom-nav-label">${t.label}</span>
+            ${t.badge > 0 && html`<span class="bell-badge" style="top:4px;right:calc(50% - 18px)">${t.badge > 99 ? '99+' : t.badge}</span>`}
+          </a>
+        `)}
+      </nav>
+    </${Fragment}>
   `;
 }
 
@@ -2112,6 +2169,7 @@ function ListeningNoteEditor({ projectName, albumId, initialNotes }) {
         placeholder="Optional listening note…"
         value=${notes}
         onInput=${(e) => { setNotes(e.target.value); setStatus('idle'); }}
+        enterkeyhint="enter" autocomplete="off"
       ></textarea>
       <div style=${{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
         <button class="pill-btn primary" type="button" disabled=${status === 'saving'} onClick=${save}>
@@ -2141,9 +2199,11 @@ function RatingEditor({ projectName, albumUuid, generatedAlbumId, initialNotes, 
     try {
       await saveRating(projectName, albumUuid, generatedAlbumId, rating, notes);
       setStatus('saved');
+      haptic([10, 40, 20]);
       if (onRated) onRated();
     } catch (e) {
       setStatus('error');
+      haptic([30, 50, 30]);
       setErrorMessage(e.message || "Couldn't submit rating — try again.");
     }
   };
@@ -2157,7 +2217,7 @@ function RatingEditor({ projectName, albumUuid, generatedAlbumId, initialNotes, 
             type="button"
             class=${`star-pick ${n <= rating ? 'active' : ''}`}
             aria-label=${`${n} star${n === 1 ? '' : 's'}`}
-            onClick=${() => { setRating(n); setStatus('idle'); }}
+            onClick=${() => { haptic(8); setRating(n); setStatus('idle'); }}
           >★</button>
         `)}
       </div>
@@ -2167,6 +2227,7 @@ function RatingEditor({ projectName, albumUuid, generatedAlbumId, initialNotes, 
         placeholder="Optional review…"
         value=${notes}
         onInput=${(e) => { setNotes(e.target.value); setStatus('idle'); }}
+        enterkeyhint="enter" autocomplete="off"
       ></textarea>
       <div style=${{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
         <button class="pill-btn primary" type="button" disabled=${status === 'saving' || !rating} onClick=${submit}>
@@ -2188,7 +2249,7 @@ function AlbumSpotlight({ album, projectName, groupSlug = null, comparison = nul
   return html`
     <div class="today-layout">
       <div class="today-primary">
-        ${album.images && album.images[0] && html`<img class="album-art" src=${album.images[0].url} alt=${album.name} />`}
+        ${album.images && album.images[0] && html`<img class="album-art" src=${album.images[0].url} alt=${album.name} loading="lazy" decoding="async" />`}
         <p class="album-title">${album.name}</p>
         <p class="album-artist" style=${{ marginBottom: '12px' }}>${album.artist}${album.releaseDate ? ` (${album.releaseDate})` : ''}</p>
         <${AlbumSummaryContext} album=${album} sections=${['genres']} />
@@ -2772,7 +2833,14 @@ function App() {
   const theme = useTheme();
 
   useEffect(() => {
-    const onNav = () => setRoute(getRouteFromLocation());
+    const onNav = () => {
+      const newRoute = getRouteFromLocation();
+      if (document.startViewTransition) {
+        document.startViewTransition(() => setRoute(newRoute));
+      } else {
+        setRoute(newRoute);
+      }
+    };
     window.addEventListener('hashchange', onNav);
     window.addEventListener('popstate', onNav);
     return () => {
