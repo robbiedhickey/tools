@@ -219,7 +219,10 @@
   .page {
     width: 100%; max-width: 980px; min-width: 0; margin: 0 auto;
     padding: 20px 16px 60px; overflow-x: hidden;
+    will-change: transform;
+    transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
   }
+  .page.is-pulling { transition: none; }
   .page > div { min-width: 0; max-width: 100%; }
   @media (max-width: 620px) {
     .page {
@@ -3002,6 +3005,8 @@ function App() {
   const notifications = useNotifications(projectName);
   const PTR_THRESHOLD = 64;
   const pullY = usePullToRefresh(hub.refresh, hub.status === 'ready' && !hub.refreshing);
+  const pullProgress = Math.min(pullY / PTR_THRESHOLD, 1);
+  const pagePullY = pullY > 0 ? Math.min(pullY * 0.58, 48) : 0;
 
   if (!projectName && currentProjectName) return null;
   if (!projectName) return html`<${NameEntry} theme=${theme} />`;
@@ -3024,17 +3029,17 @@ function App() {
       <${RefreshErrorToast} error=${hub.refreshError} onDismiss=${hub.dismissRefreshError} />
       ${pullY > 0 && html`
         <div class="ptr-indicator" style=${{
-          transform: `translate(-50%, ${(Math.min(pullY, PTR_THRESHOLD) / PTR_THRESHOLD) * 60 - 60}px)`,
-          opacity: Math.min(pullY / PTR_THRESHOLD, 1),
+          transform: `translate(-50%, ${pullProgress * 52 - 52 + pagePullY * 0.2}px)`,
+          opacity: pullProgress,
         }}>
           <span class="icon-symbol" style=${{
             display: 'block',
-            transform: `rotate(${Math.min(pullY / PTR_THRESHOLD, 1) * 240}deg)`,
+            transform: `rotate(${pullProgress * 240}deg)`,
             color: pullY >= PTR_THRESHOLD ? 'var(--accent)' : 'var(--text-dim)',
           }}>refresh</span>
         </div>
       `}
-      <main class="page">
+      <main class=${`page ${pullY > 0 ? 'is-pulling' : ''}`} style=${pullY > 0 ? { transform: `translateY(${pagePullY}px)` } : undefined}>
         ${hub.status === 'loading' && html`<${Loading} />`}
         ${hub.status === 'error' && html`<${ErrorCard} error=${hub.error} projectName=${projectName} onRetry=${hub.refresh} />`}
         ${hub.status === 'ready' && html`
