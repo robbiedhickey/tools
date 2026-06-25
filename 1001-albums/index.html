@@ -12,8 +12,10 @@
 <meta name="apple-mobile-web-app-title" content="1001 Albums">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#f6f5f3">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,500,1,0&display=block">
 <style>
   :root {
+    --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
     --bg: #f6f5f3;
     --card: #ffffff;
     --border: #e3e1dc;
@@ -29,6 +31,7 @@
     --neutral-soft: #ececea;
     --orange: #c2410c;
     --orange-soft: #ffedd5;
+    --tier-low: #9a3412;
     --bad: #b91c1c;
     --bad-soft: #fef2f2;
     --radius: 12px;
@@ -49,15 +52,17 @@
     --neutral-soft: #2a261f;
     --orange: #f0793a;
     --orange-soft: #3a2614;
+    --tier-low: #fdba74;
     --bad: #f87171;
     --bad-soft: #3a1a1a;
   }
   * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   html, body { margin: 0; padding: 0; }
   body {
     background: var(--bg);
     color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: var(--font-mono);
     line-height: 1.5;
     padding-bottom: env(safe-area-inset-bottom);
   }
@@ -67,6 +72,7 @@
     background: var(--card); color: var(--text); border-color: var(--border); font-family: inherit;
   }
   button { font-family: inherit; }
+  .rate-optional-notes { border: 1px solid var(--border); border-radius: 8px; }
 
   .topbar {
     position: sticky; top: 0; z-index: 20;
@@ -80,7 +86,10 @@
     display: flex; align-items: center; gap: 16px;
     flex-wrap: nowrap;
   }
-  .brand { font-weight: 700; white-space: nowrap; flex: 0 0 auto; }
+  .brand {
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em;
+    white-space: nowrap; flex: 0 0 auto;
+  }
   .brand-text { display: inline; }
   .brand-text-mobile { display: none; }
   .mascot {
@@ -91,25 +100,40 @@
   .name-entry .mascot { width: 46px; height: 46px; vertical-align: middle; }
   .footer-note .mascot { width: 22px; height: 22px; margin: 0 0.08em; }
   .tabs {
-    display: flex; gap: 4px; flex-wrap: nowrap; overflow-x: auto;
+    display: flex; align-items: center; gap: 9px; flex-wrap: nowrap;
+    overflow-x: auto; overflow-y: hidden;
     max-width: 100%; scrollbar-width: none; -webkit-overflow-scrolling: touch;
   }
   .tabs::-webkit-scrollbar { display: none; }
+  .tab-sep { color: var(--border); flex: 0 0 auto; user-select: none; }
   .tab {
-    border: 1px solid transparent; background: none; cursor: pointer;
-    padding: 7px 12px; border-radius: 999px; font-size: 14px; color: var(--text-dim);
+    border: 0; border-bottom: 2px solid transparent; background: none; cursor: pointer;
+    padding: 4px 0; border-radius: 0; font-size: 13px; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.03em;
     display: inline-block; text-decoration: none; flex: 0 0 auto;
   }
-  .tab:hover { background: var(--bg); text-decoration: none; }
-  .tab.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-  .nav-actions { margin-left: auto; display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
-  .real-site-link { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
-  .bell-link { position: relative; font-size: 17px; line-height: 1; cursor: pointer; display: inline-block; }
+  .tab:hover { color: var(--text); text-decoration: none; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
+  .nav-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+  .real-site-link { white-space: nowrap; }
+  .show-all-link { color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .show-all-link:hover { color: var(--text); }
+  .bell-link {
+    position: relative; cursor: pointer; text-decoration: none;
+    padding: 4px; border-radius: 2px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .bell-link:hover { text-decoration: none; background: var(--neutral-soft); }
+  .bell-link.active .icon-symbol { color: var(--accent); }
   .theme-toggle {
-    border: none; background: none; cursor: pointer; font-size: 16px; line-height: 1;
-    padding: 4px; border-radius: 6px; display: inline-flex; align-items: center;
+    border: 0; background: none; cursor: pointer; line-height: 1;
+    padding: 4px; border-radius: 2px; display: inline-flex; align-items: center;
   }
   .theme-toggle:hover { background: var(--neutral-soft); }
+  .icon-symbol {
+    font-family: 'Material Symbols Outlined'; font-size: 19px; line-height: 1;
+    color: var(--text-dim);
+  }
   .name-entry-toggle { display: flex; justify-content: flex-end; }
   .bell-badge {
     position: absolute; top: -7px; right: -9px;
@@ -118,7 +142,8 @@
     min-width: 15px; text-align: center;
   }
   .status-row {
-    margin-bottom: 10px; font-size: 12px; color: var(--text-dim);
+    margin-bottom: 10px; font-size: 11px; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.04em;
     display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   }
   @media (max-width: 620px) {
@@ -127,9 +152,7 @@
     .brand .mascot { width: 22px; height: 22px; margin-right: 0.14em; }
     .brand-text { display: none; }
     .brand-text-mobile { display: inline; }
-    .tabs { flex: 1; min-width: 0; gap: 1px; padding-bottom: 2px; }
-    .tab { padding: 6px 7px; font-size: 13px; }
-    .real-site-link { display: none; }
+    .tabs { flex: 1; min-width: 0; gap: 7px; }
   }
 
   .page { max-width: 980px; margin: 0 auto; padding: 20px 16px 60px; }
@@ -166,6 +189,15 @@
     background: var(--accent); color: #fff; border-color: transparent;
   }
   .banner a.primary:hover, .pill-btn.primary:hover { background: var(--accent); opacity: 0.88; }
+  .te-banner {
+    border-radius: 2px; background: var(--bg);
+    border: 1px solid var(--border); border-left: 3px solid var(--accent);
+    color: var(--text);
+  }
+  .te-banner a.primary {
+    border-radius: 2px;
+    text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px;
+  }
 
   .today-layout { display: grid; grid-template-columns: minmax(0, 320px) 1fr; gap: 28px; align-items: start; }
   @media (max-width: 760px) { .today-layout { grid-template-columns: 1fr; } }
@@ -179,9 +211,10 @@
     border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; font-size: 13px; background: var(--bg);
   }
   button.link-chip { color: var(--accent); cursor: pointer; font-family: inherit; line-height: inherit; }
+  .small-link { font-size: 12px; }
   .wiki-summary {
     margin: 12px 0 14px; padding: 12px 14px; border-left: 3px solid var(--accent);
-    background: var(--accent-soft); border-radius: 8px; font-size: 14px; color: var(--text-dim);
+    background: var(--accent-soft); border-radius: 8px; font-size: 12px; color: var(--text-dim);
   }
   .wiki-summary p { margin: 0 0 8px; }
   .wiki-summary p:last-child { margin-bottom: 0; }
@@ -201,6 +234,13 @@
     background: var(--bg); font-size: 13px;
   }
   .review-item.is-you { border-left: 3px solid var(--accent); padding-left: 9px; }
+  .notification-list { display: grid; }
+  .notification-item {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 16px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px;
+  }
+  .notification-item:last-child { border-bottom: 0; }
+  .notification-time { color: var(--text-dim); font-size: 10px; flex-shrink: 0; white-space: nowrap; }
   .activity-day-group { display: grid; gap: 10px; }
   .activity-day-group + .activity-day-group { margin-top: 14px; }
   .activity-day-header {
@@ -246,16 +286,19 @@
   .style-chip-name { color: var(--text); }
   .style-chip-rating { color: var(--accent); font-weight: 700; }
   .style-chip-rating.tier-green { color: var(--good); }
-  .style-chip-rating.tier-yellow { color: var(--neutral); }
-  .style-chip-rating.tier-orange { color: var(--orange); }
+  .style-chip-rating.tier-perfect { color: var(--good); font-weight: 900 !important; }
+  .style-chip-rating.tier-yellow { color: var(--warn); }
+  .style-chip-rating.tier-orange { color: var(--tier-low); }
   .style-chip-rating.tier-red { color: var(--bad); }
   .rating-tier-green { color: var(--good); }
-  .rating-tier-yellow { color: var(--neutral); }
-  .rating-tier-orange { color: var(--orange); }
+  .rating-tier-perfect { color: var(--good); font-weight: 900 !important; }
+  .rating-tier-yellow { color: var(--warn); }
+  .rating-tier-orange { color: var(--tier-low); }
   .rating-tier-red { color: var(--bad); }
   .fill-tier-green { background: var(--good); }
-  .fill-tier-yellow { background: var(--neutral); }
-  .fill-tier-orange { background: var(--orange); }
+  .fill-tier-perfect { background: var(--good); }
+  .fill-tier-yellow { background: var(--warn); }
+  .fill-tier-orange { background: var(--tier-low); }
   .fill-tier-red { background: var(--bad); }
   .style-chip-count { color: var(--text-dim); }
   .style-chip.active { background: var(--accent-soft); border-color: var(--accent); }
@@ -315,25 +358,132 @@
   .demo-f-count { background: var(--card); color: var(--text-dim); border-left: 1px solid var(--border); }
   .context-section-title { margin: 12px 0 6px; font-size: 13px; color: var(--text-dim); font-weight: 700; }
 
+  /* Teenage-Engineering-influenced skin for any card wrapping an AlbumSpotlight (Today,
+     Backlog album view, Group album detail view) — .te-panel goes on that ancestor card div;
+     everything below reuses the existing AlbumSpotlight/AlbumInfoTabs markup, just re-skinned. */
+  .te-panel {
+    box-shadow: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+  .te-panel h2, .te-panel h3 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600;
+    color: var(--text-dim); margin: 0 0 16px;
+  }
+  .te-panel .stat .num {
+  }
+  .te-panel .stat .label {
+    text-transform: uppercase; letter-spacing: 0.05em; font-size: 10px;
+  }
+  .te-panel .badge { border-radius: 2px; }
+  .te-panel .sort-controls button {
+    border-radius: 2px;
+    text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px;
+  }
+  .te-panel .sort-controls button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .te-panel .album-art { border-radius: 2px; border: 1px solid var(--border); }
+  .te-panel .album-title {
+    font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+    margin: 10px 0 0;
+  }
+  .te-panel .album-artist {
+    font-size: 12px; color: var(--text-dim); margin: 1px 0 14px;
+  }
+  .te-panel .context-section-title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;
+    color: var(--text-dim); display: flex; align-items: center; gap: 6px;
+  }
+  .te-panel .context-section-title::before {
+    content: attr(data-badge);
+    font-family: 'Material Symbols Outlined';
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; flex-shrink: 0;
+    background: var(--accent); color: #fff; border-radius: 2px;
+    font-size: 13px; font-weight: 400; letter-spacing: 0; text-transform: none;
+  }
+  .te-panel .keyword-chip, .te-panel .link-chip, .te-panel .style-chip {
+    border-radius: 2px;
+    text-transform: uppercase; font-size: 11px; letter-spacing: 0.02em;
+  }
+  .te-panel .bar { border-radius: 2px; }
+  .te-panel .rate-optional-notes { border-radius: 2px; background: var(--bg); }
+  .te-panel .wiki-summary {
+    border-radius: 2px; border: 1px solid var(--border); border-left: 3px solid var(--accent);
+    background: var(--bg);
+  }
+  .te-panel .pill-btn {
+    border-radius: 2px;
+    text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px;
+  }
+  .te-panel .album-panel-tabs {
+    border: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    border-radius: 2px; overflow: hidden; gap: 0; counter-reset: te-tab;
+  }
+  .te-panel .album-panel-tab {
+    flex: 1; border-right: 1px solid var(--border); border-bottom: 0; border-radius: 0;
+    text-transform: uppercase; letter-spacing: 0.03em; font-size: 11px;
+    padding: 8px 6px; counter-increment: te-tab;
+  }
+  .te-panel .album-panel-tab:last-child { border-right: 0; }
+  .te-panel .album-panel-tab::before { content: counter(te-tab, decimal-leading-zero) " "; opacity: 0.5; }
+  .te-panel .album-panel-tab.active {
+    background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 700;
+  }
+  .te-panel .context-stat { border-radius: 2px; text-align: center; }
+  .te-panel .context-stat .value {
+    font-size: 20px;
+  }
+  .te-panel .context-stat .label {
+    text-transform: uppercase; letter-spacing: 0.05em; font-size: 10px;
+  }
+  .te-panel .label-caption {
+    font-size: 10px;
+  }
+
+  /* Reviews tab (GlobalReviewsPreview) and Activity feed (ActivityView) */
+  .te-panel .review-item { border-radius: 2px; }
+  .te-panel .review-meta {
+    text-transform: uppercase; letter-spacing: 0.03em; font-size: 11px;
+  }
+  .te-panel .activity-day-header {
+  }
+  .te-panel .distribution-row {
+    font-size: 11px;
+  }
+  .te-panel .distribution-track { border-radius: 2px; }
+  .te-panel button.distribution-row.clickable { border-radius: 2px; }
+
+  /* Any plain data table inside a .te-panel (Backlog list, Favorite Tracks, etc.) */
+  .te-panel th {
+    letter-spacing: 0.06em;
+  }
+  .te-panel .tracks-table td:nth-child(2), .te-panel .tracks-table td:nth-child(5) {
+    font-size: 12px; color: var(--text-dim);
+  }
   .modal-backdrop {
     position: fixed; inset: 0; z-index: 50; background: rgba(31, 29, 26, 0.58);
     padding: 18px; display: flex; align-items: center; justify-content: center;
   }
   .modal {
     width: min(1120px, 100%); height: min(860px, calc(100vh - 36px));
-    background: var(--card); border-radius: 8px; box-shadow: 0 20px 60px rgba(31, 29, 26, 0.28);
+    background: var(--card); border-radius: 4px; border: 1px solid var(--border);
+    box-shadow: 0 20px 60px rgba(31, 29, 26, 0.28);
     display: flex; flex-direction: column; overflow: hidden;
   }
   .modal-header {
     padding: 10px 12px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 10px;
+    display: flex; align-items: center; gap: 10px; flex-shrink: 0;
   }
-  .modal-title { font-weight: 700; font-size: 14px; }
+  .modal-title {
+    font-weight: 700; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim);
+  }
   .modal-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
   .modal-close {
-    border: 1px solid var(--border); background: var(--bg); border-radius: 8px;
-    cursor: pointer; font-size: 18px; line-height: 1; padding: 5px 9px;
+    border: 1px solid var(--border); background: var(--bg); border-radius: 2px;
+    cursor: pointer; color: var(--text); font-size: 16px; line-height: 1; padding: 4px 8px;
   }
+  .modal-close:hover { background: var(--neutral-soft); }
   .modal iframe { border: 0; width: 100%; flex: 1; background: #fff; }
 
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -353,7 +503,8 @@
   .row-link::after { content: ' \203A'; }
   .sort-controls { display: flex; gap: 6px; margin-bottom: 10px; }
   .sort-controls button {
-    border: 1px solid var(--border); background: var(--bg); border-radius: 999px; padding: 4px 10px; font-size: 12px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
+    border-radius: 999px; padding: 4px 10px; font-size: 11px; cursor: pointer;
   }
   .sort-controls button.active { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
   .star-btn { border: 0; background: transparent; cursor: pointer; font-size: 16px; line-height: 1; padding: 0; color: var(--text-dim); }
@@ -369,7 +520,7 @@
   .track-link { color: var(--accent); font-weight: 600; }
 
   .badge { background: var(--accent); color: #fff; border-radius: 999px; padding: 1px 7px; font-size: 11px; margin-left: 4px; }
-  .muted { color: var(--text-dim); font-size: 13px; }
+  .muted { color: var(--text-dim); font-size: 11px; }
   .center { text-align: center; }
   .name-entry { max-width: 420px; margin: 80px auto; text-align: center; }
   .name-entry input {
@@ -378,10 +529,12 @@
   .name-entry form button {
     width: 100%; padding: 10px 12px; border-radius: 8px; border: none; background: var(--accent); color: #fff; font-size: 15px; cursor: pointer;
   }
-  .footer-note { text-align: center; color: var(--text-dim); font-size: 12px; margin-top: 30px; }
+  .footer-note {
+    text-align: center; color: var(--text-dim); font-size: 11px; margin-top: 30px;
+  }
   .bar { height: 8px; border-radius: 999px; background: var(--bg); overflow: hidden; }
   .bar > div { height: 100%; }
-  .disclaimer { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
+  .disclaimer { font-size: 11px; color: var(--text-dim); margin-top: 6px; }
   .lanky-loader {
     width: 96px; height: 96px; object-fit: contain; display: block;
     margin: 0 auto 10px;
@@ -406,7 +559,7 @@
 
 <script type="module">
 import { h, render, Fragment } from 'https://esm.sh/preact@10.23.1';
-import { useState, useEffect, useMemo, useCallback } from 'https://esm.sh/preact@10.23.1/hooks';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'https://esm.sh/preact@10.23.1/hooks';
 import htm from 'https://esm.sh/htm@3.1.1';
 const html = htm.bind(h);
 
@@ -974,6 +1127,9 @@ function parseRouteParts(parts) {
       pairB: null,
     };
   }
+  if (parts[1] === 'group' && parts[2] === 'member' && parts[3]) {
+    return { projectName: decodeURIComponent(parts[0]), tab: 'member', memberName: decodeURIComponent(parts[3]), backlogAlbumId: null, albumId: null, subTab: null, pairA: null, pairB: null };
+  }
   if (parts[1] === 'group' && parts[2] === 'pair' && parts.length > 4) {
     return {
       projectName: decodeURIComponent(parts[0]),
@@ -1003,6 +1159,9 @@ function getRouteFromLocation() {
 }
 function pairRoutePath(projectName, a, b) {
   return `${APP_BASE}#/${encodeURIComponent(projectName)}/group/pair/${encodeURIComponent(a)}/${encodeURIComponent(b)}`;
+}
+function memberRoutePath(projectName, memberName) {
+  return `${APP_BASE}#/${encodeURIComponent(projectName)}/group/member/${encodeURIComponent(memberName)}`;
 }
 function routePath(projectName, tab = 'today', backlogAlbumId = null, subTab = null) {
   const base = `${APP_BASE}#/${encodeURIComponent(projectName)}`;
@@ -1328,11 +1487,18 @@ function formatRating(value) {
 // Notification `type` values observed live: groupReview, albumsRated, groupAlbumsGenerated,
 // custom, newGroupMember, donationPush, signup. Undocumented, so unknown future types fall
 // back to just showing the raw type name rather than breaking.
+function formatNotifTime(date) {
+  const month = date.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+  const day = date.getDate();
+  const time = date.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  return `${month} ${day} · ${time}`;
+}
+
 function formatNotification(n) {
   const d = n.data || {};
   switch (n.type) {
     case 'groupReview':
-      return { text: `${d.projectName} rated "${d.albumName}" ${d.rating}/5 in the group`, albumId: d.albumId };
+      return { prefix: '', albumName: d.albumName, suffix: ` was rated ${d.rating}/5 by ${d.projectName}`, albumId: d.albumId };
     case 'albumsRated':
       return { text: `You've rated ${d.numberOfAlbums} albums` };
     case 'groupAlbumsGenerated':
@@ -1351,7 +1517,7 @@ function formatNotification(n) {
 }
 
 function ratingTier(avg) {
-  return avg >= 4 ? 'green' : avg >= 3 ? 'yellow' : avg >= 2 ? 'orange' : 'red';
+  return avg >= 5 ? 'perfect' : avg >= 4 ? 'green' : avg >= 3 ? 'yellow' : avg >= 2 ? 'orange' : 'red';
 }
 
 function formatDurationMs(ms) {
@@ -1447,7 +1613,7 @@ function AlbumSummaryContext({ album, comparison = null, sections = null }) {
   return html`
     <div>
       ${show('compare') && comparison && html`
-        <div class="context-section-title">How We Compare</div>
+        <div class="context-section-title" data-badge="balance">How We Compare</div>
         <div class="context-grid">
           <div class="context-stat"><div class="value">${formatRating(comparison.userRating)}</div><div class="label">You</div></div>
           <div class="context-stat"><div class="value">${formatRating(comparison.groupAverage)}</div><div class="label">Group avg${comparison.groupVotes ? ` (${comparison.groupVotes})` : ''}</div></div>
@@ -1464,7 +1630,7 @@ function AlbumSummaryContext({ album, comparison = null, sections = null }) {
           </div>
         `}
         ${show('genres') && context.metadata.length > 0 && html`
-          <div class="context-section-title">Genres & Styles</div>
+          <div class="context-section-title" data-badge="sell">Genres & Styles</div>
           <div class="keyword-row">
             ${context.metadata.flatMap(entry => {
               const colonIndex = entry.indexOf(':');
@@ -1476,7 +1642,7 @@ function AlbumSummaryContext({ album, comparison = null, sections = null }) {
       `}
 
       ${show('discovery') && html`
-        <div class="context-section-title">Discovery Links</div>
+        <div class="context-section-title" data-badge="explore">Discovery Links</div>
         <div class="discovery-row">
           ${links.map(link => html`<a class="link-chip" href=${link.url} target="_blank" rel="noopener">${link.label}</a>`)}
         </div>
@@ -1533,7 +1699,7 @@ function GlobalReviewsPreview({ url }) {
       ${state.status === 'ready' && html`
         ${state.context && html`
           ${state.context.distribution.length > 0 && html`
-            <div class="context-section-title">Distribution</div>
+            <div class="context-section-title" data-badge="bar_chart">Distribution</div>
             <div class="distribution-bars">
               ${state.context.distribution.map(row => {
                 const ratingValue = Number(row.label);
@@ -1555,7 +1721,7 @@ function GlobalReviewsPreview({ url }) {
             </div>
           `}
           ${state.context.keywords.length > 0 && html`
-            <div class="context-section-title">Keywords from Reviews</div>
+            <div class="context-section-title" data-badge="format_quote">Keywords from Reviews</div>
             <div class="keyword-row">
               ${state.context.keywords.map(keyword => html`
                 <button
@@ -1593,7 +1759,7 @@ function GlobalReviewsPreview({ url }) {
             </div>
           `}
         `}
-        <${SiteModalLink} href=${url} title="Global reviews" className="">All Global Reviews →<//>
+        <${SiteModalLink} href=${url} title="Global reviews" className="small-link">All Global Reviews →<//>
       `}
     </div>
   `;
@@ -1860,27 +2026,35 @@ function Nav({ projectName, tab, backlogCount, unreadCount, theme }) {
     { id: 'group', label: 'Group' },
     { id: 'me', label: 'Me' },
   ];
+  // The tab strip scrolls horizontally on narrow screens (it no longer wraps), so without this
+  // the active tab can land scrolled out of view on load — e.g. opening straight to Me shows
+  // just a sliver of its solid accent fill at the right edge instead of the "Me" label.
+  const tabsRef = useRef(null);
+  useEffect(() => {
+    const active = tabsRef.current && tabsRef.current.querySelector('.tab.active');
+    if (active) active.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+  }, [tab]);
   return html`
     <header class="topbar">
       <div class="topbar-inner">
         <div class="brand"><${LankyMascot} /><span class="brand-text">1001 Albums Kongsole</span><span class="brand-text-mobile">Kongsole</span></div>
-        <nav class="tabs">
-          ${tabs.map(t => html`
+        <nav class="tabs" ref=${tabsRef}>
+          ${tabs.map((t, i) => html`
+            ${i > 0 && html`<span class="tab-sep">|</span>`}
             <a class=${`tab ${tab === t.id ? 'active' : ''}`} href=${routePath(projectName, t.id)} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, t.id)); }}>${t.label}</a>
           `)}
         </nav>
         <div class="nav-actions">
           <a
-            class="bell-link"
+            class=${`bell-link ${tab === 'activity' ? 'active' : ''}`}
             href=${routePath(projectName, 'activity')}
             onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'activity')); }}
             aria-label=${`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}
             title="Recent activity"
           >
-            🔔${unreadCount > 0 && html`<span class="bell-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>`}
+            <span class="icon-symbol">notifications</span>${unreadCount > 0 && html`<span class="bell-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>`}
           </a>
           <${ThemeToggle} theme=${theme.theme} toggle=${theme.toggle} />
-          <a class="real-site-link" href=${`${SITE_BASE}/${encodeURIComponent(projectName)}`} target="_blank" rel="noopener">Open real site ↗</a>
         </div>
       </div>
     </header>
@@ -1895,7 +2069,7 @@ function ThemeToggle({ theme, toggle }) {
       onClick=${toggle}
       aria-label=${theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
       title=${theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-    >${theme === 'dark' ? '☀️' : '🌙'}</button>
+    ><span class="icon-symbol">${theme === 'dark' ? 'light_mode' : 'dark_mode'}</span></button>
   `;
 }
 
@@ -1919,15 +2093,16 @@ function ListeningNoteEditor({ projectName, albumId, initialNotes }) {
 
   return html`
     <div style=${{ marginTop: '12px' }}>
+      <div class="context-section-title" data-badge="edit_note">Listening Note</div>
       <textarea
         class="rate-optional-notes"
-        style=${{ width: '100%', minHeight: '180px', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border)', font: 'inherit', resize: 'vertical' }}
+        style=${{ width: '100%', minHeight: '180px', padding: '8px 10px', font: 'inherit', resize: 'vertical' }}
         placeholder="Optional listening note…"
         value=${notes}
         onInput=${(e) => { setNotes(e.target.value); setStatus('idle'); }}
       ></textarea>
       <div style=${{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
-        <button class="pill-btn" type="button" disabled=${status === 'saving'} onClick=${save}>
+        <button class="pill-btn primary" type="button" disabled=${status === 'saving'} onClick=${save}>
           ${status === 'saving' ? 'Saving…' : 'Save note'}
         </button>
         ${status === 'saved' && html`<span class="muted">Saved.</span>`}
@@ -1963,6 +2138,7 @@ function RatingEditor({ projectName, albumUuid, generatedAlbumId, initialNotes, 
 
   return html`
     <div style=${{ marginTop: '12px', marginBottom: '16px' }}>
+      <div class="context-section-title" data-badge="rate_review">Rate Album</div>
       <div class="rating-stars" role="group" aria-label="Rating">
         ${[1, 2, 3, 4, 5].map(n => html`
           <button
@@ -1975,7 +2151,7 @@ function RatingEditor({ projectName, albumUuid, generatedAlbumId, initialNotes, 
       </div>
       <textarea
         class="rate-optional-notes"
-        style=${{ width: '100%', minHeight: '90px', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border)', font: 'inherit', resize: 'vertical', marginTop: '8px' }}
+        style=${{ width: '100%', minHeight: '90px', padding: '8px 10px', font: 'inherit', resize: 'vertical', marginTop: '8px' }}
         placeholder="Optional review…"
         value=${notes}
         onInput=${(e) => { setNotes(e.target.value); setStatus('idle'); }}
@@ -2004,7 +2180,7 @@ function AlbumSpotlight({ album, projectName, groupSlug = null, comparison = nul
         <p class="album-title">${album.name}</p>
         <p class="album-artist" style=${{ marginBottom: '12px' }}>${album.artist}${album.releaseDate ? ` (${album.releaseDate})` : ''}</p>
         <${AlbumSummaryContext} album=${album} sections=${['genres']} />
-        <div class="context-section-title">Listen On</div>
+        <div class="context-section-title" data-badge="headphones">Listen On</div>
         <${StreamingLinks} album=${album} />
       </div>
       <div class="today-secondary">
@@ -2022,13 +2198,13 @@ function TodayView({ projectName, me, backlog, subTab, comparison }) {
   return html`
     <div>
       ${backlog.length > 0 && html`
-        <div class="banner warn">
+        <div class="banner te-banner">
           <strong>You have ${backlog.length} album${backlog.length === 1 ? '' : 's'} waiting to be rated.</strong>
           <span class="spacer"></span>
           <a class="primary" href=${routePath(projectName, 'backlog')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'backlog')); }}>View backlog →</a>
         </div>
       `}
-      <div class="card">
+      <div class="card te-panel">
         <h2>Today's Album</h2>
         ${album ? html`
           <${AlbumSpotlight}
@@ -2062,12 +2238,12 @@ function BacklogAlbumView({ projectName, entry, groupSlug, comparison, subTab, o
   const setTab = (t) => navigateTo(routePath(projectName, 'backlog', backlogEntryId(entry), t === 'summary' ? null : t));
   return html`
     <div>
-      <div class="banner warn">
+      <div class="banner te-banner">
         <strong>Unrated album from ${new Date(entry.generatedAt).toLocaleDateString()}</strong>
         <span class="spacer"></span>
         <a class="primary" href=${routePath(projectName, 'backlog')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'backlog')); }}>View backlog →</a>
       </div>
-      <div class="card">
+      <div class="card te-panel">
         <h2>Backlog Album</h2>
         <${AlbumSpotlight}
           album=${album}
@@ -2099,12 +2275,12 @@ function AlbumDetailView({ projectName, albumRecord, groupSlug, comparison, subT
   const setTab = (t) => navigateTo(routePath(projectName, 'album', album.uuid, t === 'summary' ? null : t));
   return html`
     <div>
-      <div class="banner good">
+      <div class="banner te-banner">
         <strong>Generated ${new Date(albumRecord.generatedAt).toLocaleDateString()}</strong>
         <span class="spacer"></span>
         <a href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'group')); }}>Back to group</a>
       </div>
-      <div class="card">
+      <div class="card te-panel">
         <h2>Album Snapshot</h2>
         <${AlbumSpotlight}
           album=${album}
@@ -2127,7 +2303,7 @@ function BacklogView({ projectName, backlog, members }) {
   }, [members]);
 
   return html`
-    <div class="card">
+    <div class="card te-panel">
       <h2>Unrated Albums</h2>
       ${backlog.length === 0 ? html`
         <p class="muted"><${LankyMascot} />Lanky says: you're all caught up!</p>
@@ -2184,7 +2360,7 @@ function GroupView({ group, members, projectName }) {
 
   return html`
     <div>
-      <div class="card">
+      <div class="card te-panel">
         <h2>${group.name}</h2>
         <div class="grid cols-3">
           <div class="stat"><div class="num">${group.numberOfGeneratedAlbums}</div><div class="label">Albums</div></div>
@@ -2193,15 +2369,15 @@ function GroupView({ group, members, projectName }) {
         </div>
       </div>
 
-      <div class="card">
+      <div class="card te-panel">
         <h2>Roster</h2>
         <table>
           <thead><tr><th>Member</th><th>Unrated</th><th>Last rated</th></tr></thead>
           <tbody>
             ${roster.map(r => html`
               <tr>
-                <td>${r.name}${r.name === projectName ? ' (you)' : ''}</td>
-                <td>${r.error ? '—' : html`${r.unrated > 0 ? html`<span class="badge">${r.unrated}</span>` : '✓'}`}</td>
+                <td><a class="row-link" href=${memberRoutePath(projectName, r.name)} onClick=${(e) => { e.preventDefault(); navigateTo(memberRoutePath(projectName, r.name)); }}>${r.name}</a>${r.name === projectName ? ' (you)' : ''}</td>
+                <td>${r.error ? '—' : html`${r.unrated > 0 ? html`<span class="badge">${r.unrated}</span>` : html`<span class="icon-symbol" style=${{ fontSize: '16px', color: 'var(--good)', verticalAlign: 'middle' }}>check</span>`}`}</td>
                 <td>${r.lastRatedAt ? new Date(r.lastRatedAt).toLocaleDateString() : '—'}</td>
               </tr>
             `)}
@@ -2210,18 +2386,18 @@ function GroupView({ group, members, projectName }) {
       </div>
 
       <div class="grid cols-2">
-        <div class="card">
+        <div class="card te-panel">
           <h3>Group Favorites</h3>
           <p>Decade: <strong>${group.ratingByDecade && group.ratingByDecade.length ? group.ratingByDecade.slice().sort((a,b)=>b.rating-a.rating)[0].decade : '—'}</strong></p>
           <p>Genre: <strong>${group.favoriteGenres && group.favoriteGenres[0] ? group.favoriteGenres[0].genre : '—'}</strong></p>
         </div>
-        <div class="card">
+        <div class="card te-panel">
           <h3>Group Least Favorites</h3>
           <p>Genre: <strong>${group.worstGenres && group.worstGenres[0] ? group.worstGenres[0].genre : '—'}</strong></p>
         </div>
       </div>
 
-      <div class="card">
+      <div class="card te-panel">
         <h2>All Rated Albums (${sortedAlbums.length})</h2>
         <p class="muted">Computed client-side from every member's history — the public API only exposes the top/bottom 5.</p>
         <div class="sort-controls">
@@ -2242,11 +2418,11 @@ function GroupView({ group, members, projectName }) {
           </tbody>
         </table>
         ${sortedAlbums.length > GROUP_ALBUMS_VISIBLE_DEFAULT && html`
-          <a href="#" onClick=${(e) => { e.preventDefault(); setShowAllAlbums(!showAllAlbums); }}>${showAllAlbums ? 'Show fewer' : `Show all ${sortedAlbums.length} →`}</a>
+          <a class="show-all-link" href="#" onClick=${(e) => { e.preventDefault(); setShowAllAlbums(!showAllAlbums); }}>${showAllAlbums ? 'Show fewer' : `Show all ${sortedAlbums.length} →`}</a>
         `}
       </div>
 
-      <div class="card">
+      <div class="card te-panel">
         <h2>Taste Alignment</h2>
         <p class="disclaimer">Our own estimate (100 × (1 − mean rating difference ÷ 4) over albums both members rated, min. 2 shared) — not the site's official algorithm. See the <${SiteModalLink} href=${`${SITE_BASE}/groups/${encodeURIComponent(group.slug)}/taste-alignments`} title="Official alignments">official Alignments page<//> for that.</p>
         <table>
@@ -2273,7 +2449,7 @@ function ActivityView({ members, projectName, group, notifications }) {
     const groups = [];
     let current = null;
     for (const item of feed) {
-      const day = new Date(item.generatedAt).toLocaleDateString();
+      const day = new Date(item.generatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       if (!current || current.day !== day) {
         current = { day, items: [] };
         groups.push(current);
@@ -2284,41 +2460,40 @@ function ActivityView({ members, projectName, group, notifications }) {
   }, [feed]);
   return html`
     <div>
-      <div class="card">
+      <div class="card te-panel">
         <div style=${{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '8px' }}>
-          <h2 style=${{ margin: 0 }}>Notifications${notifications.notifications.length > 0 ? html` <span class="badge">${notifications.notifications.length} unread</span>` : ''}</h2>
+          <h2 style=${{ margin: 0 }}>Notifications${notifications.notifications.length > 0 ? ` (${notifications.notifications.length})` : ''}</h2>
           ${notifications.status === 'ready' && notifications.notifications.length > 0 && html`
             <button type="button" class="pill-btn" disabled=${notifications.markingRead} onClick=${notifications.markAllRead}>
               ${notifications.markingRead ? 'Marking…' : 'Mark as read'}
             </button>
           `}
         </div>
-        <p class="muted">Mirrors the bell on the real site. Viewing this never marks them read there.</p>
         ${notifications.markReadMessage && html`<p class="muted">${notifications.markReadMessage}</p>`}
         ${notifications.status === 'loading' && html`<${LoadingNote} label="Loading notifications…" />`}
         ${notifications.status === 'error' && html`<p class="muted">${notifications.errorMessage || "Couldn't load notifications."}</p>`}
         ${notifications.status === 'ready' && (notifications.notifications.length === 0 ? html`
           <p class="muted"><${LankyMascot} />No unread notifications.</p>
         ` : html`
-          <div class="review-list" style=${{ maxHeight: 'none' }}>
+          <div class="notification-list">
             ${notifications.notifications.map(n => {
-              const { text, albumId } = formatNotification(n);
+              const { text, prefix, albumName, suffix, albumId } = formatNotification(n);
               return html`
-                <article class="review-item" key=${n._id}>
-                  <div class="review-meta">
-                    <span class="muted">${new Date(n.createdAt).toLocaleString()}</span>
-                  </div>
-                  <p class="review-text">
-                    ${albumId ? html`<a class="row-link" href=${routePath(projectName, 'album', albumId, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'album', albumId, 'group')); }}>${text}</a>` : text}
-                  </p>
-                </article>
+                <div class="notification-item" key=${n._id}>
+                  <span>
+                    ${prefix != null
+                      ? html`${prefix}<a class="row-link" href=${routePath(projectName, 'album', albumId, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'album', albumId, 'group')); }}>${albumName}</a>${suffix}`
+                      : text}
+                  </span>
+                  <span class="notification-time">${formatNotifTime(new Date(n.createdAt))}</span>
+                </div>
               `;
             })}
           </div>
         `)}
       </div>
 
-      <div class="card">
+      <div class="card te-panel">
         <h2>Group Activity History</h2>
         ${!group && html`<p class="muted">This project isn't part of a group — showing your own rating history.</p>`}
         ${feed.length === 0 ? html`
@@ -2355,7 +2530,7 @@ function PairDetailView({ projectName, members, pairA, pairB }) {
 
   if (!pair) {
     return html`
-      <div class="card">
+      <div class="card te-panel">
         <h2>Taste Alignment</h2>
         <p class="muted">Couldn't find a comparison for ${pairA} and ${pairB} — they may not have enough albums rated in common.</p>
         <a class="pill-btn" href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'group')); }}>Back to group</a>
@@ -2365,12 +2540,12 @@ function PairDetailView({ projectName, members, pairA, pairB }) {
 
   return html`
     <div>
-      <div class="banner good">
+      <div class="banner te-banner">
         <strong>${pair.a} ↔ ${pair.b}: ${pair.alignment}% aligned</strong>
         <span class="spacer"></span>
         <a href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'group')); }}>Back to group</a>
       </div>
-      <div class="card">
+      <div class="card te-panel">
         <h2>Shared Albums (${pair.shared})</h2>
         <p class="muted">Sorted by biggest disagreement first.</p>
         <div class="table-scroll">
@@ -2394,6 +2569,42 @@ function PairDetailView({ projectName, members, pairA, pairB }) {
 }
 
 // ---------- Me ----------
+function MemberView({ memberName, project, projectName }) {
+  const history = (project && !project.__error ? project.history || [] : [])
+    .filter(e => 'rating' in e)
+    .slice()
+    .reverse();
+  return html`
+    <div>
+      <div class="banner te-banner">
+        <strong>${memberName}</strong>
+        <span class="spacer"></span>
+        <a href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'group')); }}>Back to group</a>
+      </div>
+      ${!project && html`<div class="card te-panel"><p class="muted">Loading member data…</p></div>`}
+      ${project && project.__error && html`<div class="card te-panel"><p class="muted">Couldn't load data for ${memberName}.</p></div>`}
+      ${history.length > 0 && html`
+        <div class="card te-panel">
+          <h2>Ratings (${history.length})</h2>
+          <table>
+            <thead><tr><th>Album</th><th>Artist</th><th>Rating</th><th>Review</th></tr></thead>
+            <tbody>
+              ${history.map(e => html`
+                <tr>
+                  <td><a class="row-link" href=${routePath(projectName, 'album', e.album.uuid, 'group')} onClick=${(ev) => { ev.preventDefault(); navigateTo(routePath(projectName, 'album', e.album.uuid, 'group')); }}>${e.album.name}</a></td>
+                  <td>${e.album.artist}</td>
+                  <td><span class=${`rating-tier-${ratingTier(e.rating)}`} style=${{ fontWeight: 700 }}>${e.rating}/5</span></td>
+                  <td class="muted" style=${{ maxWidth: '320px' }}>${e.review || '—'}</td>
+                </tr>
+              `)}
+            </tbody>
+          </table>
+        </div>
+      `}
+    </div>
+  `;
+}
+
 function MeView({ me, projectName }) {
   const stats = useMemo(() => computeUserStats(me), [me]);
   const switchUser = () => {
@@ -2402,12 +2613,12 @@ function MeView({ me, projectName }) {
   };
   return html`
     <div>
-      <div class="card">
+      <div class="card te-panel">
         <h2>${projectName}</h2>
         <p class="muted">This browser opens your Today page by default.</p>
         <button type="button" class="pill-btn" onClick=${switchUser}>Switch user</button>
       </div>
-      <div class="card">
+      <div class="card te-panel">
         <h2>Crate Stats</h2>
         <div class="grid cols-3">
           <div class="stat"><div class="num">${stats.totalRated}</div><div class="label">Rated</div></div>
@@ -2415,7 +2626,7 @@ function MeView({ me, projectName }) {
           <div class="stat"><div class="num">${stats.dnl}</div><div class="label">Did Not Listen</div></div>
         </div>
       </div>
-      <div class="card">
+      <div class="card te-panel">
         <h3>Rating Distribution</h3>
         ${[5, 4, 3, 2, 1].map(n => html`
           <div style=${{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
@@ -2441,7 +2652,7 @@ function FavoriteTracksSection({ projectName }) {
 
   if (favorites.list.length === 0) {
     return html`
-      <div class="card">
+      <div class="card te-panel">
         <h3>Favorite Tracks</h3>
         <p class="muted">Star tracks on an album's Tracks tab to collect them here.</p>
         ${favorites.errorMessage && html`<p class="muted">${favorites.errorMessage}</p>`}
@@ -2449,7 +2660,7 @@ function FavoriteTracksSection({ projectName }) {
     `;
   }
   return html`
-    <div class="card">
+    <div class="card te-panel">
       <h3>Favorite Tracks (${favorites.list.length})</h3>
       <p class="muted">Synced to this 1001 Albums project name — anyone using the same name shares this list.</p>
       ${favorites.errorMessage && html`<p class="muted">${favorites.errorMessage}</p>`}
@@ -2479,7 +2690,7 @@ function FavoriteTracksSection({ projectName }) {
         </table>
       </div>
       ${favorites.list.length > FAVORITE_TRACKS_VISIBLE_DEFAULT && html`
-        <a href="#" onClick=${(e) => { e.preventDefault(); setShowAll(!showAll); }}>${showAll ? 'Show fewer' : `Show all ${favorites.list.length} →`}</a>
+        <a class="show-all-link" href="#" onClick=${(e) => { e.preventDefault(); setShowAll(!showAll); }}>${showAll ? 'Show fewer' : `Show all ${favorites.list.length} →`}</a>
       `}
     </div>
   `;
@@ -2502,7 +2713,7 @@ function BreakdownStats({ genres, styles, decades, projectName }) {
   const activeItem = items.find((i) => current.keyOf(i) === expanded);
 
   return html`
-    <div class="card">
+    <div class="card te-panel">
       <div class="album-panel-tabs">
         ${Object.entries(dimensions).map(([key, d]) => html`
           <button type="button" class=${`album-panel-tab ${dimension === key ? 'active' : ''}`} onClick=${() => selectDimension(key)}>${d.label}</button>
@@ -2519,7 +2730,7 @@ function BreakdownStats({ genres, styles, decades, projectName }) {
         `)}
       </div>
       ${items.length > 100 && html`
-        <a href="#" onClick=${(e) => { e.preventDefault(); setShowAll(!showAll); }}>${showAll ? 'Show fewer' : `Show all ${items.length} →`}</a>
+        <a class="show-all-link" href="#" onClick=${(e) => { e.preventDefault(); setShowAll(!showAll); }}>${showAll ? 'Show fewer' : `Show all ${items.length} →`}</a>
       `}
       ${activeItem && html`
         <div class="table-scroll" style=${{ marginTop: '10px' }}>
@@ -2544,7 +2755,7 @@ function BreakdownStats({ genres, styles, decades, projectName }) {
 // ---------- App ----------
 function App() {
   const [route, setRoute] = useState(getRouteFromLocation());
-  const { projectName, tab, backlogAlbumId, albumId, subTab, pairA, pairB } = route;
+  const { projectName, tab, backlogAlbumId, albumId, subTab, pairA, pairB, memberName } = route;
   const currentProjectName = !projectName ? readCurrentProjectName() : '';
   const theme = useTheme();
 
@@ -2590,7 +2801,7 @@ function App() {
 
   return html`
     <div>
-      <${Nav} projectName=${projectName} tab=${(tab === 'album' || tab === 'pair') ? 'group' : tab} backlogCount=${backlog.length} unreadCount=${notifications.notifications.length} theme=${theme} />
+      <${Nav} projectName=${projectName} tab=${(tab === 'album' || tab === 'pair' || tab === 'member') ? 'group' : tab} backlogCount=${backlog.length} unreadCount=${notifications.notifications.length} theme=${theme} />
       <${RefreshErrorToast} error=${hub.refreshError} onDismiss=${hub.dismissRefreshError} />
       <main class="page">
         ${hub.status === 'loading' && html`<${Loading} />`}
@@ -2612,8 +2823,12 @@ function App() {
           ${tab === 'activity' && html`<${ActivityView} members=${hub.data.members} projectName=${projectName} group=${hub.data.group} notifications=${notifications} />`}
           ${tab === 'pair' && html`<${PairDetailView} projectName=${projectName} members=${hub.data.members} pairA=${pairA} pairB=${pairB} />`}
           ${tab === 'me' && html`<${MeView} me=${hub.data.me} projectName=${projectName} />`}
+          ${tab === 'member' && html`<${MemberView} memberName=${memberName} project=${hub.data.members[memberName]} projectName=${projectName} />`}
         `}
-        <p class="footer-note">Built for lankyserv <${LankyPartyMascot} /> Unofficial companion to 1001albumsgenerator.com</p>
+        <p class="footer-note">
+          Built for lankyserv <${LankyPartyMascot} /> Unofficial companion to 1001albumsgenerator.com
+          ${' · '}<a class="real-site-link" href=${`${SITE_BASE}/${encodeURIComponent(projectName)}`} target="_blank" rel="noopener">Open real site ↗</a>
+        </p>
       </main>
     </div>
   `;
