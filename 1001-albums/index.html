@@ -152,8 +152,8 @@
     .brand .mascot { width: 22px; height: 22px; margin-right: 0.14em; }
     .brand-text { display: none; }
     .brand-text-mobile { display: inline; }
-    .tabs { flex: 1; min-width: 0; gap: 7px; }
-    .tab-sep { display: none; }
+    .tabs { flex: 1; min-width: 0; gap: 4px; }
+    .tab-sep { font-size: 10px; }
     .tab { font-size: 12px; }
   }
 
@@ -203,7 +203,7 @@
   }
 
   .today-layout { display: grid; grid-template-columns: minmax(0, 320px) 1fr; gap: 28px; align-items: start; }
-  @media (max-width: 760px) { .today-layout { grid-template-columns: 1fr; } }
+  @media (max-width: 760px) { .today-layout { grid-template-columns: 1fr; gap: 8px; } }
   .today-secondary { padding-top: 2px; min-width: 0; }
   .today-secondary .album-panel { margin-top: 0; }
   .album-art { width: 100%; border-radius: var(--radius); display: block; }
