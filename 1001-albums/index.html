@@ -633,7 +633,7 @@
     margin: 0 auto 10px;
   }
   .ptr-indicator {
-    position: fixed; top: 56px; left: 50%; z-index: 15;
+    position: fixed; top: calc(env(safe-area-inset-top) + 48px); left: 50%; z-index: 15;
     width: 40px; height: 40px; border-radius: 50%;
     background: var(--card); border: 1px solid var(--border);
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
@@ -2900,37 +2900,62 @@ function BreakdownStats({ genres, styles, decades, projectName }) {
 // ---------- App ----------
 function usePullToRefresh(onRefresh, enabled) {
   const [pullY, setPullY] = useState(0);
-  const refs = useRef({ startY: null, pullY: 0, onRefresh });
+  const refs = useRef({ startY: null, pullY: 0, pulling: false, onRefresh });
   refs.current.onRefresh = onRefresh;
   const THRESHOLD = 64;
   useEffect(() => {
     if (!enabled) { setPullY(0); return; }
     const r = refs.current;
+    const scrollTop = () => {
+      const scroller = document.scrollingElement || document.documentElement;
+      return Math.max(window.scrollY || 0, scroller.scrollTop || 0, document.body.scrollTop || 0);
+    };
+    const atTop = () => scrollTop() <= 2;
+    const reset = () => {
+      r.startY = null;
+      r.pullY = 0;
+      r.pulling = false;
+      setPullY(0);
+    };
     const onTouchStart = (e) => {
-      if (window.scrollY === 0) { r.startY = e.touches[0].clientY; r.pullY = 0; }
+      if (e.touches.length === 1 && atTop()) {
+        r.startY = e.touches[0].clientY;
+        r.pullY = 0;
+        r.pulling = false;
+      }
     };
     const onTouchMove = (e) => {
       if (r.startY === null) return;
       const dy = e.touches[0].clientY - r.startY;
-      if (dy > 0 && window.scrollY === 0) {
-        const rubber = Math.min(Math.sqrt(dy) * 4, THRESHOLD * 1.5);
-        r.pullY = rubber;
-        setPullY(rubber);
+      if (dy <= 0) {
+        reset();
+        return;
       }
+      if (!r.pulling && !atTop()) {
+        reset();
+        return;
+      }
+      if (dy < 6) return;
+      r.pulling = true;
+      if (e.cancelable) e.preventDefault();
+      const rubber = Math.min(Math.sqrt(dy) * 4, THRESHOLD * 1.5);
+      r.pullY = rubber;
+      setPullY(rubber);
     };
     const onTouchEnd = () => {
       if (r.startY === null) return;
       if (r.pullY >= THRESHOLD) { haptic([10, 40, 20]); r.onRefresh(); }
-      r.startY = null; r.pullY = 0;
-      setPullY(0);
+      reset();
     };
     document.addEventListener('touchstart', onTouchStart, { passive: true });
-    document.addEventListener('touchmove', onTouchMove, { passive: true });
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
     document.addEventListener('touchend', onTouchEnd);
+    document.addEventListener('touchcancel', reset);
     return () => {
       document.removeEventListener('touchstart', onTouchStart);
       document.removeEventListener('touchmove', onTouchMove);
       document.removeEventListener('touchend', onTouchEnd);
+      document.removeEventListener('touchcancel', reset);
     };
   }, [enabled]);
   return pullY;
