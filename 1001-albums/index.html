@@ -33,6 +33,25 @@
     --bad-soft: #fef2f2;
     --radius: 12px;
   }
+  :root[data-theme="dark"] {
+    --bg: #171512;
+    --card: #221f1b;
+    --border: #3a352c;
+    --text: #f1eee8;
+    --text-dim: #a39c8f;
+    --accent: #f0793a;
+    --accent-soft: #3a2614;
+    --good: #4ade80;
+    --good-soft: #163322;
+    --warn: #facc15;
+    --warn-soft: #3a2f0a;
+    --neutral: #a39c8f;
+    --neutral-soft: #2a261f;
+    --orange: #f0793a;
+    --orange-soft: #3a2614;
+    --bad: #f87171;
+    --bad-soft: #3a1a1a;
+  }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body {
@@ -44,6 +63,9 @@
   }
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
+  input, textarea, select {
+    background: var(--card); color: var(--text); border-color: var(--border); font-family: inherit;
+  }
   button { font-family: inherit; }
 
   .topbar {
@@ -83,6 +105,12 @@
   .nav-actions { margin-left: auto; display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
   .real-site-link { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
   .bell-link { position: relative; font-size: 17px; line-height: 1; cursor: pointer; display: inline-block; }
+  .theme-toggle {
+    border: none; background: none; cursor: pointer; font-size: 16px; line-height: 1;
+    padding: 4px; border-radius: 6px; display: inline-flex; align-items: center;
+  }
+  .theme-toggle:hover { background: var(--neutral-soft); }
+  .name-entry-toggle { display: flex; justify-content: flex-end; }
   .bell-badge {
     position: absolute; top: -7px; right: -9px;
     background: var(--accent); color: #fff; border-radius: 999px;
@@ -347,7 +375,7 @@
   .name-entry input {
     width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 16px; margin: 12px 0;
   }
-  .name-entry button {
+  .name-entry form button {
     width: 100%; padding: 10px 12px; border-radius: 8px; border: none; background: var(--accent); color: #fff; font-size: 15px; cursor: pointer;
   }
   .footer-note { text-align: center; color: var(--text-dim); font-size: 12px; margin-top: 30px; }
@@ -991,6 +1019,35 @@ function navigateToProject(name) {
 }
 
 // ---------- hook ----------
+const THEME_KEY = 'theme';
+function readStoredTheme() {
+  try { return localStorage.getItem(THEME_KEY) || ''; } catch (e) { return ''; }
+}
+function writeStoredTheme(theme) {
+  try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
+}
+function useTheme() {
+  const [theme, setTheme] = useState(() => {
+    const stored = readStoredTheme();
+    if (stored === 'light' || stored === 'dark') return stored;
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', theme === 'dark' ? '#171512' : '#f6f5f3');
+  }, [theme]);
+
+  const toggle = () => setTheme((t) => {
+    const next = t === 'dark' ? 'light' : 'dark';
+    writeStoredTheme(next);
+    return next;
+  });
+
+  return { theme, toggle };
+}
+
 // Centralizes the "fetch once, cache forever in localStorage, but distrust an empty/bad cached
 // result and allow a manual refresh" pattern used by every scraped/external lookup in this app
 // (global reviews+context, Apple track metadata). Without the isEmpty distrust check, a single
@@ -1734,11 +1791,12 @@ function RefreshErrorToast({ error, onDismiss }) {
   `;
 }
 
-function NameEntry() {
+function NameEntry({ theme }) {
   const [name, setName] = useState('');
   const go = (e) => { e.preventDefault(); if (name.trim()) navigateToProject(name.trim()); };
   return html`
     <main class="name-entry">
+      <div class="name-entry-toggle"><${ThemeToggle} theme=${theme.theme} toggle=${theme.toggle} /></div>
       <h1><${LankyMascot} />1001 Albums Kongsole</h1>
       <p class="muted">Enter your 1001albumsgenerator.com username to get started.</p>
       <form onSubmit=${go}>
@@ -1750,7 +1808,7 @@ function NameEntry() {
 }
 
 // ---------- nav ----------
-function Nav({ projectName, tab, backlogCount, unreadCount }) {
+function Nav({ projectName, tab, backlogCount, unreadCount, theme }) {
   const tabs = [
     { id: 'today', label: 'Today' },
     { id: 'backlog', label: `Backlog${backlogCount ? ` (${backlogCount})` : ''}` },
@@ -1776,10 +1834,23 @@ function Nav({ projectName, tab, backlogCount, unreadCount }) {
           >
             🔔${unreadCount > 0 && html`<span class="bell-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>`}
           </a>
+          <${ThemeToggle} theme=${theme.theme} toggle=${theme.toggle} />
           <a class="real-site-link" href=${`${SITE_BASE}/${encodeURIComponent(projectName)}`} target="_blank" rel="noopener">Open real site ↗</a>
         </div>
       </div>
     </header>
+  `;
+}
+
+function ThemeToggle({ theme, toggle }) {
+  return html`
+    <button
+      type="button"
+      class="theme-toggle"
+      onClick=${toggle}
+      aria-label=${theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      title=${theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+    >${theme === 'dark' ? '☀️' : '🌙'}</button>
   `;
 }
 
@@ -2430,6 +2501,7 @@ function App() {
   const [route, setRoute] = useState(getRouteFromLocation());
   const { projectName, tab, backlogAlbumId, albumId, subTab, pairA, pairB } = route;
   const currentProjectName = !projectName ? readCurrentProjectName() : '';
+  const theme = useTheme();
 
   useEffect(() => {
     const onNav = () => setRoute(getRouteFromLocation());
@@ -2457,7 +2529,7 @@ function App() {
   const notifications = useNotifications(projectName);
 
   if (!projectName && currentProjectName) return null;
-  if (!projectName) return html`<${NameEntry} />`;
+  if (!projectName) return html`<${NameEntry} theme=${theme} />`;
 
   const backlog = hub.data ? deriveBacklog(hub.data.me) : [];
   const backlogEntry = backlogAlbumId
@@ -2473,7 +2545,7 @@ function App() {
 
   return html`
     <div>
-      <${Nav} projectName=${projectName} tab=${(tab === 'album' || tab === 'pair') ? 'group' : tab} backlogCount=${backlog.length} unreadCount=${notifications.notifications.length} />
+      <${Nav} projectName=${projectName} tab=${(tab === 'album' || tab === 'pair') ? 'group' : tab} backlogCount=${backlog.length} unreadCount=${notifications.notifications.length} theme=${theme} />
       <${RefreshErrorToast} error=${hub.refreshError} onDismiss=${hub.dismissRefreshError} />
       <main class="page">
         ${hub.status === 'loading' && html`<${Loading} />`}
