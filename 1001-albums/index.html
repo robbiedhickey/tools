@@ -175,10 +175,27 @@
     user-select: none; touch-action: manipulation; -webkit-touch-callout: none; position: relative;
   }
   .bottom-nav-item:hover { text-decoration: none; color: var(--text); }
-  .bottom-nav-item:active { opacity: 0.6; }
+  .bottom-nav-item { transition: transform 0.08s, opacity 0.08s; }
+  .bottom-nav-item:active { transform: scale(0.88); opacity: 0.7; }
   .bottom-nav-item.active { color: var(--accent); }
   .bottom-nav-icon { font-family: 'Material Symbols Outlined'; font-size: 22px; line-height: 1; }
   .bottom-nav-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+  @media (prefers-reduced-motion: no-preference) {
+    @keyframes vt-out-left  { to   { transform: translateX(-28px); opacity: 0; } }
+    @keyframes vt-in-right  { from { transform: translateX(28px);  opacity: 0; } }
+    @keyframes vt-out-right { to   { transform: translateX(28px);  opacity: 0; } }
+    @keyframes vt-in-left   { from { transform: translateX(-28px); opacity: 0; } }
+    :root[data-vt="forward"] ::view-transition-old(root) { animation: vt-out-left  220ms ease both; }
+    :root[data-vt="forward"] ::view-transition-new(root) { animation: vt-in-right  220ms ease both; }
+    :root[data-vt="back"]    ::view-transition-old(root) { animation: vt-out-right 220ms ease both; }
+    :root[data-vt="back"]    ::view-transition-new(root) { animation: vt-in-left   220ms ease both; }
+    @keyframes tab-pop {
+      0%   { transform: scale(0.72); }
+      60%  { transform: scale(1.18); }
+      100% { transform: scale(1); }
+    }
+    .bottom-nav-item.active .bottom-nav-icon { animation: tab-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+  }
   @media (prefers-reduced-motion: reduce) {
     ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; }
   }
@@ -223,6 +240,8 @@
     background: var(--card); color: var(--text); padding: 6px 12px; border-radius: 8px; font-size: 13px; white-space: nowrap;
     display: inline-block; border: 1px solid var(--border); cursor: pointer;
   }
+  .pill-btn { transition: transform 0.08s, opacity 0.08s; }
+  .pill-btn:active:not(:disabled) { transform: scale(0.96); opacity: 0.85; }
   .pill-btn:disabled { opacity: 0.55; cursor: not-allowed; }
   .banner a:hover, .pill-btn:hover { text-decoration: none; opacity: 1; background: var(--bg); }
   .pill-btn:disabled:hover { opacity: 0.55; background: var(--card); }
@@ -556,7 +575,8 @@
   .star-btn { border: 0; background: transparent; cursor: pointer; font-size: 16px; line-height: 1; padding: 0; color: var(--text-dim); }
   .star-btn.active { color: var(--warn); }
   .rating-stars { display: flex; gap: 4px; }
-  .star-pick { border: 0; background: transparent; cursor: pointer; font-size: 26px; line-height: 1; padding: 0; color: var(--border); -webkit-touch-callout: none; user-select: none; }
+  .star-pick { border: 0; background: transparent; cursor: pointer; font-size: 26px; line-height: 1; padding: 0; color: var(--border); -webkit-touch-callout: none; user-select: none; transition: transform 0.1s; }
+  .star-pick:active { transform: scale(0.78); }
   .star-pick.active { color: var(--warn); }
   .apple-music-link {
     display: inline-flex; align-items: center; justify-content: center;
@@ -1233,6 +1253,15 @@ function navigateToProject(name) {
 }
 function haptic(ms) {
   if (navigator.vibrate) navigator.vibrate(ms);
+}
+const TAB_ORDER = { today: 0, backlog: 1, group: 2, me: 3, activity: 4 };
+function setVtDirection(fromTab, toTab) {
+  const a = TAB_ORDER[fromTab], b = TAB_ORDER[toTab];
+  if (a !== undefined && b !== undefined && a !== b) {
+    document.documentElement.dataset.vt = b > a ? 'forward' : 'back';
+  } else {
+    delete document.documentElement.dataset.vt;
+  }
 }
 
 // ---------- hook ----------
@@ -2108,14 +2137,14 @@ function Nav({ projectName, tab, backlogCount, unreadCount, theme }) {
           <nav class="tabs" ref=${tabsRef}>
             ${topTabs.map((t, i) => html`
               ${i > 0 && html`<span class="tab-sep">|</span>`}
-              <a class=${`tab ${tab === t.id ? 'active' : ''}`} href=${routePath(projectName, t.id)} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, t.id)); }}>${t.label}</a>
+              <a class=${`tab ${tab === t.id ? 'active' : ''}`} href=${routePath(projectName, t.id)} onClick=${(e) => { e.preventDefault(); setVtDirection(tab, t.id); navigateTo(routePath(projectName, t.id)); }}>${t.label}</a>
             `)}
           </nav>
           <div class="nav-actions">
             <a
               class=${`bell-link ${tab === 'activity' ? 'active' : ''}`}
               href=${routePath(projectName, 'activity')}
-              onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'activity')); }}
+              onClick=${(e) => { e.preventDefault(); setVtDirection(tab, 'activity'); navigateTo(routePath(projectName, 'activity')); }}
               aria-label=${`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}
               title="Recent activity"
             >
@@ -2130,7 +2159,7 @@ function Nav({ projectName, tab, backlogCount, unreadCount, theme }) {
           <a
             class=${`bottom-nav-item ${tab === t.id ? 'active' : ''}`}
             href=${routePath(projectName, t.id)}
-            onClick=${(e) => { e.preventDefault(); haptic(6); navigateTo(routePath(projectName, t.id)); }}
+            onClick=${(e) => { e.preventDefault(); haptic(6); setVtDirection(tab, t.id); navigateTo(routePath(projectName, t.id)); }}
             aria-label=${t.badge ? `${t.label}, ${t.badge} items` : t.label}
             aria-current=${tab === t.id ? 'page' : undefined}
           >
@@ -2888,9 +2917,11 @@ function App() {
     const onNav = () => {
       const newRoute = getRouteFromLocation();
       if (document.startViewTransition) {
-        document.startViewTransition(() => setRoute(newRoute));
+        const t = document.startViewTransition(() => setRoute(newRoute));
+        t.finished.then(() => delete document.documentElement.dataset.vt);
       } else {
         setRoute(newRoute);
+        delete document.documentElement.dataset.vt;
       }
     };
     window.addEventListener('hashchange', onNav);
