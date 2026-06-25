@@ -459,6 +459,14 @@ function describeFetchFailure(err) {
     : 'The request was blocked before the response could be read. You may be rate limited or temporarily blocked; try again in a little while.';
 }
 
+// Shared formatter for errors thrown by the scraped-page fetchers below: 'lookup failed' is an
+// internal sentinel for "got a response, just not an ok/useful one" with no better message to
+// show, so it's hidden in favor of each caller's own generic fallback text.
+function formatCacheErrorMessage(err) {
+  if (!err) return '';
+  return err.message === 'lookup failed' ? '' : describeFetchFailure(err);
+}
+
 async function apiGet(path) {
   let res;
   try {
@@ -535,7 +543,14 @@ async function fetchFavorites(projectName) {
     throw new Error(describeFetchFailure(err));
   }
   if (!res.ok) throw new Error('Failed to load favorites.');
-  return res.json();
+  try {
+    return await res.json();
+  } catch (err) {
+    // A 200 with a non-JSON body (e.g. the SPA's own index.html, if a redirect/routing rule ever
+    // shadows this Function) surfaces as a raw "Unexpected token '<'" SyntaxError — translate it
+    // to something a user can actually read instead of leaking the parser's internal message.
+    throw new Error('Favorites service returned an unexpected response. Try again in a little while.');
+  }
 }
 async function putFavoriteTrack(projectName, trackId, entry) {
   let res;
@@ -804,8 +819,10 @@ function streamingLinks(album) {
 // ---------- localStorage cache ----------
 const CURRENT_PROJECT_KEY = 'current-project-name';
 const cacheKey = (name) => `hub:${name}`;
-const globalReviewsCacheKey = (url) => `global-reviews:${url}`;
-const globalContextCacheKey = (url) => `global-context:${url}`;
+// Reviews + the keyword/distribution context are two halves of one scraped page fetch, so they
+// share one cache entry — that also means a Summary-tab visit and a Reviews-tab visit reuse the
+// same fetch instead of each independently hitting the network.
+const globalAlbumPageCacheKey = (url) => `global-album-page:${url}`;
 // Bump this version segment whenever parseAppleLookupResults's output shape changes, so stale
 // cached entries (missing newly-added fields) get invalidated instead of silently served forever.
 const APPLE_TRACKS_CACHE_VERSION = 'v2';
@@ -830,35 +847,19 @@ function readCache(name) {
 function writeCache(name, data) {
   try { localStorage.setItem(cacheKey(name), JSON.stringify({ fetchedAt: Date.now(), data })); } catch (e) {}
 }
-function readGlobalReviewsCache(url) {
+// Generic localStorage cache for any external/scraped lookup, used via useCachedFetch below.
+// Unlike readCache/writeCache (the hub's own cache, which has a TTL and a "stale" flag the UI
+// surfaces explicitly), these have no TTL — they cache "forever" but useCachedFetch's isEmpty
+// check distrusts an empty/bad result instead of serving it back indefinitely.
+function readJsonCache(key) {
   try {
-    const raw = localStorage.getItem(globalReviewsCacheKey(url));
+    const raw = localStorage.getItem(key);
     if (!raw) return null;
     return JSON.parse(raw);
   } catch (e) { return null; }
 }
-function writeGlobalReviewsCache(url, reviews) {
-  try { localStorage.setItem(globalReviewsCacheKey(url), JSON.stringify({ fetchedAt: Date.now(), reviews })); } catch (e) {}
-}
-function readGlobalContextCache(url) {
-  try {
-    const raw = localStorage.getItem(globalContextCacheKey(url));
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch (e) { return null; }
-}
-function writeGlobalContextCache(url, context) {
-  try { localStorage.setItem(globalContextCacheKey(url), JSON.stringify({ fetchedAt: Date.now(), context })); } catch (e) {}
-}
-function readAppleTracksCache(id) {
-  try {
-    const raw = localStorage.getItem(appleTracksCacheKey(id));
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch (e) { return null; }
-}
-function writeAppleTracksCache(id, data) {
-  try { localStorage.setItem(appleTracksCacheKey(id), JSON.stringify({ fetchedAt: Date.now(), data })); } catch (e) {}
+function writeJsonCache(key, value) {
+  try { localStorage.setItem(key, JSON.stringify({ fetchedAt: Date.now(), value })); } catch (e) {}
 }
 
 // ---------- favorite tracks (backed by functions/1001-albums/api/favorites/, see _lib/favorites.js) ----------
@@ -990,6 +991,44 @@ function navigateToProject(name) {
 }
 
 // ---------- hook ----------
+// Centralizes the "fetch once, cache forever in localStorage, but distrust an empty/bad cached
+// result and allow a manual refresh" pattern used by every scraped/external lookup in this app
+// (global reviews+context, Apple track metadata). Without the isEmpty distrust check, a single
+// bad fetch (a transient rate limit, a CORS/CDN hiccup) gets cached and served back forever with
+// no way to recover short of clearing localStorage by hand — see the Tracks-tab bug this fixed.
+// cacheKey of null/'' means there's nothing to fetch (e.g. no Apple Music ID) → status 'hidden'.
+function useCachedFetch(cacheKey, fetcher, { isEmpty } = {}) {
+  const [state, setState] = useState({ status: cacheKey ? 'loading' : 'hidden', value: null, error: null });
+  const [refreshNonce, setRefreshNonce] = useState(0);
+
+  useEffect(() => {
+    if (!cacheKey) {
+      setState({ status: 'hidden', value: null, error: null });
+      return;
+    }
+    let cancelled = false;
+    const cached = refreshNonce === 0 ? readJsonCache(cacheKey) : null;
+    if (cached && cached.value != null && !(isEmpty && isEmpty(cached.value))) {
+      setState({ status: 'ready', value: cached.value, error: null });
+      return;
+    }
+    setState({ status: 'loading', value: null, error: null });
+    fetcher()
+      .then((value) => {
+        writeJsonCache(cacheKey, value);
+        if (!cancelled) setState({ status: 'ready', value, error: null });
+      })
+      .catch((error) => {
+        if (!cancelled) setState({ status: 'error', value: null, error });
+      });
+    return () => { cancelled = true; };
+    // fetcher is intentionally excluded — cacheKey already captures "what to fetch" (e.g. the
+    // URL), so a fresh fetcher closure on every render doesn't need to retrigger the effect.
+  }, [cacheKey, refreshNonce]);
+
+  return { ...state, refresh: () => setRefreshNonce(n => n + 1) };
+}
+
 function useHub(projectName) {
   const [state, setState] = useState({ status: 'loading', data: null, error: null, refreshError: null, fetchedAt: null, stale: false, refreshing: false });
 
@@ -1155,6 +1194,29 @@ function parseGlobalAlbumContext(htmlText) {
   return { stats, distribution, metadata, keywords };
 }
 
+// One fetch of the scraped global-reviews page serves both AlbumSummaryContext (genres/rating)
+// and GlobalReviewsPreview (reviews/distribution/keywords) via the shared global-album-page
+// cache — see useCachedFetch and globalAlbumPageCacheKey.
+function fetchGlobalAlbumPage(url) {
+  return fetch(url)
+    // This page has no CORS headers, so a rate-limit block and a normal CORS block both surface
+    // as an opaque network error with no readable status — only catchable when the browser
+    // actually let us read a response (e.g. the page started sending CORS headers, or this
+    // particular failure mode wasn't CORS-opaque).
+    .then((r) => { if (!r.ok) throw new Error(isRateLimitStatus(r.status) ? describeRateLimit(r) : 'lookup failed'); return r.text(); })
+    .then((text) => ({ reviews: parseGlobalReviews(text, 100), context: parseGlobalAlbumContext(text) }));
+}
+
+// A previous bad fetch (rate limit, CORS/CDN hiccup) is indistinguishable from a legitimately
+// review-less album by shape alone, so this is a heuristic, not a guarantee — but it's the same
+// trade-off already accepted for Apple track lookups, and far better than caching a bad result
+// forever with no way to recover.
+function isGlobalAlbumPageEmpty(value) {
+  const noReviews = !value.reviews || value.reviews.length === 0;
+  const noContext = !value.context || (value.context.distribution.length === 0 && value.context.keywords.length === 0);
+  return noReviews && noContext;
+}
+
 function formatRating(value) {
   if (value == null) return '—';
   if (value === 'did-not-listen') return 'DNL';
@@ -1270,36 +1332,12 @@ function AlbumSummaryContext({ album, comparison = null, sections = null }) {
   // the album yet (e.g. today's freshly-revealed pick), comparison.globalRating is null and we
   // fall back to the scraped per-album global rating below instead of showing a blank stat.
   const needsFetch = show('rating') || show('genres') || show('compare');
-  const [state, setState] = useState({ status: needsFetch && album.globalReviewsUrl ? 'loading' : 'ready', context: null, errorMessage: '' });
-
-  useEffect(() => {
-    if (!needsFetch || !album.globalReviewsUrl) {
-      setState({ status: 'ready', context: null, errorMessage: '' });
-      return;
-    }
-    let cancelled = false;
-    const cached = readGlobalContextCache(album.globalReviewsUrl);
-    if (cached && cached.context) {
-      setState({ status: 'ready', context: cached.context, errorMessage: '' });
-      return;
-    }
-    setState({ status: 'loading', context: null, errorMessage: '' });
-    fetch(album.globalReviewsUrl)
-      // This page has no CORS headers, so a rate-limit block and a normal CORS block both
-      // surface as an opaque network error with no readable status — only catch this when the
-      // browser actually let us read a response (e.g. the page started sending CORS headers, or
-      // this particular failure mode wasn't CORS-opaque).
-      .then((r) => { if (!r.ok) throw new Error(isRateLimitStatus(r.status) ? describeRateLimit(r) : 'lookup failed'); return r.text(); })
-      .then((text) => {
-        const context = parseGlobalAlbumContext(text);
-        writeGlobalContextCache(album.globalReviewsUrl, context);
-        if (!cancelled) setState({ status: 'ready', context, errorMessage: '' });
-      })
-      .catch((e) => {
-        if (!cancelled) setState({ status: 'error', context: null, errorMessage: e.message === 'lookup failed' ? '' : describeFetchFailure(e) });
-      });
-    return () => { cancelled = true; };
-  }, [album.globalReviewsUrl, needsFetch]);
+  const cache = useCachedFetch(
+    needsFetch && album.globalReviewsUrl ? globalAlbumPageCacheKey(album.globalReviewsUrl) : null,
+    () => fetchGlobalAlbumPage(album.globalReviewsUrl),
+    { isEmpty: isGlobalAlbumPageEmpty }
+  );
+  const state = { status: cache.status, context: cache.value ? cache.value.context : null, errorMessage: formatCacheErrorMessage(cache.error) };
 
   const context = state.context;
   const links = discoveryLinks(album);
@@ -1355,48 +1393,24 @@ function highlightKeyword(text, keyword) {
   return text.split(pattern).map((part, i) => (i % 2 === 1 ? html`<mark class="keyword-highlight">${part}</mark>` : part));
 }
 
-function GlobalReviewsPreview({ url, limit = 100 }) {
-  const [state, setState] = useState({ status: 'loading', reviews: [], context: null, errorMessage: '' });
+function GlobalReviewsPreview({ url }) {
+  const cache = useCachedFetch(url ? globalAlbumPageCacheKey(url) : null, () => fetchGlobalAlbumPage(url), { isEmpty: isGlobalAlbumPageEmpty });
+  const state = {
+    status: cache.status,
+    reviews: cache.value ? cache.value.reviews : [],
+    context: cache.value ? cache.value.context : null,
+    errorMessage: formatCacheErrorMessage(cache.error),
+  };
   // Keyword chips are scraped from the site's own keyword cloud, which may be computed from more
   // reviews than the page actually embeds in static HTML — clicking one filters only the reviews
   // we actually loaded (see the "loaded reviews" wording below), not every review that mentions it.
   const [activeKeyword, setActiveKeyword] = useState(null);
   const [activeRating, setActiveRating] = useState(null);
-  const [refreshNonce, setRefreshNonce] = useState(0);
 
   useEffect(() => {
     setActiveKeyword(null);
     setActiveRating(null);
-    if (!url) return;
-    let cancelled = false;
-    const cached = readGlobalReviewsCache(url);
-    const cachedContext = readGlobalContextCache(url);
-    const forceRefresh = refreshNonce > 0;
-    if (!forceRefresh && cached && cached.reviews && cachedContext && cachedContext.context) {
-      setState({ status: 'ready', reviews: cached.reviews, context: cachedContext.context, errorMessage: '' });
-      return;
-    }
-    setState({ status: 'loading', reviews: [], context: null, errorMessage: '' });
-    fetch(url)
-      // Same CORS-opacity caveat as AlbumSummaryContext above — only catchable when the browser
-      // actually let us read a response.
-      .then((r) => { if (!r.ok) throw new Error(isRateLimitStatus(r.status) ? describeRateLimit(r) : 'lookup failed'); return r.text(); })
-      .then((text) => {
-        const reviews = parseGlobalReviews(text, limit);
-        const context = parseGlobalAlbumContext(text);
-        writeGlobalReviewsCache(url, reviews);
-        writeGlobalContextCache(url, context);
-        if (!cancelled) setState({ status: 'ready', reviews, context, errorMessage: '' });
-      })
-      .catch((e) => {
-        if (!cancelled && cached && cached.reviews) {
-          setState({ status: 'ready', reviews: cached.reviews, context: cachedContext ? cachedContext.context : null, errorMessage: '' });
-        } else if (!cancelled) {
-          setState({ status: 'error', reviews: [], context: null, errorMessage: e.message === 'lookup failed' ? '' : describeFetchFailure(e) });
-        }
-      });
-    return () => { cancelled = true; };
-  }, [url, limit, refreshNonce]);
+  }, [url]);
 
   const filteredReviews = useMemo(() => {
     if (!activeKeyword && !activeRating) return state.reviews;
@@ -1452,14 +1466,14 @@ function GlobalReviewsPreview({ url, limit = 100 }) {
           `}
         `}
         ${state.reviews.length === 0 ? html`
-          <p class="muted">No global reviews found. <a href="#" onClick=${(e) => { e.preventDefault(); setRefreshNonce(n => n + 1); }}>Refresh</a></p>
+          <p class="muted">No global reviews found. <a href="#" onClick=${(e) => { e.preventDefault(); cache.refresh(); }}>Refresh</a></p>
         ` : html`
           <p class="muted">
             ${hasActiveFilter
               ? `Showing ${filteredReviews.length} of ${state.reviews.length} loaded reviews${activeKeyword ? ` mentioning “${activeKeyword}”` : ''}${activeRating ? `${activeKeyword ? ' and' : ''} rated ${activeRating}★` : ''}. `
               : `Showing ${state.reviews.length} popular global review${state.reviews.length === 1 ? '' : 's'}. `}
             ${hasActiveFilter && html`<a href="#" onClick=${(e) => { e.preventDefault(); clearFilters(); }}>Clear</a>${' · '}`}
-            <a href="#" onClick=${(e) => { e.preventDefault(); setRefreshNonce(n => n + 1); }}>Refresh</a>
+            <a href="#" onClick=${(e) => { e.preventDefault(); cache.refresh(); }}>Refresh</a>
           </p>
           ${filteredReviews.length === 0 ? html`
             <p class="muted">None of the loaded reviews match this filter — the distribution/keyword cloud may be drawn from more reviews than this page loaded.</p>
@@ -1483,37 +1497,21 @@ function GlobalReviewsPreview({ url, limit = 100 }) {
   `;
 }
 
-function TracksPreview({ album, projectName }) {
-  const [state, setState] = useState({ status: album.appleMusicId ? 'idle' : 'hidden', data: null });
-  const [refreshNonce, setRefreshNonce] = useState(0);
-  const favorites = useFavoriteTracks(projectName);
+// A cached *empty* track list almost certainly means a previous fetch was bad (a CORS/CDN
+// hiccup, a transient rate limit) rather than the album genuinely having zero tracks — don't
+// let that get stuck forever the way the global-reviews cache used to.
+function isAppleTracksEmpty(value) {
+  return !value.tracks || value.tracks.length === 0;
+}
 
-  useEffect(() => {
-    if (!album.appleMusicId) {
-      setState({ status: 'hidden', data: null });
-      return;
-    }
-    let cancelled = false;
-    const cached = readAppleTracksCache(album.appleMusicId);
-    // A cached *empty* track list almost certainly means a previous fetch was bad (a CORS/CDN
-    // hiccup, a transient rate limit) rather than the album genuinely having zero tracks — don't
-    // let that get stuck forever the way the global-reviews cache used to.
-    if (refreshNonce === 0 && cached && cached.data && cached.data.tracks.length > 0) {
-      setState({ status: 'ready', data: cached.data });
-      return;
-    }
-    setState({ status: 'loading', data: null });
-    fetchAppleTrackMetadata(album.appleMusicId)
-      .then((data) => {
-        const normalized = parseAppleLookupResults(data);
-        writeAppleTracksCache(album.appleMusicId, normalized);
-        if (!cancelled) setState({ status: 'ready', data: normalized });
-      })
-      .catch(() => {
-        if (!cancelled) setState({ status: 'error', data: null });
-      });
-    return () => { cancelled = true; };
-  }, [album.appleMusicId, refreshNonce]);
+function TracksPreview({ album, projectName }) {
+  const favorites = useFavoriteTracks(projectName);
+  const cache = useCachedFetch(
+    album.appleMusicId ? appleTracksCacheKey(album.appleMusicId) : null,
+    () => fetchAppleTrackMetadata(album.appleMusicId).then(parseAppleLookupResults),
+    { isEmpty: isAppleTracksEmpty }
+  );
+  const state = { status: cache.status, data: cache.value };
 
   useEffect(() => {
     if (!state.data) return;
@@ -1525,7 +1523,7 @@ function TracksPreview({ album, projectName }) {
       ${favorites.errorMessage && html`<p class="muted">${favorites.errorMessage}</p>`}
       ${state.status === 'hidden' && html`<p class="muted">No Apple Music ID is available for this album.</p>`}
       ${state.status === 'loading' && html`<${LoadingNote} label="Loading track metadata…" />`}
-      ${state.status === 'error' && html`<p class="muted">Couldn't load track metadata. <a href="#" onClick=${(e) => { e.preventDefault(); setRefreshNonce(n => n + 1); }}>Refresh</a></p>`}
+      ${state.status === 'error' && html`<p class="muted">Couldn't load track metadata. <a href="#" onClick=${(e) => { e.preventDefault(); cache.refresh(); }}>Refresh</a></p>`}
       ${state.status === 'ready' && state.data && html`
         ${state.data.album && html`
           <div class="context-grid" style=${{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
@@ -1537,9 +1535,9 @@ function TracksPreview({ album, projectName }) {
             <p class="muted">Apple returned ${state.data.tracks.length} track rows for an album marked as ${state.data.album.trackCount} tracks.</p>
           `}
         `}
-        <p class="muted"><a href="#" onClick=${(e) => { e.preventDefault(); setRefreshNonce(n => n + 1); }}>Refresh</a></p>
+        <p class="muted"><a href="#" onClick=${(e) => { e.preventDefault(); cache.refresh(); }}>Refresh</a></p>
         ${state.data.tracks.length === 0 ? html`
-          <p class="muted">No track rows were returned. <a href="#" onClick=${(e) => { e.preventDefault(); setRefreshNonce(n => n + 1); }}>Refresh</a></p>
+          <p class="muted">No track rows were returned. <a href="#" onClick=${(e) => { e.preventDefault(); cache.refresh(); }}>Refresh</a></p>
         ` : html`
           <div class="table-scroll">
             <table class="tracks-table">
