@@ -1071,6 +1071,23 @@ function broadcastCacheKeyUpdate(cacheKey, value) {
   if (subs) subs.forEach((onUpdate) => onUpdate(value));
 }
 
+// AlbumSpotlight mounts two useCachedFetch consumers of the same cacheKey at once (the genres
+// section and the compare/discovery section, both backed by the same scraped album page), so on
+// a cold cache both fire their own fetch() to the same URL simultaneously. This map collapses
+// concurrent requests for the same key into one in-flight promise so every caller awaits the
+// same network request instead of doubling it — halves request volume against an upstream that
+// rate-limits by IP (see fetchGlobalAlbumPage/useNotifications' isRateLimitStatus handling).
+const inFlightFetches = new Map();
+function fetchDeduped(cacheKey, fetcher) {
+  const existing = inFlightFetches.get(cacheKey);
+  if (existing) return existing;
+  const promise = fetcher().finally(() => {
+    inFlightFetches.delete(cacheKey);
+  });
+  inFlightFetches.set(cacheKey, promise);
+  return promise;
+}
+
 // Centralizes the "fetch once, cache forever in localStorage, but distrust an empty/bad cached
 // result and allow a manual refresh" pattern used by every scraped/external lookup in this app
 // (global reviews+context, Apple track metadata). Without the isEmpty distrust check, a single
@@ -1093,7 +1110,7 @@ function useCachedFetch(cacheKey, fetcher, { isEmpty } = {}) {
       return;
     }
     setState({ status: 'loading', value: null, error: null });
-    fetcher()
+    fetchDeduped(cacheKey, fetcher)
       .then((value) => {
         writeJsonCache(cacheKey, value);
         if (!cancelled) setState({ status: 'ready', value, error: null });
