@@ -1558,7 +1558,9 @@ function TracksPreview({ album, projectName }) {
                       `}
                     </td>
                     <td>${track.discNumber > 1 ? `${track.discNumber}-${track.trackNumber}` : track.trackNumber}</td>
-                    <td class="truncate-cell" title=${track.title}>${track.title}</td>
+                    <td class="truncate-cell" title=${track.title}>${track.trackViewUrl
+                      ? html`<a href=${track.trackViewUrl} target="_blank" rel="noopener" class="track-link">${track.title}</a>`
+                      : track.title}</td>
                     <td class="truncate-cell" title=${track.artistName || ''}>${track.artistName || '—'}</td>
                     <td>${formatDurationMs(track.durationMs)}</td>
                   </tr>
