@@ -22,6 +22,9 @@ desktop responsive mode can catch ordinary CSS overflow, but they do not faithfu
 Use browser automation for quick regressions, but validate the final claim on a real iPhone PWA
 or iOS Simulator when the issue is standalone-specific.
 
+macOS Safari is useful for desktop WebKit checks, but it is not the same runtime as an iOS
+home-screen PWA. Use it as an intermediate signal, not final validation for standalone bugs.
+
 ## Quick local workflow
 
 1. Start a local server reachable by the iPhone:
@@ -119,6 +122,10 @@ Check bottom nav geometry:
 })();
 ```
 
+If safe-area sizing looks wrong, temporarily override the app's safe-area CSS variable (when one
+exists) or add a one-off style in Web Inspector to simulate a bad inset. A robust nav should stay
+bounded when the bottom inset is unexpectedly large.
+
 ## Common fixes to inspect first
 
 For this repo's PWA layout, check these before broader rewrites:
@@ -126,7 +133,11 @@ For this repo's PWA layout, check these before broader rewrites:
 - Mobile overrides must appear after base shorthand declarations. A later `.page { padding: ... }`
   will overwrite an earlier mobile `padding-bottom`.
 - Fixed bottom nav should have explicit content height plus safe-area padding, for example
-  `height: calc(58px + env(safe-area-inset-bottom))`, with fixed item height.
+  `height: calc(58px + var(--safe-area-bottom-capped))`, with fixed item height.
+- Do not blindly trust raw `env(safe-area-inset-bottom)` in standalone mode. Cap it with a CSS
+  variable, for example `--safe-area-bottom-capped: min(env(safe-area-inset-bottom), 34px);`.
+  This prevents WebKit from turning a fixed bottom nav into a giant block if the reported inset
+  is wrong.
 - Page content needs bottom padding at least nav height plus safe area.
 - `html`, `body`, `#app`, and wrappers between `#app` and `.page` need a working flex/min-height
   chain for short pages.
@@ -134,6 +145,30 @@ For this repo's PWA layout, check these before broader rewrites:
 - Wide tables should sit inside a horizontal scroll wrapper instead of defining page width.
 - Avoid global `overflow-x: hidden` as the only fix. It can hide the symptom while leaving fixed
   UI or tap targets misaligned. Use it only with targeted containment and verified geometry.
+
+## Pull to refresh
+
+Custom pull-to-refresh in iOS standalone is fragile. The browser's rubber-band gesture and passive
+touch listeners can swallow the app's gesture unless the app takes control after recognizing a
+top-of-page downward pull.
+
+Preferred implementation shape:
+
+- Track the actual document scroller, not only `window.scrollY`.
+- Treat `scrollTop <= 2` as top-of-page; exact zero is too brittle on iOS.
+- `touchstart` can stay passive, but `touchmove` must be non-passive if the app will call
+  `preventDefault()` after recognizing the pull.
+- Only call `preventDefault()` after a small downward threshold so normal scrolling remains native.
+- Handle `touchcancel` and reset state.
+- Put the indicator below the status-bar safe area.
+
+UX caveat: preventing the native rubber-band makes refresh reliable but can feel "locked" if only
+a floating spinner moves. For a more native feel, either translate the page content down with the
+pull distance or deliberately accept a simpler overlay-style refresh indicator. Do not claim it
+feels native unless the installed iOS PWA was tested by hand.
+
+Avoid "tap active bottom tab to refresh" for apps backed by rate-limited APIs. It is easy to trigger
+accidental refreshes and burn through a limit.
 
 ## Validation standard
 
