@@ -60,6 +60,7 @@
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   html, body { margin: 0; padding: 0; }
+  #app { display: flex; flex-direction: column; min-height: 100dvh; }
   body {
     background: var(--bg);
     color: var(--text);
@@ -185,7 +186,7 @@
     .brand-text-mobile { display: inline; }
     .tabs { display: none; }
     body { padding-bottom: 0; }
-    .page { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
+    .page { padding-bottom: calc(60px + env(safe-area-inset-bottom)); flex: 1; }
     .toast { bottom: calc(68px + env(safe-area-inset-bottom)); }
     .bottom-nav { display: flex; }
   }
