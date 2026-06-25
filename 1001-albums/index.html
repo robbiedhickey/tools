@@ -204,6 +204,14 @@
     ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; }
   }
   @media (max-width: 620px) {
+    html, body, #app { height: 100%; min-height: 0; overflow: hidden; }
+    #app > .app-shell {
+      height: 100dvh;
+      height: -webkit-fill-available;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .topbar { flex: 0 0 auto; }
     .topbar-inner { gap: 7px; padding: 9px 11px; }
     .brand { font-size: 13px; }
     .brand .mascot { width: 22px; height: 22px; margin-right: 0.14em; }
@@ -212,7 +220,7 @@
     .tabs { display: none; }
     body { padding-bottom: 0; }
     .toast { bottom: 86px; }
-    .bottom-nav { display: flex; }
+    .bottom-nav { display: flex; position: static; order: 2; flex: 0 0 76px; }
   }
 
   .page {
@@ -225,8 +233,12 @@
   .page > div { min-width: 0; max-width: 100%; }
   @media (max-width: 620px) {
     .page {
-      flex: 1;
-      padding: 20px max(16px, env(safe-area-inset-right)) 96px max(16px, env(safe-area-inset-left));
+      order: 1;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 20px max(16px, env(safe-area-inset-right)) 24px max(16px, env(safe-area-inset-left));
     }
   }
   .card {
@@ -2905,7 +2917,7 @@ function BreakdownStats({ genres, styles, decades, projectName }) {
 }
 
 // ---------- App ----------
-function usePullToRefresh(onRefresh, enabled) {
+function usePullToRefresh(onRefresh, enabled, scrollRef) {
   const [pullY, setPullY] = useState(0);
   const refs = useRef({ startY: null, pullY: 0, pulling: false, onRefresh });
   refs.current.onRefresh = onRefresh;
@@ -2914,6 +2926,7 @@ function usePullToRefresh(onRefresh, enabled) {
     if (!enabled) { setPullY(0); return; }
     const r = refs.current;
     const scrollTop = () => {
+      if (scrollRef && scrollRef.current) return scrollRef.current.scrollTop || 0;
       const scroller = document.scrollingElement || document.documentElement;
       return Math.max(window.scrollY || 0, scroller.scrollTop || 0, document.body.scrollTop || 0);
     };
@@ -2964,7 +2977,7 @@ function usePullToRefresh(onRefresh, enabled) {
       document.removeEventListener('touchend', onTouchEnd);
       document.removeEventListener('touchcancel', reset);
     };
-  }, [enabled]);
+  }, [enabled, scrollRef]);
   return pullY;
 }
 
@@ -2973,6 +2986,7 @@ function App() {
   const { projectName, tab, backlogAlbumId, albumId, subTab, pairA, pairB, memberName } = route;
   const currentProjectName = !projectName ? readCurrentProjectName() : '';
   const theme = useTheme();
+  const pageRef = useRef(null);
 
   useEffect(() => {
     const onNav = () => {
@@ -3002,13 +3016,14 @@ function App() {
   // jumping between views (e.g. clicking a pair link from the bottom of Group) would
   // otherwise leave you scrolled wherever the previous view left off.
   useEffect(() => {
+    if (pageRef.current) pageRef.current.scrollTo({ top: 0, left: 0 });
     window.scrollTo(0, 0);
   }, [tab, backlogAlbumId, albumId, pairA, pairB]);
 
   const hub = useHub(projectName);
   const notifications = useNotifications(projectName);
   const PTR_THRESHOLD = 64;
-  const pullY = usePullToRefresh(hub.refresh, hub.status === 'ready' && !hub.refreshing);
+  const pullY = usePullToRefresh(hub.refresh, hub.status === 'ready' && !hub.refreshing, pageRef);
   const pullProgress = Math.min(pullY / PTR_THRESHOLD, 1);
   const pagePullY = pullY > 0 ? Math.min(pullY * 0.58, 48) : 0;
 
@@ -3028,7 +3043,7 @@ function App() {
     : null;
 
   return html`
-    <div>
+    <div class="app-shell">
       <${Nav} projectName=${projectName} tab=${(tab === 'album' || tab === 'pair' || tab === 'member') ? 'group' : tab} backlogCount=${backlog.length} unreadCount=${notifications.notifications.length} theme=${theme} />
       <${RefreshErrorToast} error=${hub.refreshError} onDismiss=${hub.dismissRefreshError} />
       ${pullY > 0 && html`
@@ -3043,7 +3058,7 @@ function App() {
           }}>refresh</span>
         </div>
       `}
-      <main class=${`page ${pullY > 0 ? 'is-pulling' : ''}`} style=${pullY > 0 ? { transform: `translateY(${pagePullY}px)` } : undefined}>
+      <main ref=${pageRef} class=${`page ${pullY > 0 ? 'is-pulling' : ''}`} style=${pullY > 0 ? { transform: `translateY(${pagePullY}px)` } : undefined}>
         ${hub.status === 'loading' && html`<${Loading} />`}
         ${hub.status === 'error' && html`<${ErrorCard} error=${hub.error} projectName=${projectName} onRetry=${hub.refresh} />`}
         ${hub.status === 'ready' && html`

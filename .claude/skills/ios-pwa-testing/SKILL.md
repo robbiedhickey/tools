@@ -144,6 +144,12 @@ For this repo's PWA layout, check these before broader rewrites:
   `height` / `min-height` / `max-height` values inline on the rendered nav and nav items; avoid
   CSS variables and `env()` in that code path. A slightly lower nav is better than an unusably
   tall one.
+- If a fixed bottom nav still floats above a blank region on short pages, stop using
+  `position: fixed`. Use a mobile app shell instead: root wrapper is `display: flex;
+  flex-direction: column; height: 100dvh; height: -webkit-fill-available; overflow: hidden`,
+  the page is `flex: 1; min-height: 0; overflow-y: auto`, and the bottom nav is a normal
+  `flex: 0 0 <height>` item after the page. This avoids iOS standalone visual-vs-layout viewport
+  bugs for fixed positioning.
 - Page content needs bottom padding at least nav height plus safe area.
 - `html`, `body`, `#app`, and wrappers between `#app` and `.page` need a working flex/min-height
   chain for short pages.
