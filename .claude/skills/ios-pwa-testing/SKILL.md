@@ -10,6 +10,9 @@ Screen app, or `display: standalone` mode. Do not assume Chrome responsive mode 
 
 ## Core rule
 
+Treat installed iOS PWA bugs as a layered system problem, not a single CSS bug. First identify
+which layer is wrong, then pick the smallest fix that actually matches that layer.
+
 Installed iOS PWAs run in Safari/WebKit standalone mode. Desktop Chrome, Chrome headless, and
 desktop responsive mode can catch ordinary CSS overflow, but they do not faithfully reproduce:
 
@@ -26,6 +29,18 @@ macOS Safari is useful for desktop WebKit checks, but it is not the same runtime
 home-screen PWA. Use it as an intermediate signal, not final validation for standalone bugs.
 
 ## Quick local workflow
+
+Start by mapping the symptom to the likely layer:
+
+- viewport math and safe-area handling
+- shell layout and scroll containment
+- bottom navigation geometry
+- content overflow or short-page behavior
+- gesture handling such as pull-to-refresh
+
+Then verify the suspected layer in the runtime that actually fails.
+
+### Local access
 
 1. Start a local server reachable by the iPhone:
 
@@ -126,41 +141,26 @@ If safe-area sizing looks wrong, temporarily override the app's safe-area CSS va
 exists) or add a one-off style in Web Inspector to simulate a bad inset. A robust nav should stay
 bounded when the bottom inset is unexpectedly large.
 
-## Common fixes to inspect first
+## Common patterns
 
-For this repo's PWA layout, check these before broader rewrites:
+For this repo's PWA layout, these patterns have been useful when the symptom matches:
 
-- Mobile overrides must appear after base shorthand declarations. A later `.page { padding: ... }`
-  will overwrite an earlier mobile `padding-bottom`.
-- Fixed bottom nav should have explicit content height plus safe-area padding, for example
-  `height: calc(58px + var(--safe-area-bottom-capped))`, with fixed item height.
-- Do not blindly trust raw `env(safe-area-inset-bottom)` in standalone mode. Cap it with a CSS
-  variable, for example `--safe-area-bottom-capped: min(env(safe-area-inset-bottom), 34px);`.
-  This prevents WebKit from turning a fixed bottom nav into a giant block if the reported inset
-  is wrong.
-- If the bottom nav is still oversized in the installed PWA, use the blunt fix: remove bottom
-  safe-area from that nav path entirely. Set a literal fixed nav height, `padding-bottom: 0`, and
-  a fixed page clearance such as `96px`. If iOS standalone still misbehaves, put the same literal
-  `height` / `min-height` / `max-height` values inline on the rendered nav and nav items; avoid
-  CSS variables and `env()` in that code path. A slightly lower nav is better than an unusably
-  tall one.
-- If a fixed bottom nav still floats above a blank region on short pages, stop using
-  `position: fixed`. Use a mobile app shell instead: root wrapper is `display: flex;
-  flex-direction: column; height: 100dvh; height: -webkit-fill-available; overflow: hidden`,
-  the page is `flex: 1; min-height: 0; overflow-y: auto`, and the bottom nav is a normal
-  `flex: 0 0 <height>` item after the page. This avoids iOS standalone visual-vs-layout viewport
-  bugs for fixed positioning.
-- If the app shell still leaves a visible gutter under the nav, paint `html, body` with the nav
-  background on mobile and explicitly paint `#app`, the shell, and the page with the content
-  background. Then the standalone home-indicator gutter visually belongs to the tab bar instead
-  of reading as broken layout.
-- Page content needs bottom padding at least nav height plus safe area.
-- `html`, `body`, `#app`, and wrappers between `#app` and `.page` need a working flex/min-height
-  chain for short pages.
-- Use `min-width: 0` on flex/grid children and `minmax(0, 1fr)` for shrinkable grid columns.
-- Wide tables should sit inside a horizontal scroll wrapper instead of defining page width.
-- Avoid global `overflow-x: hidden` as the only fix. It can hide the symptom while leaving fixed
-  UI or tap targets misaligned. Use it only with targeted containment and verified geometry.
+- If a mobile override seems to do nothing, check declaration order first. A later shorthand such
+  as `.page { padding: ... }` can silently override earlier mobile-specific padding.
+- If the problem is a bottom bar that becomes absurdly tall in iOS standalone, treat raw
+  `env(safe-area-inset-bottom)` as suspect. Capping it, or removing that safe-area path entirely
+  for the nav, is often the right tradeoff.
+- If the bar is fine on full pages but wrong on short pages, the issue is usually shell layout,
+  not the bar itself. A flex-based mobile app shell with the page as the scroll container is more
+  reliable than fixed positioning in iOS standalone.
+- If the shell is correct but the gutter still looks wrong, paint the outer surfaces intentionally:
+  nav-colored on `html/body`, content-colored on `#app`, shell, and page.
+- Once the layout is stable, re-tighten the bar toward a normal tab-bar height instead of leaving
+  the workaround oversized.
+- If the page or grid overflows horizontally, use `min-width: 0`, `minmax(0, 1fr)`, or a scroll
+  wrapper before reaching for `overflow-x: hidden`.
+- If the issue is still unclear, prefer a targeted geometry check over a broad rewrite. Measure the
+  failing element in the actual runtime, then change only the layer that the measurement implicates.
 
 ## Pull to refresh
 
