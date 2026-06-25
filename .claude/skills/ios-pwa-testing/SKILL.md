@@ -150,6 +150,10 @@ For this repo's PWA layout, check these before broader rewrites:
   the page is `flex: 1; min-height: 0; overflow-y: auto`, and the bottom nav is a normal
   `flex: 0 0 <height>` item after the page. This avoids iOS standalone visual-vs-layout viewport
   bugs for fixed positioning.
+- If the app shell still leaves a visible gutter under the nav, paint `html, body` with the nav
+  background on mobile and explicitly paint `#app`, the shell, and the page with the content
+  background. Then the standalone home-indicator gutter visually belongs to the tab bar instead
+  of reading as broken layout.
 - Page content needs bottom padding at least nav height plus safe area.
 - `html`, `body`, `#app`, and wrappers between `#app` and `.page` need a working flex/min-height
   chain for short pages.
