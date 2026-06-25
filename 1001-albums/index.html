@@ -1485,6 +1485,7 @@ function GlobalReviewsPreview({ url, limit = 100 }) {
 
 function TracksPreview({ album, projectName }) {
   const [state, setState] = useState({ status: album.appleMusicId ? 'idle' : 'hidden', data: null });
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const favorites = useFavoriteTracks(projectName);
 
   useEffect(() => {
@@ -1494,7 +1495,10 @@ function TracksPreview({ album, projectName }) {
     }
     let cancelled = false;
     const cached = readAppleTracksCache(album.appleMusicId);
-    if (cached && cached.data) {
+    // A cached *empty* track list almost certainly means a previous fetch was bad (a CORS/CDN
+    // hiccup, a transient rate limit) rather than the album genuinely having zero tracks — don't
+    // let that get stuck forever the way the global-reviews cache used to.
+    if (refreshNonce === 0 && cached && cached.data && cached.data.tracks.length > 0) {
       setState({ status: 'ready', data: cached.data });
       return;
     }
@@ -1509,7 +1513,7 @@ function TracksPreview({ album, projectName }) {
         if (!cancelled) setState({ status: 'error', data: null });
       });
     return () => { cancelled = true; };
-  }, [album.appleMusicId]);
+  }, [album.appleMusicId, refreshNonce]);
 
   useEffect(() => {
     if (!state.data) return;
@@ -1521,7 +1525,7 @@ function TracksPreview({ album, projectName }) {
       ${favorites.errorMessage && html`<p class="muted">${favorites.errorMessage}</p>`}
       ${state.status === 'hidden' && html`<p class="muted">No Apple Music ID is available for this album.</p>`}
       ${state.status === 'loading' && html`<${LoadingNote} label="Loading track metadata…" />`}
-      ${state.status === 'error' && html`<p class="muted">Couldn't load track metadata.</p>`}
+      ${state.status === 'error' && html`<p class="muted">Couldn't load track metadata. <a href="#" onClick=${(e) => { e.preventDefault(); setRefreshNonce(n => n + 1); }}>Refresh</a></p>`}
       ${state.status === 'ready' && state.data && html`
         ${state.data.album && html`
           <div class="context-grid" style=${{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
@@ -1533,8 +1537,9 @@ function TracksPreview({ album, projectName }) {
             <p class="muted">Apple returned ${state.data.tracks.length} track rows for an album marked as ${state.data.album.trackCount} tracks.</p>
           `}
         `}
+        <p class="muted"><a href="#" onClick=${(e) => { e.preventDefault(); setRefreshNonce(n => n + 1); }}>Refresh</a></p>
         ${state.data.tracks.length === 0 ? html`
-          <p class="muted">No track rows were returned.</p>
+          <p class="muted">No track rows were returned. <a href="#" onClick=${(e) => { e.preventDefault(); setRefreshNonce(n => n + 1); }}>Refresh</a></p>
         ` : html`
           <div class="table-scroll">
             <table class="tracks-table">
