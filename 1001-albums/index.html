@@ -56,7 +56,7 @@
     --bad: #f87171;
     --bad-soft: #3a1a1a;
   }
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   html, body { margin: 0; padding: 0; }
   body {
@@ -65,13 +65,15 @@
     font-family: var(--font-mono);
     line-height: 1.5;
     padding-bottom: env(safe-area-inset-bottom);
+    overscroll-behavior-y: contain;
   }
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
   input, textarea, select {
     background: var(--card); color: var(--text); border-color: var(--border); font-family: inherit;
   }
-  button { font-family: inherit; }
+  button { font-family: inherit; touch-action: manipulation; }
+  a { touch-action: manipulation; }
   .rate-optional-notes { border: 1px solid var(--border); border-radius: 8px; }
 
   .topbar {
@@ -111,8 +113,10 @@
     padding: 4px 0; border-radius: 0; font-size: 13px; color: var(--text-dim);
     text-transform: uppercase; letter-spacing: 0.03em;
     display: inline-block; text-decoration: none; flex: 0 0 auto;
+    user-select: none; touch-action: manipulation;
   }
   .tab:hover { color: var(--text); text-decoration: none; }
+  .tab:active { opacity: 0.6; }
   .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
   .nav-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
   .real-site-link { white-space: nowrap; }
@@ -124,12 +128,14 @@
     display: inline-flex; align-items: center; justify-content: center;
   }
   .bell-link:hover { text-decoration: none; background: var(--neutral-soft); }
+  .bell-link:active { opacity: 0.6; }
   .bell-link.active .icon-symbol { color: var(--accent); }
   .theme-toggle {
     border: 0; background: none; cursor: pointer; line-height: 1;
     padding: 4px; border-radius: 2px; display: inline-flex; align-items: center;
   }
   .theme-toggle:hover { background: var(--neutral-soft); }
+  .theme-toggle:active { opacity: 0.6; }
   .icon-symbol {
     font-family: 'Material Symbols Outlined'; font-size: 19px; line-height: 1;
     color: var(--text-dim);
@@ -214,6 +220,7 @@
     border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; font-size: 13px; background: var(--bg);
   }
   button.link-chip { color: var(--accent); cursor: pointer; font-family: inherit; line-height: inherit; }
+  button.link-chip:active, a.link-chip:active { opacity: 0.6; }
   .small-link { font-size: 12px; }
   .wiki-summary {
     margin: 12px 0 14px; padding: 12px 14px; border-left: 3px solid var(--accent);
@@ -226,7 +233,9 @@
   .album-panel-tab {
     border: 0; border-bottom: 2px solid transparent; background: transparent;
     cursor: pointer; padding: 7px 10px; color: var(--text-dim); font-size: 13px;
+    user-select: none; touch-action: manipulation;
   }
+  .album-panel-tab:active { opacity: 0.6; }
   .album-panel-tab.active { color: var(--accent); border-color: var(--accent); font-weight: 700; }
   .review-list {
     display: grid; gap: 10px; margin-bottom: 10px;
