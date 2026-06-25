@@ -139,8 +139,11 @@ For this repo's PWA layout, check these before broader rewrites:
   This prevents WebKit from turning a fixed bottom nav into a giant block if the reported inset
   is wrong.
 - If the bottom nav is still oversized in the installed PWA, use the blunt fix: remove bottom
-  safe-area from that nav path entirely. Set a fixed nav height, `padding-bottom: 0`, and a fixed
-  page clearance such as `74px`. A slightly lower nav is better than an unusably tall one.
+  safe-area from that nav path entirely. Set a literal fixed nav height, `padding-bottom: 0`, and
+  a fixed page clearance such as `96px`. If iOS standalone still misbehaves, put the same literal
+  `height` / `min-height` / `max-height` values inline on the rendered nav and nav items; avoid
+  CSS variables and `env()` in that code path. A slightly lower nav is better than an unusably
+  tall one.
 - Page content needs bottom padding at least nav height plus safe area.
 - `html`, `body`, `#app`, and wrappers between `#app` and `.page` need a working flex/min-height
   chain for short pages.
