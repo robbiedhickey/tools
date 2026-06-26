@@ -667,6 +667,26 @@
     margin-left: auto; border: 0; background: transparent; color: var(--text-dim);
     cursor: pointer; font-size: 18px; line-height: 1; padding: 0 2px;
   }
+  .settings-view { max-width: 480px; margin: 0 auto; padding: 16px; }
+  .settings-view h2 { font-size: 1.25rem; font-weight: 700; margin: 0 0 16px; }
+  .settings-view h3 { font-size: .9rem; font-weight: 600; margin: 0; }
+  .settings-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 10px 0;
+  }
+  .settings-row label { font-size: .9rem; color: var(--text); }
+  .settings-row select {
+    border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px;
+    background: var(--card); color: var(--text); font-size: .875rem;
+  }
+  .toggle-btn {
+    padding: 4px 16px; border-radius: 20px; border: 1px solid var(--border);
+    background: var(--neutral-soft); color: var(--text-dim);
+    font-size: .875rem; font-weight: 600; cursor: pointer; min-width: 48px;
+  }
+  .toggle-btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .toggle-btn:disabled { opacity: .6; cursor: default; }
+  .error-text { font-size: .8rem; color: var(--bad); margin: 0; }
 </style>
 </head>
 <body>
@@ -686,6 +706,16 @@ const ROUTE_PREFIX = '1001-albums';
 const APP_BASE = `/${ROUTE_PREFIX}/`;
 const LANKY_GIF_URL = 'https://media.tenor.com/lEKATqfPUrgAAAAi/lanky-kong-funny.gif';
 const LANKY_LOADING_GIF_URL = 'https://media.tenor.com/dk8ZbQriTFoAAAAi/video-games-me-at-a-party.gif';
+// VAPID public key — generate with: npx web-push generate-vapid-keys
+// Set the private key via: wrangler secret put VAPID_PRIVATE_KEY (in workers/1001-albums/push-cron)
+const VAPID_PUBLIC_KEY = 'BHA_LbBJkMFgCeekjsVV9WtTOKWyxLFitup7ePl-JKEmKRV4ZE6MO2hmqA1XP0Oq_GVlMt8_NaMKrVX-9hSup7k';
+
+// ---------- service worker registration ----------
+if ('serviceWorker' in navigator) {
+  try {
+    navigator.serviceWorker.register('/1001-albums/sw.js', { scope: '/1001-albums/' });
+  } catch { /* non-blocking */ }
+}
 
 // ---------- data layer ----------
 class ApiError extends Error {
@@ -1224,7 +1254,7 @@ function useFavoriteTracks(projectName) {
 }
 
 // ---------- routing ----------
-const VALID_TABS = new Set(['today', 'backlog', 'group', 'activity', 'me']);
+const VALID_TABS = new Set(['today', 'backlog', 'group', 'activity', 'me', 'settings']);
 // Sub-tabs within the album info panel (AlbumInfoTabs) — linkable as a trailing path segment
 // on album/backlog-album routes, e.g. .../backlog/{id}/group, so a specific tab is shareable.
 const VALID_SUBTABS = new Set(['summary', 'tracks', 'reviews', 'group']);
@@ -2147,6 +2177,174 @@ function NameEntry({ theme }) {
   `;
 }
 
+// ---------- push client helpers ----------
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+}
+
+async function loadPushPrefs(projectName) {
+  const res = await fetch(`${APP_BASE}api/push/${encodeURIComponent(projectName)}`);
+  if (!res.ok) return { subscribed: false, notifyAtUtc: null, prefs: {} };
+  return res.json();
+}
+
+async function subscribePush(projectName, notifyAtUtc, currentAlbumUuid) {
+  const reg = await navigator.serviceWorker.ready;
+  await Notification.requestPermission();
+  if (Notification.permission !== 'granted') throw new Error('Permission denied');
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+  });
+  const j = sub.toJSON();
+  await fetch(`${APP_BASE}api/push/${encodeURIComponent(projectName)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      endpoint: j.endpoint,
+      keys: j.keys,
+      notifyAtUtc,
+      prefs: { new_album: true },
+      currentAlbumUuid,
+    }),
+  });
+}
+
+async function unsubscribePush(projectName) {
+  const reg = await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.getSubscription();
+  if (sub) await sub.unsubscribe();
+  await fetch(`${APP_BASE}api/push/${encodeURIComponent(projectName)}`, { method: 'DELETE' });
+}
+
+function localHourToUtcHour(localHour) {
+  const d = new Date();
+  d.setHours(localHour, 0, 0, 0);
+  return d.getUTCHours();
+}
+
+// ---------- settings view ----------
+function SettingsView({ me, projectName, theme }) {
+  const pushSupported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  const iosNotInstalled = isIos && !isStandalone;
+
+  const [prefs, setPrefs] = useState(null);
+  const [localHour, setLocalHour] = useState(9);
+  const [toggling, setToggling] = useState(false);
+  const [pushError, setPushError] = useState('');
+
+  useEffect(() => {
+    if (!projectName || !pushSupported) return;
+    loadPushPrefs(projectName).then((p) => {
+      setPrefs(p);
+      if (p.notifyAtUtc != null) {
+        // Convert stored UTC hour back to a rough local hour for display
+        const d = new Date();
+        d.setUTCHours(p.notifyAtUtc, 0, 0, 0);
+        setLocalHour(d.getHours());
+      }
+    });
+  }, [projectName]);
+
+  const handleToggle = async () => {
+    if (toggling) return;
+    setToggling(true);
+    setPushError('');
+    try {
+      if (prefs?.subscribed) {
+        await unsubscribePush(projectName);
+        setPrefs((p) => ({ ...p, subscribed: false }));
+      } else {
+        const utcHour = localHourToUtcHour(localHour);
+        await subscribePush(projectName, utcHour, me?.currentAlbum?.uuid ?? null);
+        setPrefs((p) => ({ ...p, subscribed: true, notifyAtUtc: utcHour }));
+      }
+    } catch (e) {
+      setPushError(e.message || 'Something went wrong');
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  const handleHourChange = async (e) => {
+    const h = Number(e.target.value);
+    setLocalHour(h);
+    if (prefs?.subscribed) {
+      const utcHour = localHourToUtcHour(h);
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+          const j = sub.toJSON();
+          await fetch(`${APP_BASE}api/push/${encodeURIComponent(projectName)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint: j.endpoint, keys: j.keys, notifyAtUtc: utcHour, prefs: prefs.prefs ?? { new_album: true }, currentAlbumUuid: null }),
+          });
+        }
+      } catch { /* non-blocking */ }
+      setPrefs((p) => ({ ...p, notifyAtUtc: utcHour }));
+    }
+  };
+
+  const hours = Array.from({ length: 24 }, (_, i) => {
+    const label = new Date(0, 0, 0, i).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    return { value: i, label };
+  });
+
+  return html`
+    <div class="settings-view">
+      <h2>Settings</h2>
+
+      <div class="card" style="margin-bottom:1rem">
+        <h3>Appearance</h3>
+        <div class="settings-row">
+          <span>Theme</span>
+          <${ThemeToggle} theme=${theme.theme} toggle=${theme.toggle} />
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Notifications</h3>
+        ${!pushSupported && html`<p class="muted">Notifications aren't supported in this browser.</p>`}
+        ${pushSupported && iosNotInstalled && html`
+          <p class="muted">Add this app to your Home Screen to enable push notifications.</p>
+        `}
+        ${pushSupported && !iosNotInstalled && html`
+          ${prefs === null && html`<p class="muted">Loading…</p>`}
+          ${prefs !== null && html`
+            <div class="settings-row">
+              <label for="push-toggle">New album of the day</label>
+              <button
+                id="push-toggle"
+                type="button"
+                class=${`toggle-btn ${prefs.subscribed ? 'on' : ''}`}
+                onClick=${handleToggle}
+                disabled=${toggling}
+                aria-pressed=${prefs.subscribed}
+              >${prefs.subscribed ? 'On' : 'Off'}</button>
+            </div>
+            ${prefs.subscribed && html`
+              <div class="settings-row">
+                <label for="notify-hour">Deliver at</label>
+                <select id="notify-hour" value=${localHour} onChange=${handleHourChange}>
+                  ${hours.map(h => html`<option value=${h.value} selected=${h.value === localHour}>${h.label}</option>`)}
+                </select>
+              </div>
+            `}
+            ${pushError && html`<p class="error-text" style="margin-top:.5rem">${pushError}</p>`}
+          `}
+        `}
+      </div>
+    </div>
+  `;
+}
+
 // ---------- nav ----------
 function Nav({ projectName, tab, backlogCount, unreadCount, theme }) {
   const topTabs = [
@@ -2190,7 +2388,15 @@ function Nav({ projectName, tab, backlogCount, unreadCount, theme }) {
             >
               <span class="icon-symbol">notifications</span>${unreadCount > 0 && html`<span class="bell-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>`}
             </a>
-            <${ThemeToggle} theme=${theme.theme} toggle=${theme.toggle} />
+            <a
+              class=${`bell-link ${tab === 'settings' ? 'active' : ''}`}
+              href=${routePath(projectName, 'settings')}
+              onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'settings')); }}
+              aria-label="Settings"
+              title="Settings"
+            >
+              <span class="icon-symbol">settings</span>
+            </a>
           </div>
         </div>
       </header>
@@ -3001,10 +3207,8 @@ function App() {
       }
     };
     window.addEventListener('hashchange', onNav);
-    window.addEventListener('popstate', onNav);
     return () => {
       window.removeEventListener('hashchange', onNav);
-      window.removeEventListener('popstate', onNav);
     };
   }, []);
 
@@ -3060,9 +3264,10 @@ function App() {
         </div>
       `}
       <main ref=${pageRef} class=${`page ${pullY > 0 ? 'is-pulling' : ''}`} style=${pullY > 0 ? { transform: `translateY(${pagePullY}px)` } : undefined}>
-        ${hub.status === 'loading' && html`<${Loading} />`}
-        ${hub.status === 'error' && html`<${ErrorCard} error=${hub.error} projectName=${projectName} onRetry=${hub.refresh} />`}
-        ${hub.status === 'ready' && html`
+        ${tab === 'settings' && html`<${SettingsView} me=${hub.data?.me ?? null} projectName=${projectName} theme=${theme} />`}
+        ${tab !== 'settings' && hub.status === 'loading' && html`<${Loading} />`}
+        ${tab !== 'settings' && hub.status === 'error' && html`<${ErrorCard} error=${hub.error} projectName=${projectName} onRetry=${hub.refresh} />`}
+        ${tab !== 'settings' && hub.status === 'ready' && html`
           <div class="status-row">
             ${hub.refreshing
               ? html`<span><${LankyPartyMascot} />Refreshing…</span>`

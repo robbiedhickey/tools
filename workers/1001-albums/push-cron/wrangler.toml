@@ -1,0 +1,13 @@
+name = "1001-albums-push-cron"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[kv_namespaces]]
+binding = "TOOLS_KV"
+id = "e4257701cfa34e85bdacd76315317062"
+
+[triggers]
+# Detection window: every 15 min during 04:00–05:00 UTC when the upstream site advances albums.
+# Delivery: every hour on the hour to send queued notifications at users' chosen local time.
+crons = ["0,15,30,45 4-5 * * *", "0 * * * *"]
