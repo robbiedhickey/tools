@@ -679,6 +679,16 @@
     border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px;
     background: var(--card); color: var(--text); font-size: .875rem;
   }
+  .theme-picker { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .theme-option {
+    display: flex; align-items: center; gap: 5px;
+    padding: 6px 14px; border: none; background: var(--card);
+    color: var(--text-dim); font-size: .85rem; font-weight: 500; cursor: pointer;
+    transition: background 150ms, color 150ms;
+  }
+  .theme-option:first-child { border-right: 1px solid var(--border); }
+  .theme-option.active { background: var(--accent); color: #fff; }
+  .theme-option .icon-symbol { font-size: 16px; }
   .toggle-btn {
     padding: 4px 16px; border-radius: 20px; border: 1px solid var(--border);
     background: var(--neutral-soft); color: var(--text-dim);
@@ -2305,7 +2315,20 @@ function SettingsView({ me, projectName, theme }) {
         <h3>Appearance</h3>
         <div class="settings-row">
           <span>Theme</span>
-          <${ThemeToggle} theme=${theme.theme} toggle=${theme.toggle} />
+          <div class="theme-picker" role="group" aria-label="Theme">
+            <button
+              type="button"
+              class=${`theme-option ${theme.theme === 'light' ? 'active' : ''}`}
+              onClick=${() => theme.theme !== 'light' && theme.toggle()}
+              aria-pressed=${theme.theme === 'light'}
+            ><span class="icon-symbol">light_mode</span> Light</button>
+            <button
+              type="button"
+              class=${`theme-option ${theme.theme === 'dark' ? 'active' : ''}`}
+              onClick=${() => theme.theme !== 'dark' && theme.toggle()}
+              aria-pressed=${theme.theme === 'dark'}
+            ><span class="icon-symbol">dark_mode</span> Dark</button>
+          </div>
         </div>
       </div>
 
