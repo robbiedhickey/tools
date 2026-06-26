@@ -28,6 +28,30 @@ or iOS Simulator when the issue is standalone-specific.
 macOS Safari is useful for desktop WebKit checks, but it is not the same runtime as an iOS
 home-screen PWA. Use it as an intermediate signal, not final validation for standalone bugs.
 
+## Browser automation choices
+
+Use both automation paths when they answer different questions:
+
+- **Playwright MCP / Claude browser tools**: best for normal local click-throughs, screenshots,
+  mobile-width regressions, and cross-route checks. Use the repo's `test-locally` skill for the
+  shared server and login details.
+- **Safari WebDriver (`safaridriver`)**: best for macOS Safari/WebKit-specific layout, scroll,
+  fixed-position, and visual-viewport checks. Remote automation is enabled on this Mac. If it ever
+  fails with a session error, enable Safari -> Develop -> Allow Remote Automation.
+
+Do not treat these as interchangeable. Playwright/Chrome can prove ordinary CSS geometry and
+interaction regressions. Safari WebDriver can prove macOS Safari behavior. Neither proves an
+installed iOS home-screen PWA by itself.
+
+Minimal Safari WebDriver shape:
+
+```bash
+safaridriver -p 4444
+```
+
+Then create a WebDriver session against `http://127.0.0.1:4444`, navigate to the local URL, and
+run small geometry scripts such as the bottom-nav probe below.
+
 ## Quick local workflow
 
 Start by mapping the symptom to the likely layer:

@@ -34,6 +34,18 @@ Use the Playwright MCP tools (`browser_navigate`, `browser_snapshot`, `browser_t
 `browser_click`, etc.) against `http://127.0.0.1:8788/<project>/` to actually exercise the UI —
 don't infer behavior from source alone when a visual or interaction question is in play.
 
+If the bug appears Safari/WebKit-specific, also use Safari WebDriver. Remote automation is enabled
+on this Mac:
+
+```
+safaridriver -p 4444
+```
+
+Use WebDriver for computed geometry, scroll, fixed-position, and visual-viewport checks in real
+macOS Safari. Keep Playwright MCP for the fast general click-through/screenshot workflow. For
+installed iOS PWA issues, see the `ios-pwa-testing` skill; Safari desktop is only an intermediate
+signal.
+
 ## Per-project login notes
 
 ### 1001-albums
