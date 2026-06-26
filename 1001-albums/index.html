@@ -587,7 +587,7 @@
   }
   .modal-title {
     font-weight: 700; font-size: 11px;
-    text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); white-space: nowrap;
   }
   .modal-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
   .modal-close {
@@ -609,7 +609,7 @@
   .explore-source-btn {
     flex: 1; padding: 5px 10px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
     border: 0; background: transparent; color: var(--text-dim); cursor: pointer; font-family: inherit; line-height: 1.4;
-    transition: background 0.1s, color 0.1s;
+    transition: background 0.1s, color 0.1s; white-space: nowrap;
   }
   .explore-mode-btn + .explore-mode-btn { border-left: 1px solid var(--border); }
   .explore-source-btn + .explore-source-btn { border-left: 1px solid var(--border); }
@@ -617,10 +617,45 @@
   .explore-source-btn.active { background: var(--accent); color: #fff; }
   .explore-mode-btn:not(.active):hover { background: var(--neutral-soft); color: var(--text); }
   .explore-source-btn:not(.active):hover { background: var(--neutral-soft); color: var(--text); }
+  .explore-field {
+    flex: 1; min-width: 0; display: flex; align-items: stretch;
+    border: 1px solid var(--border); border-radius: 4px;
+  }
+  .explore-field:focus-within { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .explore-field .explore-input { border: 0; background: transparent; }
+  .explore-field .explore-input:focus { outline: none; }
+  .explore-field > .explore-input { flex: 1; }
+  .explore-source-chip {
+    flex-shrink: 0; font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.04em; background: none; border: 0;
+    border-right: 1px solid var(--border); border-radius: 3px 0 0 3px;
+    padding: 0 8px; font-family: inherit; cursor: pointer; white-space: nowrap;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .explore-source-chip:hover { background: var(--neutral-soft); }
+  .explore-source-chip:disabled { opacity: 0.45; cursor: default; }
+  .explore-field-submit {
+    flex-shrink: 0; border: 0; border-left: 1px solid var(--border);
+    border-radius: 0 3px 3px 0; background: none; color: var(--text-dim);
+    padding: 0 8px; cursor: pointer; display: flex; align-items: center;
+  }
+  .explore-field-submit:hover { background: var(--neutral-soft); color: var(--text); }
+  .explore-field-submit:disabled { opacity: 0.4; cursor: default; }
+  .explore-tag-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .explore-tag-chip {
+    display: flex; align-items: center; gap: 4px;
+    background: var(--accent); color: #fff; border-radius: 4px;
+    padding: 3px 4px 3px 8px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .explore-tag-chip-remove {
+    border: 0; background: none; color: #fff; cursor: pointer; padding: 0;
+    display: flex; align-items: center;
+  }
+  .explore-tag-chip-remove .icon-symbol { color: #fff; }
+  .explore-tag-chip-remove:hover { opacity: 0.75; }
   .explore-search-row { display: flex; gap: 8px; align-items: center; }
-  .explore-search-icon { flex-shrink: 0; color: var(--text-dim); font-size: 18px; }
   .explore-suggest-wrap { position: relative; flex: 1; min-width: 0; }
-  .explore-search-row > .explore-input { flex: 1; }
   .explore-input {
     width: 100%; border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px;
     font-size: 14px; background: var(--bg); color: var(--text); font-family: inherit;
@@ -656,6 +691,14 @@
   .explore-album-artist { font-size: 12px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .explore-album-meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
   .explore-mention-count { color: var(--accent); font-weight: 600; }
+  .explore-album-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 5px; }
+  .explore-album-tag {
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;
+    padding: 1px 5px; border-radius: 3px; border: 1px solid var(--border); color: var(--text-dim);
+  }
+  .explore-album-tag.selected { border-color: var(--accent); color: var(--accent); }
+  .similar-albums-hint { margin-top: 8px; font-size: 12px; }
+  .similar-albums-hint a { color: var(--accent); font-weight: 600; }
   .explore-hint { font-size: 12px; color: var(--text-dim); padding: 10px 12px 6px; margin: 0; }
   .explore-cache-note { font-size: 11px; color: var(--text-dim); }
   button.explore-album-row { border: 0; background: none; font-family: inherit; text-align: left; width: 100%; cursor: pointer; color: inherit; }
@@ -1985,6 +2028,7 @@ function AlbumSummaryContext({ album, projectName = null, discoverSource = 'glob
                 : html`<span class="keyword-chip">${tag}</span>`;
             })}
           </div>
+          ${projectName && html`<${SimilarAlbumsHelper} album=${album} projectName=${projectName} source=${discoverSource} />`}
         `}
       `}
 
@@ -2584,8 +2628,9 @@ function formatCacheAge(fetchedAt) {
   return 'just now';
 }
 
-function ExploreAlbumRow({ album, mentionCount, onClick }) {
+function ExploreAlbumRow({ album, mentionCount, onClick, tags, selectedTags }) {
   const thumb = album.images && album.images[0];
+  const selectedSet = selectedTags ? new Set(selectedTags.map(normalizeExploreTag)) : null;
   return html`
     <button class="explore-album-row" type="button" onClick=${() => onClick(album)} role="listitem">
       ${thumb
@@ -2601,6 +2646,14 @@ function ExploreAlbumRow({ album, mentionCount, onClick }) {
             : (album.votes ? html`★ ${album.averageRating?.toFixed(2)} · ${album.votes.toLocaleString()} votes` : '')
           }
         </div>
+        ${tags && tags.length > 0 && html`
+          <div class="explore-album-tags">
+            ${tags.map(tag => {
+              const isSelected = selectedSet?.has(normalizeExploreTag(formatExploreTag(tag)));
+              return html`<span class=${`explore-album-tag${isSelected ? ' selected' : ''}`}>${formatExploreTag(tag)}</span>`;
+            })}
+          </div>
+        `}
       </div>
     </button>
   `;
@@ -2658,6 +2711,57 @@ function searchAlbumsByGenreStyle(albums, index, query) {
   };
 }
 
+function findSimilarTagSet(album, catalogAlbums, genreStyleIndex, minResults = 5) {
+  const allTags = [...(album.genres || []), ...(album.styles || [])];
+  if (!allTags.length || !catalogAlbums.length) return null;
+  const ranked = allTags
+    .map(tag => ({
+      tag, label: formatExploreTag(tag),
+      normalized: normalizeExploreTag(tag),
+      count: genreStyleIndex.byTag.get(normalizeExploreTag(tag))?.albums.length || 0,
+    }))
+    .filter(t => t.count > 0)
+    .sort((a, b) => b.count - a.count);
+  if (!ranked.length) return null;
+  for (let n = ranked.length; n >= 1; n--) {
+    const subset = ranked.slice(0, n);
+    let albums = [...catalogAlbums];
+    for (const { normalized } of subset) {
+      albums = albums.filter(a =>
+        [...(a.genres || []), ...(a.styles || [])].some(t => normalizeExploreTag(t).includes(normalized))
+      );
+    }
+    const count = albums.filter(a => a.slug !== album.slug).length;
+    if (count >= minResults) return { tags: subset.map(t => t.label), count };
+  }
+  return null;
+}
+
+function SimilarAlbumsHelper({ album, projectName, source = 'global' }) {
+  const catalog = useAlbumCatalog(source);
+  useEffect(() => { catalog.load(); }, [catalog.load]);
+  const genreStyleIndex = useMemo(() => buildGenreStyleIndex(catalog.albums), [catalog.albums]);
+  const catalogAlbum = useMemo(() =>
+    catalog.albums.find(a =>
+      (album.spotifyId && a.spotifyId === album.spotifyId) ||
+      (album.slug && a.slug === album.slug)
+    ) || album,
+  [catalog.albums, album]);
+  const result = useMemo(
+    () => findSimilarTagSet(catalogAlbum, catalog.albums, genreStyleIndex),
+    [catalogAlbum, catalog.albums, genreStyleIndex]
+  );
+  if (!result || catalog.status !== 'ready') return null;
+  const href = discoverModeRoutePath(projectName, source, 'genre-style', result.tags.join(','));
+  return html`
+    <div class="similar-albums-hint">
+      <a href=${href} onClick=${(e) => { e.preventDefault(); navigateTo(href); }}>
+        Browse ${result.count} similar album${result.count !== 1 ? 's' : ''}
+      </a>
+    </div>
+  `;
+}
+
 function DiscoverAlbumView({ albumSlug, projectName, source = 'global', hubData = null, initialTab = 'summary', reviewKeyword = '' }) {
   const catalog = useAlbumCatalog(source);
   const [discoverTab, setDiscoverTab] = useState(initialTab);
@@ -2713,9 +2817,11 @@ function DiscoverAlbumView({ albumSlug, projectName, source = 'global', hubData 
             <p class="album-artist" style=${{ marginBottom: '12px' }}>${album.artist}${album.releaseDate ? ` (${album.releaseDate})` : ''}</p>
             ${chips.length > 0 && html`
               <div class="context-section-title" data-badge="sell">Genres & Styles</div>
-              <div class="keyword-row" style=${{ marginBottom: '12px' }}>
+              <div class="keyword-row">
                 ${chips.map(g => html`<span class="keyword-chip">${g}</span>`)}
               </div>
+              <${SimilarAlbumsHelper} album=${album} projectName=${projectName} source=${source} />
+              <div style=${{ marginBottom: '12px' }}></div>
             `}
             <div class="context-section-title" data-badge="headphones">Listen On</div>
             ${scrapedStreamingLinks
@@ -2753,9 +2859,10 @@ function ExploreView({ projectName, source = 'global', mode = 'browse', initialQ
   const [kwResults, setKwResults] = useState(null);
   const [kwStatus, setKwStatus] = useState(mode === 'keyword' && initialQuery ? 'loading' : 'idle');
   const [kwError, setKwError] = useState('');
-  const [tagQuery, setTagQuery] = useState(mode === 'genre-style' ? initialQuery : '');
-  const [tagResults, setTagResults] = useState(null);
-  const [tagSearched, setTagSearched] = useState('');
+  const [tagQuery, setTagQuery] = useState('');
+  const [selectedTags, setSelectedTags] = useState(() =>
+    mode === 'genre-style' && initialQuery ? initialQuery.split(',').map(t => t.trim()).filter(Boolean) : []
+  );
   const [tagSuggestActive, setTagSuggestActive] = useState(false);
   const inputRef = useRef(null);
 
@@ -2791,14 +2898,31 @@ function ExploreView({ projectName, source = 'global', mode = 'browse', initialQ
   }, [catalog.albums]);
 
   const genreStyleIndex = useMemo(() => buildGenreStyleIndex(catalog.albums), [catalog.albums]);
+
+  const tagResults = useMemo(() => {
+    if (!selectedTags.length || !catalog.albums.length) return null;
+    let albums = [...catalog.albums];
+    for (const tag of selectedTags) {
+      const normalized = normalizeExploreTag(tag);
+      albums = albums.filter(album =>
+        [...(album.genres || []), ...(album.styles || [])].some(t => normalizeExploreTag(t).includes(normalized))
+      );
+    }
+    return albums.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0) || (b.votes || 0) - (a.votes || 0));
+  }, [selectedTags, catalog.albums]);
+
+  const activeGenreStyleIndex = useMemo(() =>
+    tagResults ? buildGenreStyleIndex(tagResults) : genreStyleIndex,
+  [tagResults, genreStyleIndex]);
+
   const tagSuggestions = useMemo(() => {
     const q = normalizeExploreTag(tagQuery);
-    const options = genreStyleIndex.options;
     if (!q) return [];
-    return options
-      .filter(option => normalizeExploreTag(option.label).includes(q))
+    const selected = new Set(selectedTags.map(normalizeExploreTag));
+    return activeGenreStyleIndex.options
+      .filter(option => normalizeExploreTag(option.label).includes(q) && !selected.has(normalizeExploreTag(option.label)))
       .slice(0, 8);
-  }, [genreStyleIndex, tagQuery]);
+  }, [activeGenreStyleIndex, tagQuery, selectedTags]);
 
   useEffect(() => {
     if (mode !== 'keyword' || !keywordEnabled) return;
@@ -2826,20 +2950,13 @@ function ExploreView({ projectName, source = 'global', mode = 'browse', initialQ
 
   useEffect(() => {
     if (mode !== 'genre-style') return;
-    setTagQuery(initialQuery || '');
+    setTagQuery('');
     setTagSuggestActive(false);
-    if (!initialQuery || catalog.status !== 'ready') {
-      setTagResults(null);
-      setTagSearched('');
-      return;
-    }
-    const result = searchAlbumsByGenreStyle(catalog.albums, genreStyleIndex, initialQuery);
-    setTagResults(result.albums);
-    setTagSearched(result.label);
-  }, [mode, initialQuery, catalog.status, catalog.albums, genreStyleIndex]);
+    setSelectedTags(initialQuery ? initialQuery.split(',').map(t => t.trim()).filter(Boolean) : []);
+  }, [mode, initialQuery]);
 
   const handleAlbumClick = (album) => {
-    writeLastDiscoverPath(projectName, discoverModeRoutePath(projectName, source, mode, mode === 'keyword' ? kwQuery : (mode === 'genre-style' ? tagSearched || tagQuery : '')));
+    writeLastDiscoverPath(projectName, discoverModeRoutePath(projectName, source, mode, mode === 'keyword' ? kwQuery : (mode === 'genre-style' ? selectedTags.join(',') : '')));
     if (mode === 'keyword' && kwQuery.trim()) {
       navigateTo(discoverAlbumRoutePath(projectName, album.slug, source, 'reviews', kwQuery));
       return;
@@ -2853,63 +2970,74 @@ function ExploreView({ projectName, source = 'global', mode = 'browse', initialQ
     navigateTo(discoverModeRoutePath(projectName, source, 'keyword', kwQuery));
   };
 
+  const addTag = (query) => {
+    const normalized = normalizeExploreTag(query);
+    if (!normalized) return;
+    if (selectedTags.some(t => normalizeExploreTag(t) === normalized)) return;
+    const exact = genreStyleIndex.byTag.get(normalized);
+    const label = exact ? formatExploreTag(exact.tag) : query.trim();
+    const newTags = [...selectedTags, label];
+    setTagQuery('');
+    setTagSuggestActive(false);
+    navigateTo(discoverModeRoutePath(projectName, source, 'genre-style', newTags.join(',')));
+  };
+
+  const removeTag = (tag) => {
+    const newTags = selectedTags.filter(t => t !== tag);
+    navigateTo(discoverModeRoutePath(projectName, source, 'genre-style', newTags.join(',')));
+  };
+
   const handleGenreStyleSearch = (e) => {
     e.preventDefault();
-    if (!tagQuery.trim()) return;
-    const result = searchAlbumsByGenreStyle(catalog.albums, genreStyleIndex, tagQuery);
-    setTagSuggestActive(false);
-    navigateTo(discoverModeRoutePath(projectName, source, 'genre-style', result.label || tagQuery));
+    addTag(tagQuery);
   };
 
   const selectGenreStyleSuggestion = (label) => {
-    setTagQuery(label);
-    setTagSuggestActive(false);
-    navigateTo(discoverModeRoutePath(projectName, source, 'genre-style', label));
+    addTag(label);
   };
 
   const cacheAge = catalog.fetchedAt ? formatCacheAge(catalog.fetchedAt) : null;
   const showTagSuggestions = tagSuggestActive && tagQuery.trim() && tagSuggestions.length > 0;
+  const toggledSource = source === 'global' ? 'user' : 'global';
 
   return html`
     <div class="card" style=${{ padding: 0 }}>
       <div class="modal-header" style=${{ borderRadius: 'var(--radius) var(--radius) 0 0' }}>
         <div class="modal-title">Explore Albums</div>
-        <div style=${{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <div class="explore-source-toggle">
-            <button class=${`explore-source-btn ${source === 'global' ? 'active' : ''}`} type="button" onClick=${() => navigateTo(discoverModeRoutePath(projectName, 'global', mode, mode === 'keyword' ? kwQuery : (mode === 'genre-style' ? tagSearched || tagQuery : '')))}>Global</button>
-            <button class=${`explore-source-btn ${source === 'user' ? 'active' : ''}`} type="button" onClick=${() => navigateTo(discoverModeRoutePath(projectName, 'user', mode, mode === 'keyword' ? kwQuery : (mode === 'genre-style' ? tagSearched || tagQuery : '')))}>User albums</button>
-          </div>
-          <div class="explore-mode-toggle">
-            <button class=${`explore-mode-btn ${mode === 'browse' ? 'active' : ''}`} type="button" onClick=${() => navigateTo(discoverModeRoutePath(projectName, source, 'browse'))}>Browse</button>
-            ${keywordEnabled && html`<button class=${`explore-mode-btn ${mode === 'keyword' ? 'active' : ''}`} type="button" onClick=${() => navigateTo(discoverModeRoutePath(projectName, source, 'keyword'))}>Keyword</button>`}
-            <button class=${`explore-mode-btn ${mode === 'genre-style' ? 'active' : ''}`} type="button" onClick=${() => navigateTo(discoverModeRoutePath(projectName, source, 'genre-style'))}>Genres</button>
-          </div>
+        <div class="explore-mode-toggle">
+          <button class=${`explore-mode-btn ${mode === 'browse' ? 'active' : ''}`} type="button" onClick=${() => navigateTo(discoverModeRoutePath(projectName, source, 'browse'))}>Browse</button>
+          ${keywordEnabled && html`<button class=${`explore-mode-btn ${mode === 'keyword' ? 'active' : ''}`} type="button" onClick=${() => navigateTo(discoverModeRoutePath(projectName, source, 'keyword'))}>Keyword</button>`}
+          <button class=${`explore-mode-btn ${mode === 'genre-style' ? 'active' : ''}`} type="button" onClick=${() => navigateTo(discoverModeRoutePath(projectName, source, 'genre-style'))}>Genres</button>
         </div>
       </div>
 
       ${mode === 'browse' && html`
         <div class="explore-controls">
           <div class="explore-search-row">
-            <span class="icon-symbol explore-search-icon">search</span>
-            <input
-              ref=${inputRef}
-              class="explore-input"
-              type="search"
-              placeholder="Filter by album or artist…"
-              value=${query}
-              onInput=${e => setQuery(e.target.value)}
-              aria-label="Filter albums"
-            />
-            <button
-              class="bell-link"
-              type="button"
-              title=${cacheAge ? `${source === 'user' ? 'User albums' : 'Global catalog'} cached ${cacheAge} — click to refresh` : 'Refresh catalog'}
-              aria-label="Force refresh album catalog"
-              onClick=${() => catalog.load(true)}
-              disabled=${catalog.status === 'loading'}
-            >
-              <span class="icon-symbol">refresh</span>
-            </button>
+            <div class="explore-field">
+              <button class="explore-source-chip" type="button" onClick=${() => navigateTo(discoverModeRoutePath(projectName, toggledSource, 'browse'))}>
+                <span style=${`color:${source === 'global' ? 'var(--accent)' : 'var(--text-dim)'}`}>Global</span><span style="color:var(--text-dim)">|</span><span style=${`color:${source === 'user' ? 'var(--accent)' : 'var(--text-dim)'}`}>User</span>
+              </button>
+              <input
+                ref=${inputRef}
+                class="explore-input"
+                type="search"
+                placeholder="Filter by album or artist…"
+                value=${query}
+                onInput=${e => setQuery(e.target.value)}
+                aria-label="Filter albums"
+              />
+              <button
+                class="explore-field-submit"
+                type="button"
+                title=${cacheAge ? `${source === 'user' ? 'User albums' : 'Global catalog'} cached ${cacheAge} — click to refresh` : 'Refresh catalog'}
+                aria-label="Force refresh album catalog"
+                onClick=${() => catalog.load(true)}
+                disabled=${catalog.status === 'loading'}
+              >
+                <span class="icon-symbol">refresh</span>
+              </button>
+            </div>
           </div>
           ${cacheAge && html`<div class="explore-cache-note">${source === 'user' ? 'User albums' : 'Global catalog'} cached ${cacheAge}</div>`}
         </div>
@@ -2929,19 +3057,24 @@ function ExploreView({ projectName, source = 'global', mode = 'browse', initialQ
           ${keywordEnabled
             ? html`
               <form class="explore-search-row" onSubmit=${handleKwSearch}>
-                <span class="icon-symbol explore-search-icon">travel_explore</span>
-                <input
-                  ref=${inputRef}
-                  class="explore-input"
-                  type="search"
-                  placeholder="e.g. melancholy, psychedelic, masterpiece…"
-                  value=${kwQuery}
-                  onInput=${e => setKwQuery(e.target.value)}
-                  aria-label="Search reviews for keyword"
-                />
-                <button class="link-chip" type="submit" disabled=${kwStatus === 'loading' || !kwQuery.trim()}>Search</button>
+                <div class="explore-field">
+                  <button class="explore-source-chip" type="button" disabled>
+                    <span style="color:var(--accent)">Global</span><span style="color:var(--text-dim)">|</span><span style="color:var(--text-dim)">User</span>
+                  </button>
+                  <input
+                    ref=${inputRef}
+                    class="explore-input"
+                    type="search"
+                    placeholder="e.g. melancholy, psychedelic, masterpiece…"
+                    value=${kwQuery}
+                    onInput=${e => setKwQuery(e.target.value)}
+                    aria-label="Search reviews for keyword"
+                  />
+                  <button class="explore-field-submit" type="submit" disabled=${kwStatus === 'loading' || !kwQuery.trim()}>
+                    <span class="icon-symbol">search</span>
+                  </button>
+                </div>
               </form>
-              <div class="explore-cache-note">Albums ranked by how often your term appears in site-wide reviews</div>
             `
             : html`
               <p class="muted" style=${{ padding: '16px' }}>Keyword search is only available for the global album catalog.</p>
@@ -2967,52 +3100,69 @@ function ExploreView({ projectName, source = 'global', mode = 'browse', initialQ
       ${mode === 'genre-style' && html`
         <div class="explore-controls">
           <form class="explore-search-row" onSubmit=${handleGenreStyleSearch}>
-            <span class="icon-symbol explore-search-icon">sell</span>
-            <div class="explore-suggest-wrap">
-              <input
-                ref=${inputRef}
-                class="explore-input"
-                type="search"
-                placeholder="e.g. psychedelic rock, soul, hip hop…"
-                value=${tagQuery}
-                onInput=${e => { setTagQuery(e.target.value); setTagSuggestActive(true); }}
-                onFocus=${() => setTagSuggestActive(false)}
-                onBlur=${() => setTimeout(() => setTagSuggestActive(false), 120)}
-                aria-label="Search genres and styles"
-                aria-autocomplete="list"
-                aria-expanded=${showTagSuggestions}
-              />
-              ${showTagSuggestions && html`
-                <div class="explore-suggestions" role="listbox">
-                  ${tagSuggestions.map(option => html`
-                    <button
-                      type="button"
-                      class="explore-suggestion"
-                      role="option"
-                      onMouseDown=${e => e.preventDefault()}
-                      onClick=${() => selectGenreStyleSuggestion(option.label)}
-                    >
-                      <span>${option.label}</span>
-                      <span class="explore-suggestion-count">${option.count}</span>
-                    </button>
-                  `)}
-                </div>
-              `}
+            <div class="explore-field">
+              <button class="explore-source-chip" type="button" onClick=${() => navigateTo(discoverModeRoutePath(projectName, toggledSource, 'genre-style', selectedTags.join(',')))}>
+                <span style=${`color:${source === 'global' ? 'var(--accent)' : 'var(--text-dim)'}`}>Global</span><span style="color:var(--text-dim)">|</span><span style=${`color:${source === 'user' ? 'var(--accent)' : 'var(--text-dim)'}`}>User</span>
+              </button>
+              <div class="explore-suggest-wrap">
+                <input
+                  ref=${inputRef}
+                  class="explore-input"
+                  type="search"
+                  placeholder="e.g. psychedelic rock, soul, hip hop…"
+                  value=${tagQuery}
+                  onInput=${e => { setTagQuery(e.target.value); setTagSuggestActive(true); }}
+                  onFocus=${() => setTagSuggestActive(false)}
+                  onBlur=${() => setTimeout(() => setTagSuggestActive(false), 120)}
+                  aria-label="Search genres and styles"
+                  aria-autocomplete="list"
+                  aria-expanded=${showTagSuggestions}
+                />
+                ${showTagSuggestions && html`
+                  <div class="explore-suggestions" role="listbox">
+                    ${tagSuggestions.map(option => html`
+                      <button
+                        type="button"
+                        class="explore-suggestion"
+                        role="option"
+                        onMouseDown=${e => e.preventDefault()}
+                        onClick=${() => selectGenreStyleSuggestion(option.label)}
+                      >
+                        <span>${option.label}</span>
+                        <span class="explore-suggestion-count">${option.count}</span>
+                      </button>
+                    `)}
+                  </div>
+                `}
+              </div>
+              <button class="explore-field-submit" type="submit" disabled=${catalog.status === 'loading' || !tagQuery.trim()}>
+                <span class="icon-symbol">search</span>
+              </button>
             </div>
-            <button class="link-chip" type="submit" disabled=${catalog.status === 'loading' || !tagQuery.trim()}>Search</button>
           </form>
-          <div class="explore-cache-note">Genres and styles are combined from the album catalog</div>
+          ${selectedTags.length > 0 && html`
+            <div class="explore-tag-chips">
+              ${selectedTags.map(tag => html`
+                <div class="explore-tag-chip">
+                  ${tag}
+                  <button class="explore-tag-chip-remove" type="button" onClick=${() => removeTag(tag)}>
+                    <span class="icon-symbol" style="font-size:14px">close</span>
+                  </button>
+                </div>
+              `)}
+            </div>
+          `}
         </div>
         <div class="explore-results" role="list">
           ${catalog.status === 'loading' && html`<${LoadingNote} label="Loading album catalog…" />`}
           ${catalog.status === 'error' && html`<p class="muted" style=${{ padding: '16px' }}>Failed to load. <button class="link-chip" type="button" onClick=${() => catalog.load(true)}>Retry</button></p>`}
-          ${catalog.status === 'ready' && !tagResults && html`<p class="explore-hint">Search known genre/style tags across all albums</p>`}
+          ${catalog.status === 'ready' && !tagResults && html`<p class="explore-hint">Search genre/style tags — combine multiple to narrow results</p>`}
           ${catalog.status === 'ready' && tagResults && html`
             ${tagResults.length > 0
-              ? html`<p class="explore-hint">${tagResults.length} album${tagResults.length !== 1 ? 's' : ''} tagged "${tagSearched}"</p>`
-              : html`<p class="muted" style=${{ padding: '16px' }}>No albums match "${tagSearched}"</p>`
+              ? html`<p class="explore-hint">${tagResults.length} album${tagResults.length !== 1 ? 's' : ''} match${tagResults.length === 1 ? 'es' : ''} all ${selectedTags.length} tag${selectedTags.length !== 1 ? 's' : ''}</p>`
+              : html`<p class="muted" style=${{ padding: '16px' }}>No albums match all selected tags</p>`
             }
-            ${tagResults.map(album => html`<${ExploreAlbumRow} key=${album.spotifyId || album.slug} album=${album} onClick=${handleAlbumClick} />`)}
+            ${tagResults.map(album => html`<${ExploreAlbumRow} key=${album.spotifyId || album.slug} album=${album} onClick=${handleAlbumClick} tags=${[...(album.genres || []), ...(album.styles || [])]} selectedTags=${selectedTags} />`)}
           `}
         </div>
       `}
