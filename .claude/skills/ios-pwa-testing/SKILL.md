@@ -153,8 +153,13 @@ For this repo's PWA layout, these patterns have been useful when the symptom mat
 - If the bar is fine on full pages but wrong on short pages, the issue is usually shell layout,
   not the bar itself. A flex-based mobile app shell with the page as the scroll container is more
   reliable than fixed positioning in iOS standalone.
-- If the shell is correct but the gutter still looks wrong, paint the outer surfaces intentionally:
-  nav-colored on `html/body`, content-colored on `#app`, shell, and page.
+- If the shell is correct but the gutter still looks wrong, inspect whether the shell actually
+  reaches the bottom of the standalone viewport. A later `height: -webkit-fill-available` can
+  override `100dvh` and stop the shell above the home-indicator region.
+- Paint the outer surfaces intentionally. Nav-colored `html/body` can make a leftover gutter feel
+  like part of the tab bar and make every tab look too tall. Use it only when that is the desired
+  illusion; otherwise keep the gutter/content surface on the page background and make the shell
+  own the full viewport.
 - Once the layout is stable, re-tighten the bar toward a normal tab-bar height instead of leaving
   the workaround oversized.
 - If the page or grid overflows horizontally, use `min-width: 0`, `minmax(0, 1fr)`, or a scroll

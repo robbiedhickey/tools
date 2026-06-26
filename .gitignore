@@ -1,3 +1,4 @@
 .playwright-mcp
+.serena/
 node_modules/
 .wrangler/

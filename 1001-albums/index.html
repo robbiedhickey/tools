@@ -205,11 +205,11 @@
   }
   @media (max-width: 620px) {
     html, body, #app { height: 100%; min-height: 0; overflow: hidden; }
-    html, body { background: var(--card); }
+    html, body { background: var(--bg); }
     #app { background: var(--bg); }
     #app > .app-shell {
+      height: 100vh;
       height: 100dvh;
-      height: -webkit-fill-available;
       min-height: 0;
       overflow: hidden;
       background: var(--bg);
@@ -2202,12 +2202,12 @@ function Nav({ projectName, tab, backlogCount, unreadCount, theme }) {
       <nav
         class="bottom-nav"
         aria-label="Main navigation"
-        style=${{ height: '76px', minHeight: '76px', maxHeight: '76px', padding: 0 }}
+        style=${{ height: '58px', minHeight: '58px', maxHeight: '58px', padding: 0 }}
       >
         ${bottomTabs.map(t => html`
           <a
             class=${`bottom-nav-item ${tab === t.id ? 'active' : ''}`}
-            style=${{ height: '76px', minHeight: '76px', maxHeight: '76px' }}
+            style=${{ height: '58px', minHeight: '58px', maxHeight: '58px' }}
             href=${routePath(projectName, t.id)}
             onClick=${(e) => { e.preventDefault(); haptic(6); setVtDirection(tab, t.id); navigateTo(routePath(projectName, t.id)); }}
             aria-label=${t.badge ? `${t.label}, ${t.badge} items` : t.label}
