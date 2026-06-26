@@ -329,6 +329,8 @@
     background: var(--bg); font-size: 13px;
     content-visibility: auto; contain-intrinsic-size: 0 88px;
   }
+  .review-list--unbounded { max-height: none; overflow-y: visible; }
+  .review-list--unbounded .review-item { content-visibility: visible; contain: none; }
   .review-item.is-you { border-left: 3px solid var(--accent); padding-left: 9px; }
   .notification-list { display: grid; }
   .notification-item {
@@ -2285,7 +2287,7 @@ function GroupReviewsPreview({ groupSlug, album }) {
         ${state.reviews.length === 0 ? html`
           <p class="muted">No one in the group has rated this album yet.</p>
         ` : html`
-          <div class="review-list">
+          <div class="review-list review-list--unbounded">
             ${state.reviews.map(review => html`
               <article class="review-item">
                 <div class="review-meta">
@@ -3800,7 +3802,7 @@ function ActivityView({ members, projectName, group, notifications }) {
         ${feed.length === 0 ? html`
           <p class="muted"><${LankyMascot} />No one's rated anything yet.</p>
         ` : html`
-          <div class="review-list" style=${{ maxHeight: 'none' }}>
+          <div class="review-list review-list--unbounded">
             ${feedByDay.map(dayGroup => html`
               <div class="activity-day-group" key=${dayGroup.day}>
                 <div class="activity-day-header">${dayGroup.day}</div>
@@ -4054,6 +4056,58 @@ function BreakdownStats({ genres, styles, decades, projectName }) {
 }
 
 // ---------- App ----------
+function useSwipeNavigation() {
+  useEffect(() => {
+    const EDGE = 32;       // px from screen edge to start tracking
+    const MIN_DIST = 55;   // minimum horizontal travel to commit
+    const MAX_SLOPE = 0.6; // |dy/dx| must be below this (≈31° off horizontal)
+    const r = { startX: null, startY: null, tracking: false, dir: 0 };
+
+    const onTouchStart = (e) => {
+      if (e.touches.length !== 1) return;
+      const x = e.touches[0].clientX;
+      const fromLeft = x < EDGE;
+      const fromRight = x > window.innerWidth - EDGE;
+      if (!fromLeft && !fromRight) return;
+      r.startX = x;
+      r.startY = e.touches[0].clientY;
+      r.dir = fromLeft ? 1 : -1; // 1 = swiping right (back), -1 = swiping left (forward)
+      r.tracking = true;
+    };
+
+    const onTouchMove = (e) => {
+      if (!r.tracking) return;
+      const dx = e.touches[0].clientX - r.startX;
+      const dy = e.touches[0].clientY - r.startY;
+      if (Math.sign(dx) !== r.dir || Math.abs(dy) > Math.abs(dx) * MAX_SLOPE) {
+        r.tracking = false;
+        return;
+      }
+      if (e.cancelable) e.preventDefault();
+    };
+
+    const onTouchEnd = (e) => {
+      if (!r.tracking) { r.tracking = false; return; }
+      r.tracking = false;
+      const dx = e.changedTouches[0].clientX - r.startX;
+      const dy = e.changedTouches[0].clientY - r.startY;
+      if (Math.abs(dx) < MIN_DIST || Math.abs(dy) > Math.abs(dx) * MAX_SLOPE) return;
+      if (r.dir === 1) history.back();
+      else history.forward();
+    };
+
+    document.addEventListener('touchstart', onTouchStart, { passive: true });
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onTouchEnd, { passive: true });
+    document.addEventListener('touchcancel', () => { r.tracking = false; });
+    return () => {
+      document.removeEventListener('touchstart', onTouchStart);
+      document.removeEventListener('touchmove', onTouchMove);
+      document.removeEventListener('touchend', onTouchEnd);
+    };
+  }, []);
+}
+
 function usePullToRefresh(onRefresh, enabled, scrollRef) {
   const [pullY, setPullY] = useState(0);
   const refs = useRef({ startY: null, pullY: 0, pulling: false, onRefresh });
@@ -4126,6 +4180,7 @@ function App() {
   const currentProjectName = !projectName ? readCurrentProjectName() : '';
   const theme = useTheme();
   const diddy = useDiddySetting();
+  useSwipeNavigation();
   const pageRef = useRef(null);
 
   useEffect(() => {
@@ -4182,7 +4237,7 @@ function App() {
 
   return html`
     <div class="app-shell">
-      <${Nav} projectName=${projectName} tab=${(tab === 'album' || tab === 'pair' || tab === 'member') ? 'today' : tab} backlogCount=${backlog.length} unreadCount=${notifications.notifications.length} theme=${theme} />
+      <${Nav} projectName=${projectName} tab=${tab === 'album' ? (subTab === 'group' ? 'group' : 'today') : (tab === 'pair' || tab === 'member') ? 'today' : tab} backlogCount=${backlog.length} unreadCount=${notifications.notifications.length} theme=${theme} />
       <${RefreshErrorToast} error=${hub.refreshError} onDismiss=${hub.dismissRefreshError} />
       ${pullY > 0 && html`
         <div class="ptr-indicator" style=${{
