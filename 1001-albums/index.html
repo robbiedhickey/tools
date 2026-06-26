@@ -204,14 +204,11 @@
     ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; }
   }
   @media (max-width: 620px) {
-    html, body, #app { height: 100%; min-height: 0; overflow: hidden; }
-    html, body { background: var(--bg); }
-    #app { background: var(--bg); }
+    html, body { min-height: 100%; overflow-x: hidden; background: var(--bg); }
+    #app { min-height: 100dvh; background: var(--bg); }
     #app > .app-shell {
-      height: 100vh;
-      height: 100dvh;
-      min-height: 0;
-      overflow: hidden;
+      min-height: 100dvh;
+      overflow: visible;
       background: var(--bg);
     }
     .topbar { flex: 0 0 auto; }
@@ -223,7 +220,7 @@
     .tabs { display: none; }
     body { padding-bottom: 0; }
     .toast { bottom: 86px; }
-    .bottom-nav { display: flex; position: static; order: 2; flex: 0 0 58px; }
+    .bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; }
   }
 
   .page {
@@ -236,13 +233,9 @@
   .page > div { min-width: 0; max-width: 100%; }
   @media (max-width: 620px) {
     .page {
-      order: 1;
-      flex: 1 1 auto;
-      min-height: 0;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
       background: var(--bg);
-      padding: 20px max(16px, env(safe-area-inset-right)) 24px max(16px, env(safe-area-inset-left));
+      overflow-y: visible;
+      padding: 20px max(16px, env(safe-area-inset-right)) 86px max(16px, env(safe-area-inset-left));
     }
   }
   .card {
@@ -2930,7 +2923,9 @@ function usePullToRefresh(onRefresh, enabled, scrollRef) {
     if (!enabled) { setPullY(0); return; }
     const r = refs.current;
     const scrollTop = () => {
-      if (scrollRef && scrollRef.current) return scrollRef.current.scrollTop || 0;
+      if (scrollRef && scrollRef.current && scrollRef.current.scrollHeight > scrollRef.current.clientHeight + 1) {
+        return scrollRef.current.scrollTop || 0;
+      }
       const scroller = document.scrollingElement || document.documentElement;
       return Math.max(window.scrollY || 0, scroller.scrollTop || 0, document.body.scrollTop || 0);
     };

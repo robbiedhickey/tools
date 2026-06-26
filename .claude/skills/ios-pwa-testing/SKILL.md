@@ -156,6 +156,10 @@ For this repo's PWA layout, these patterns have been useful when the symptom mat
 - If the shell is correct but the gutter still looks wrong, inspect whether the shell actually
   reaches the bottom of the standalone viewport. A later `height: -webkit-fill-available` can
   override `100dvh` and stop the shell above the home-indicator region.
+- If Safari still shows a blank strip below a flex-child nav, stop making the nav part of the
+  shell's flex layout. Use a fixed visual nav at `bottom: 0`, give the page explicit bottom
+  clearance, and let the document/page scroll normally. Then verify short pages separately so the
+  nav is not coupled to content height.
 - Paint the outer surfaces intentionally. Nav-colored `html/body` can make a leftover gutter feel
   like part of the tab bar and make every tab look too tall. Use it only when that is the desired
   illusion; otherwise keep the gutter/content surface on the page background and make the shell
