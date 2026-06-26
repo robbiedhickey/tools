@@ -46,6 +46,66 @@ macOS Safari. Keep Playwright MCP for the fast general click-through/screenshot 
 installed iOS PWA issues, see the `ios-pwa-testing` skill; Safari desktop is only an intermediate
 signal.
 
+### Safari WebDriver recipe
+
+Start safaridriver in the background, then drive it with Python's stdlib `urllib` — no extra
+packages needed:
+
+```bash
+pkill -f safaridriver 2>/dev/null; safaridriver -p 4444 &
+sleep 2
+curl -s http://localhost:4444/status   # should return {"value":{"ready":true,...}}
+```
+
+```python
+import json, time, base64, urllib.request
+
+BASE = "http://localhost:4444"
+
+def req(method, path, body=None):
+    data = json.dumps(body).encode() if body is not None else None
+    r = urllib.request.Request(f"{BASE}{path}", data=data, method=method,
+                               headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(r) as resp:
+        return json.loads(resp.read())
+
+# Open Safari at mobile viewport
+sess = req("POST", "/session", {"capabilities": {"alwaysMatch": {"browserName": "safari"}}})
+sid = sess["value"]["sessionId"]
+
+req("POST", f"/session/{sid}/window/rect", {"width": 390, "height": 844, "x": 0, "y": 0})
+req("POST", f"/session/{sid}/url", {"url": "http://127.0.0.1:8788/1001-albums/#/hodorswit/today"})
+time.sleep(3)  # wait for JS app to render
+
+# Measure layout geometry
+result = req("POST", f"/session/{sid}/execute/sync", {
+    "script": """
+        var a = document.querySelector('.some-element').getBoundingClientRect();
+        var b = document.querySelector('.other-element').getBoundingClientRect();
+        return {
+            aTop: a.top, aHeight: a.height,
+            bTop: b.top, bHeight: b.height,
+            sameRow: Math.abs(a.top - b.top) < 20   // within 20px = same flex row
+        };
+    """,
+    "args": []
+})
+print(result["value"])
+
+# Screenshot
+ss = req("GET", f"/session/{sid}/screenshot")
+with open("/tmp/safari.png", "wb") as f:
+    f.write(base64.b64decode(ss["value"]))
+
+req("DELETE", f"/session/{sid}")
+```
+
+**Key checks to run in Safari that Playwright/Chromium often misses:**
+- `getBoundingClientRect()` on flex children to verify same-row layout (compare `.top` values)
+- `window.innerHeight` vs `document.documentElement.clientHeight` for visual-viewport bugs
+- `getComputedStyle(el).getPropertyValue('padding-bottom')` for safe-area-inset rendering
+- Fixed-position elements: verify `.bottom` and `.top` are sane after scroll
+
 ## Per-project login notes
 
 ### 1001-albums
