@@ -699,6 +699,8 @@
     padding: 1px 5px; border-radius: 3px; border: 1px solid var(--border); color: var(--text-dim);
   }
   .explore-album-tag.selected { border-color: var(--accent); color: var(--accent); }
+  .explore-album-tag.clickable { cursor: pointer; }
+  .explore-album-tag.clickable:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
   @keyframes diddy-bubble-in { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
   @keyframes diddy-idle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
   .diddy-float { position: fixed; bottom: 20px; right: 20px; z-index: 30; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; pointer-events: none; }
@@ -2667,11 +2669,11 @@ function formatCacheAge(fetchedAt) {
   return 'just now';
 }
 
-function ExploreAlbumRow({ album, mentionCount, onClick, tags, selectedTags }) {
+function ExploreAlbumRow({ album, mentionCount, onClick, tags, selectedTags, onTagClick }) {
   const thumb = album.images && album.images[0];
   const selectedSet = selectedTags ? new Set(selectedTags.map(normalizeExploreTag)) : null;
   return html`
-    <button class="explore-album-row" type="button" onClick=${() => onClick(album)} role="listitem">
+    <button class="explore-album-row" type="button" onClick=${(e) => { if (e.target.closest('.explore-album-tag.clickable')) return; onClick(album); }} role="listitem">
       ${thumb
         ? html`<img class="explore-album-thumb" src=${thumb.url} alt="" loading="lazy" decoding="async" />`
         : html`<div class="explore-album-thumb"></div>`
@@ -2688,8 +2690,11 @@ function ExploreAlbumRow({ album, mentionCount, onClick, tags, selectedTags }) {
         ${tags && tags.length > 0 && html`
           <div class="explore-album-tags">
             ${tags.map(tag => {
-              const isSelected = selectedSet?.has(normalizeExploreTag(formatExploreTag(tag)));
-              return html`<span class=${`explore-album-tag${isSelected ? ' selected' : ''}`}>${formatExploreTag(tag)}</span>`;
+              const label = formatExploreTag(tag);
+              const isSelected = selectedSet?.has(normalizeExploreTag(label));
+              return isSelected || !onTagClick
+                ? html`<span class=${`explore-album-tag${isSelected ? ' selected' : ''}`}>${label}</span>`
+                : html`<span class="explore-album-tag clickable" role="button" tabIndex="0" onClick=${() => onTagClick(label)} onKeyDown=${(e) => (e.key === 'Enter' || e.key === ' ') && onTagClick(label)} title=${`Add "${label}" filter`}>${label}</span>`;
             })}
           </div>
         `}
@@ -3263,7 +3268,7 @@ function ExploreView({ projectName, source = 'global', mode = 'browse', initialQ
               ? html`<p class="explore-hint">${tagResults.length} album${tagResults.length !== 1 ? 's' : ''} match${tagResults.length === 1 ? 'es' : ''} all ${selectedTags.length} tag${selectedTags.length !== 1 ? 's' : ''}</p>`
               : html`<p class="muted" style=${{ padding: '16px' }}>No albums match all selected tags</p>`
             }
-            ${tagResults.map(album => html`<${ExploreAlbumRow} key=${album.spotifyId || album.slug} album=${album} onClick=${handleAlbumClick} tags=${[...(album.genres || []), ...(album.styles || [])]} selectedTags=${selectedTags} />`)}
+            ${tagResults.map(album => html`<${ExploreAlbumRow} key=${album.spotifyId || album.slug} album=${album} onClick=${handleAlbumClick} tags=${[...(album.genres || []), ...(album.styles || [])]} selectedTags=${selectedTags} onTagClick=${addTag} />`)}
           `}
         </div>
       `}
