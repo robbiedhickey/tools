@@ -162,7 +162,7 @@
   .bottom-nav {
     display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
     width: 100%; max-width: 100vw;
-    height: 58px !important; min-height: 58px !important; max-height: 58px !important;
+    height: 64px !important; min-height: 64px !important; max-height: 64px !important;
     overflow: hidden; align-items: stretch; contain: layout size paint;
     background: var(--card);
     -webkit-backdrop-filter: none;
@@ -172,9 +172,9 @@
   }
   :root[data-theme="dark"] .bottom-nav { background: var(--card); }
   .bottom-nav-item {
-    flex: 1 1 0; height: 58px !important; min-height: 58px !important; max-height: 58px !important;
+    flex: 1 1 0; height: 64px !important; min-height: 64px !important; max-height: 64px !important;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 1px; padding: 6px 4px 6px; border: 0; background: none; cursor: pointer;
+    gap: 2px; padding: 8px 4px 8px; border: 0; background: none; cursor: pointer;
     color: var(--text-dim); text-decoration: none; font-family: inherit;
     min-width: 0; user-select: none; touch-action: manipulation; -webkit-touch-callout: none; position: relative;
   }
@@ -219,7 +219,7 @@
     .brand-text-mobile { display: inline; }
     .tabs { display: none; }
     body { padding-bottom: 0; }
-    .toast { bottom: 86px; }
+    .toast { bottom: 92px; }
     .bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; }
   }
 
@@ -235,7 +235,7 @@
     .page {
       background: var(--bg);
       overflow: visible;
-      padding: 20px max(16px, env(safe-area-inset-right)) 86px max(16px, env(safe-area-inset-left));
+      padding: 20px max(16px, env(safe-area-inset-right)) 92px max(16px, env(safe-area-inset-left));
     }
   }
   .card {
@@ -2195,12 +2195,12 @@ function Nav({ projectName, tab, backlogCount, unreadCount, theme }) {
       <nav
         class="bottom-nav"
         aria-label="Main navigation"
-        style=${{ height: '58px', minHeight: '58px', maxHeight: '58px', padding: 0 }}
+        style=${{ height: '64px', minHeight: '64px', maxHeight: '64px', padding: 0 }}
       >
         ${bottomTabs.map(t => html`
           <a
             class=${`bottom-nav-item ${tab === t.id ? 'active' : ''}`}
-            style=${{ height: '58px', minHeight: '58px', maxHeight: '58px' }}
+            style=${{ height: '64px', minHeight: '64px', maxHeight: '64px' }}
             href=${routePath(projectName, t.id)}
             onClick=${(e) => { e.preventDefault(); haptic(6); setVtDirection(tab, t.id); navigateTo(routePath(projectName, t.id)); }}
             aria-label=${t.badge ? `${t.label}, ${t.badge} items` : t.label}
