@@ -221,6 +221,8 @@
     body { padding-bottom: 0; }
     .toast { bottom: 86px; }
     .bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; }
+    .te-banner .spacer { display: none; }
+    .te-banner strong { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
   }
 
   .page {
@@ -278,7 +280,7 @@
   .te-banner {
     border-radius: 2px; background: var(--bg);
     border: 1px solid var(--border); border-left: 3px solid var(--accent);
-    color: var(--text);
+    color: var(--text); flex-wrap: nowrap;
   }
   .te-banner a.primary {
     border-radius: 2px;
@@ -2358,7 +2360,7 @@ function TodayView({ projectName, me, backlog, subTab, comparison }) {
     <div>
       ${backlog.length > 0 && html`
         <div class="banner te-banner">
-          <strong>You have ${backlog.length} album${backlog.length === 1 ? '' : 's'} waiting to be rated.</strong>
+          <strong>${backlog.length} album${backlog.length === 1 ? '' : 's'} to rate</strong>
           <span class="spacer"></span>
           <a class="primary" href=${routePath(projectName, 'backlog')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'backlog')); }}>View backlog →</a>
         </div>
