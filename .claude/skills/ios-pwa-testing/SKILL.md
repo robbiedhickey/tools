@@ -160,6 +160,15 @@ For this repo's PWA layout, these patterns have been useful when the symptom mat
   shell's flex layout. Use a fixed visual nav at `bottom: 0`, give the page explicit bottom
   clearance, and let the document/page scroll normally. Then verify short pages separately so the
   nav is not coupled to content height.
+- When returning scroll to the document, ensure the old page scroller is fully disabled. A base
+  `overflow-x: hidden` combined with mobile `overflow-y: visible` can compute back to
+  `overflow-y: auto`, creating a non-scrollable wheel trap on desktop Chrome at narrow widths.
+  Override with `overflow: visible` on that element and keep horizontal containment on the outer
+  document instead.
+- Avoid global `overscroll-behavior-y: contain` on the body when the document is the scroller.
+  In narrow desktop Chrome it can prevent wheel scrolling even when the document is taller than
+  the viewport. Let the pull-to-refresh gesture handler decide when to call `preventDefault()`
+  instead of globally containing overscroll.
 - Paint the outer surfaces intentionally. Nav-colored `html/body` can make a leftover gutter feel
   like part of the tab bar and make every tab look too tall. Use it only when that is the desired
   illusion; otherwise keep the gutter/content surface on the page background and make the shell
