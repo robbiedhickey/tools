@@ -299,7 +299,9 @@
   .link-chip {
     border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; font-size: 13px; background: var(--bg);
   }
+  a.link-chip { color: var(--accent); text-decoration: none; }
   button.link-chip { color: var(--accent); cursor: pointer; font-family: inherit; line-height: inherit; }
+  .link-chip:hover { border-color: var(--accent); color: var(--accent); }
   button.link-chip:active, a.link-chip:active { opacity: 0.6; }
   .small-link { font-size: 12px; }
   .wiki-summary {
@@ -369,9 +371,12 @@
     border: 1px solid var(--border); border-radius: 999px; padding: 3px 9px;
     background: var(--bg); color: var(--text-dim); font-size: 12px;
   }
+  a.keyword-chip { color: var(--accent); text-decoration: none; }
   button.keyword-chip { cursor: pointer; font-family: inherit; line-height: inherit; }
   button.keyword-chip:hover { border-color: var(--accent); color: var(--accent); }
   button.keyword-chip.active { background: var(--accent-soft); color: var(--accent); border-color: transparent; font-weight: 600; }
+  a.keyword-chip:hover { border-color: var(--accent); color: var(--accent); }
+  .keyword-chip-link { display: inline-flex; align-items: center; }
   .style-chip {
     display: inline-flex; align-items: center; gap: 6px;
     border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px;
@@ -1474,6 +1479,9 @@ function discoverAlbumRoutePath(projectName, albumSlug, source = 'global', tab =
   if (tab !== 'reviews') return base;
   return `${base}/reviews${keyword.trim() ? `/${encodeURIComponent(keyword.trim())}` : ''}`;
 }
+function discoverGenreStyleRoutePath(projectName, tag, source = 'global') {
+  return discoverModeRoutePath(projectName, source, 'genre-style', tag);
+}
 function readLastDiscoverPath(projectName) {
   try {
     const path = sessionStorage.getItem(`${LAST_DISCOVER_PATH_KEY}:${projectName}`);
@@ -1928,7 +1936,7 @@ function discoveryLinks(album) {
 // `sections` lets callers render only part of this panel (e.g. the Today page shows genres and
 // rating elsewhere in the layout and only wants the rest here) — null means "show everything",
 // matching every caller before this option existed.
-function AlbumSummaryContext({ album, comparison = null, sections = null }) {
+function AlbumSummaryContext({ album, projectName = null, discoverSource = 'global', comparison = null, sections = null }) {
   const show = (name) => !sections || sections.includes(name);
   // 'compare' also needs the fetched context: when nobody in this group's data has an entry for
   // the album yet (e.g. today's freshly-revealed pick), comparison.globalRating is null and we
@@ -1970,7 +1978,12 @@ function AlbumSummaryContext({ album, comparison = null, sections = null }) {
               const colonIndex = entry.indexOf(':');
               const tags = colonIndex === -1 ? entry : entry.slice(colonIndex + 1);
               return tags.split(',').map(t => t.trim()).filter(Boolean);
-            }).map(tag => html`<span class="keyword-chip">${tag}</span>`)}
+            }).map(tag => {
+              const href = projectName ? discoverGenreStyleRoutePath(projectName, tag, discoverSource) : '';
+              return href
+                ? html`<a class="keyword-chip keyword-chip-link" href=${href} title=${`Explore ${tag}`}>${tag}</a>`
+                : html`<span class="keyword-chip">${tag}</span>`;
+            })}
           </div>
         `}
       `}
@@ -2239,7 +2252,7 @@ function AlbumInfoTabs({ album, projectName = null, groupSlug = null, comparison
       </div>
       ${tab === 'summary' && html`
         ${album.wikipediaUrl && html`<${WikipediaSummary} url=${album.wikipediaUrl} />`}
-        <${AlbumSummaryContext} album=${album} comparison=${comparison} sections=${summarySections} />
+        <${AlbumSummaryContext} album=${album} projectName=${projectName} comparison=${comparison} sections=${summarySections} />
       `}
       ${tab === 'tracks' && html`<${TracksPreview} album=${album} projectName=${projectName} />`}
       ${tab === 'reviews' && album.globalReviewsUrl && html`<${GlobalReviewsPreview} url=${album.globalReviewsUrl} />`}
@@ -3216,7 +3229,7 @@ function AlbumSpotlight({ album, projectName, groupSlug = null, comparison = nul
         ${album.images && album.images[0] && html`<img class="album-art" src=${album.images[0].url} alt=${album.name} loading="lazy" decoding="async" />`}
         <p class="album-title">${album.name}</p>
         <p class="album-artist" style=${{ marginBottom: '12px' }}>${album.artist}${album.releaseDate ? ` (${album.releaseDate})` : ''}</p>
-        <${AlbumSummaryContext} album=${album} sections=${['genres']} />
+        <${AlbumSummaryContext} album=${album} projectName=${projectName} sections=${['genres']} />
         <div class="context-section-title" data-badge="headphones">Listen On</div>
         <${StreamingLinks} album=${album} />
       </div>
