@@ -297,7 +297,15 @@
   .album-art { width: 100%; border-radius: var(--radius); display: block; -webkit-touch-callout: none; }
   .album-title { font-size: 22px; font-weight: 700; margin: 0 0 2px; }
   .album-artist { font-size: 16px; color: var(--text-dim); margin: 0 0 2px; }
-  .links-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .links-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .album-header-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .album-header-text { flex: 1; min-width: 0; }
+  .album-header-text .album-title { margin-bottom: 2px; }
+  .album-header-text .album-artist { margin-bottom: 0; }
+  .streaming-icons-col { display: flex; flex-direction: row; gap: 8px; flex-shrink: 0; align-items: center; }
+  .streaming-icon-btn { display: inline-flex; border-radius: 6px; line-height: 0; opacity: 0.55; transition: opacity 0.15s, transform 0.15s; }
+  .streaming-icon-btn svg { fill: var(--text); }
+  .streaming-icon-btn:hover { opacity: 1; transform: scale(1.08); }
   .link-chip {
     border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; font-size: 13px; background: var(--bg);
   }
@@ -334,6 +342,7 @@
   .review-list--unbounded { max-height: none; overflow-y: visible; }
   .review-list--unbounded .review-item { content-visibility: visible; contain: none; }
   .data-card-list { display: grid; gap: 6px; }
+  .data-card-list--2col { grid-template-columns: 1fr 1fr 1fr; }
   .data-card {
     display: flex; align-items: center; gap: 12px;
     padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
@@ -354,11 +363,14 @@
   }
   .notification-item:last-child { border-bottom: 0; }
   .notification-time { color: var(--text-dim); font-size: 10px; flex-shrink: 0; white-space: nowrap; }
-  .activity-day-group { display: grid; gap: 10px; }
-  .activity-day-group + .activity-day-group { margin-top: 14px; }
+  .activity-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+  .activity-review-text { white-space: normal; overflow: visible; text-overflow: unset; font-size: 12px; color: var(--text); margin-top: 4px; line-height: 1.4; }
+  .activity-panel-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); }
+  .activity-day-group { display: grid; gap: 6px; }
+  .activity-day-group + .activity-day-group { margin-top: 10px; }
   .activity-day-header {
     font-size: 11px; font-weight: 700; color: var(--text-dim); text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.04em; padding: 4px 0 2px;
   }
   .review-meta { display: flex; gap: 8px; flex-wrap: wrap; color: var(--text-dim); font-size: 12px; margin-bottom: 5px; }
   .review-text { margin: 0; color: var(--text); }
@@ -498,13 +510,24 @@
     text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px;
   }
   .te-panel .sort-controls button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-  .te-panel .album-art { border-radius: 2px; border: 1px solid var(--border); }
+  .te-panel .album-art { border-radius: 0; border: none; }
   .te-panel .album-title {
-    font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
-    margin: 10px 0 0;
+    font-size: 20px; font-weight: 800; letter-spacing: -0.01em;
+    margin: 14px 0 2px; line-height: 1.2;
   }
   .te-panel .album-artist {
-    font-size: 12px; color: var(--text-dim); margin: 1px 0 14px;
+    font-size: 14px; color: var(--text-dim); margin: 0;
+  }
+  @media (max-width: 760px) {
+    .te-panel .today-primary {
+      margin: -18px -18px 0;
+    }
+    .te-panel .today-primary .album-header-row,
+    .te-panel .today-primary .context-section-title,
+    .te-panel .today-primary .keyword-row,
+    .te-panel .today-primary .links-row {
+      padding-left: 16px; padding-right: 16px;
+    }
   }
   .te-panel .context-section-title {
     font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;
@@ -585,7 +608,7 @@
   .te-panel th {
     letter-spacing: 0.06em;
   }
-  .te-panel .tracks-table td:nth-child(2), .te-panel .tracks-table td:nth-child(5) {
+  .te-panel .tracks-table td:nth-child(2), .te-panel .tracks-table td:nth-child(4) {
     font-size: 12px; color: var(--text-dim);
   }
   .modal-backdrop {
@@ -745,9 +768,8 @@
   .tracks-table { table-layout: fixed; width: 100%; }
   .tracks-table th:nth-child(1), .tracks-table td:nth-child(1) { width: 28px; }
   .tracks-table th:nth-child(2), .tracks-table td:nth-child(2) { width: 32px; }
-  .tracks-table th:nth-child(3), .tracks-table td:nth-child(3) { width: 240px; }
-  .tracks-table th:nth-child(4), .tracks-table td:nth-child(4) { width: 160px; }
-  .tracks-table th:nth-child(5), .tracks-table td:nth-child(5) { width: 60px; }
+  .tracks-table th:nth-child(3), .tracks-table td:nth-child(3) { }
+  .tracks-table th:nth-child(4), .tracks-table td:nth-child(4) { width: 60px; }
   .tracks-table .truncate-cell { overflow: hidden; text-overflow: ellipsis; cursor: default; }
   th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); }
   th { color: var(--text-dim); font-weight: 600; font-size: 12px; text-transform: uppercase; }
@@ -760,7 +782,7 @@
     border-radius: 999px; padding: 4px 10px; font-size: 11px; cursor: pointer;
   }
   .sort-controls button.active { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
-  .star-btn { border: 0; background: transparent; cursor: pointer; font-size: 16px; line-height: 1; padding: 0; color: var(--text-dim); }
+  .star-btn { border: 0; background: transparent; cursor: pointer; font-size: 24px; line-height: 1; padding: 0; color: var(--text-dim); }
   .star-btn.active { color: var(--warn); }
   .rating-stars { display: flex; gap: 4px; }
   .star-pick { border: 0; background: transparent; cursor: pointer; font-size: 36px; line-height: 1; padding: 0; color: var(--border); -webkit-touch-callout: none; user-select: none; transition: transform 0.1s; }
@@ -1590,6 +1612,8 @@ function haptic(ms) {
   if (navigator.vibrate) navigator.vibrate(ms);
 }
 const TAB_ORDER = { today: 0, backlog: 1, group: 2, me: 3, activity: 4 };
+const NAV_TAB_PARENT = { member: 'group', pair: 'group' };
+function navTab(tab) { return NAV_TAB_PARENT[tab] || tab; }
 function setVtDirection(fromTab, toTab) {
   const a = TAB_ORDER[fromTab], b = TAB_ORDER[toTab];
   if (a !== undefined && b !== undefined && a !== b) {
@@ -1786,24 +1810,35 @@ function useNotifications(projectName) {
 }
 
 // ---------- small components ----------
-// The most mainstream services stay visible by default; everything else (Tidal, Amazon Music,
-// Deezer, Qobuz) collapses behind a toggle so this row doesn't wrap onto 2-3 lines for every album.
 const PRIMARY_STREAMING_SERVICES = ['Spotify', 'Apple Music', 'YouTube Music'];
 
-function StreamingLinks({ album }) {
-  const [expanded, setExpanded] = useState(false);
-  const links = streamingLinks(album);
-  if (!links.length) return null;
-  const primary = links.filter(l => PRIMARY_STREAMING_SERVICES.includes(l.service));
-  const visible = primary.length ? primary : links.slice(0, 3);
-  const hidden = primary.length ? links.filter(l => !PRIMARY_STREAMING_SERVICES.includes(l.service)) : links.slice(3);
+const STREAMING_ICONS = {
+  'Spotify':       (size = 36) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-label="Spotify"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>`,
+  'Apple Music':   (size = 36) => `<svg width="${size}" height="${size}" viewBox="0 0 73 73" xmlns="http://www.w3.org/2000/svg" aria-label="Apple Music"><path fill-rule="evenodd" clip-rule="evenodd" d="M72,19.94c0-0.72-0.01-1.45-0.03-2.17c-0.04-1.58-0.14-3.17-0.42-4.73c-0.28-1.58-0.75-3.06-1.48-4.5c-0.72-1.41-1.66-2.71-2.78-3.83c-1.12-1.12-2.42-2.06-3.83-2.78c-1.44-0.73-2.91-1.2-4.49-1.48c-1.56-0.28-3.15-0.37-4.73-0.42C53.51,0.02,52.78,0.01,52.06,0c-0.86,0-1.72,0-2.58,0H22.52c-0.86,0-1.72,0-2.58,0c-0.72,0-1.45,0.01-2.17,0.03c-1.58,0.04-3.17,0.14-4.73,0.42C11.46,0.74,9.98,1.2,8.55,1.94C7.13,2.66,5.84,3.6,4.72,4.72S2.65,7.13,1.93,8.55c-0.73,1.44-1.2,2.91-1.48,4.5c-0.28,1.56-0.37,3.15-0.42,4.73C0.02,18.5,0.01,19.22,0,19.94c0,0.86,0,1.72,0,2.58v26.95c0,0.86,0,1.72,0,2.58c0,0.72,0.01,1.45,0.03,2.17c0.04,1.58,0.14,3.17,0.42,4.73c0.28,1.58,0.75,3.06,1.48,4.5c0.72,1.41,1.66,2.71,2.78,3.83s2.42,2.06,3.83,2.78c1.44,0.73,2.91,1.2,4.49,1.48c1.56,0.28,3.15,0.37,4.73,0.42c0.72,0.02,1.45,0.03,2.17,0.03c0.86,0.01,1.72,0,2.58,0h26.95c0.86,0,1.72,0,2.58,0c0.72,0,1.45-0.01,2.17-0.03c1.58-0.04,3.17-0.14,4.73-0.42c1.58-0.28,3.06-0.75,4.49-1.48c1.41-0.72,2.71-1.66,3.83-2.78c1.12-1.12,2.06-2.41,2.78-3.83c0.73-1.44,1.2-2.91,1.48-4.5c0.28-1.56,0.37-3.15,0.42-4.73c0.02-0.72,0.03-1.45,0.03-2.17c0.01-0.86,0-1.72,0-2.58V22.52C72,21.66,72,20.8,72,19.94z M52.71,46.85c0,0.91-0.01,1.74-0.2,2.65c-0.19,0.89-0.53,1.72-1.05,2.47c-0.52,0.75-1.19,1.36-1.97,1.82c-0.79,0.47-1.62,0.73-2.5,0.91c-1.66,0.33-2.79,0.41-3.86,0.2c-1.03-0.21-1.9-0.68-2.6-1.32c-1.03-0.95-1.68-2.23-1.82-3.56c-0.16-1.57,0.36-3.24,1.53-4.48c0.59-0.62,1.34-1.11,2.34-1.5c1.04-0.4,2.19-0.65,3.96-1c0.47-0.09,0.93-0.19,1.4-0.28c0.61-0.12,1.14-0.28,1.56-0.8c0.43-0.52,0.43-1.16,0.43-1.78V24.32c0-1.21-0.54-1.54-1.7-1.32c-0.83,0.16-18.62,3.75-18.62,3.75c-1,0.24-1.36,0.57-1.36,1.82v23.23c0,0.91-0.05,1.74-0.24,2.65c-0.19,0.89-0.53,1.72-1.05,2.47c-0.52,0.75-1.19,1.36-1.97,1.82c-0.79,0.47-1.62,0.74-2.5,0.92c-1.66,0.33-2.79,0.41-3.86,0.2c-1.03-0.21-1.9-0.69-2.6-1.33c-1.03-0.95-1.63-2.23-1.78-3.56c-0.16-1.57,0.31-3.24,1.49-4.48c0.59-0.62,1.34-1.11,2.34-1.5c1.04-0.4,2.19-0.65,3.96-1c0.47-0.09,0.93-0.19,1.4-0.28c0.61-0.12,1.14-0.28,1.56-0.8c0.42-0.52,0.47-1.13,0.47-1.75c0-4.92,0-26.78,0-26.78c0-0.36,0.03-0.6,0.05-0.72c0.09-0.56,0.31-1.05,0.72-1.39c0.34-0.28,0.78-0.48,1.33-0.6l0.01,0L49,11.33c0.19-0.04,1.73-0.31,1.91-0.33c1.16-0.1,1.81,0.66,1.81,1.89L52.71,46.85L52.71,46.85z"/></svg>`,
+  'YouTube Music': (size = 36) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-label="YouTube Music"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`,
+};
+
+function StreamingServiceIcon({ service, url }) {
+  const iconFn = STREAMING_ICONS[service];
+  if (!iconFn) return html`<a class="link-chip" href=${url} target="_blank" rel="noopener">${service}</a>`;
   return html`
-    <div class="links-row">
-      ${visible.map(l => html`<a class="link-chip" href=${l.url} target="_blank" rel="noopener">${l.service}</a>`)}
-      ${expanded && hidden.map(l => html`<a class="link-chip" href=${l.url} target="_blank" rel="noopener">${l.service}</a>`)}
-      ${hidden.length > 0 && html`
-        <button type="button" class="link-chip" onClick=${() => setExpanded(e => !e)}>${expanded ? 'Show fewer' : `+${hidden.length} more`}</button>
-      `}
+    <a
+      href=${url}
+      target="_blank"
+      rel="noopener"
+      title=${service}
+      class="streaming-icon-btn"
+      dangerouslySetInnerHTML=${{ __html: iconFn(service === 'YouTube Music' ? 44 : 36) }}
+    />
+  `;
+}
+
+function StreamingLinks({ album }) {
+  const links = streamingLinks(album).filter(l => PRIMARY_STREAMING_SERVICES.includes(l.service));
+  if (!links.length) return null;
+  return html`
+    <div class="streaming-icons-col">
+      ${links.map(l => html`<${StreamingServiceIcon} service=${l.service} url=${l.url} />`)}
     </div>
   `;
 }
@@ -2257,7 +2292,7 @@ function TracksPreview({ album, projectName }) {
         ` : html`
           <div class="table-scroll">
             <table class="tracks-table">
-              <thead><tr><th></th><th>#</th><th>Track</th><th>Artist</th><th>Length</th></tr></thead>
+              <thead><tr><th></th><th>#</th><th>Track</th><th>Length</th></tr></thead>
               <tbody>
                 ${state.data.tracks.map(track => {
                   const favorited = track.appleTrackId && favorites.isFavorite(track.appleTrackId);
@@ -2277,7 +2312,6 @@ function TracksPreview({ album, projectName }) {
                     <td class="truncate-cell" title=${track.title}>${track.trackViewUrl
                       ? html`<a href=${track.trackViewUrl} target="_blank" rel="noopener" class="track-link">${track.title}</a>`
                       : track.title}</td>
-                    <td class="truncate-cell" title=${track.artistName || ''}>${track.artistName || '—'}</td>
                     <td>${formatDurationMs(track.durationMs)}</td>
                   </tr>
                 `;
@@ -2999,8 +3033,13 @@ function DiscoverAlbumView({ albumSlug, projectName, source = 'global', hubData 
         <div class="today-layout">
           <div class="today-primary">
             ${thumb && html`<img class="album-art" src=${thumb.url} alt=${album.name} loading="lazy" decoding="async" />`}
-            <p class="album-title">${album.name}</p>
-            <p class="album-artist" style=${{ marginBottom: '12px' }}>${album.artist}${album.releaseDate ? ` (${album.releaseDate})` : ''}</p>
+            <div class="album-header-row">
+              <div class="album-header-text">
+                <p class="album-title">${album.name}</p>
+                <p class="album-artist">${album.artist}${album.releaseDate ? ` (${album.releaseDate})` : ''}</p>
+              </div>
+              <${StreamingLinks} album=${fullAlbum} />
+            </div>
             ${chips.length > 0 && html`
               <div class="context-section-title" data-badge="sell">Genres & Styles</div>
               <div class="keyword-row">
@@ -3009,11 +3048,6 @@ function DiscoverAlbumView({ albumSlug, projectName, source = 'global', hubData 
               <${SimilarAlbumsHelper} album=${album} projectName=${projectName} source=${source} />
               <div style=${{ marginBottom: '12px' }}></div>
             `}
-            <div class="context-section-title" data-badge="headphones">Listen On</div>
-            ${scrapedStreamingLinks
-              ? html`<div class="links-row">${scrapedStreamingLinks.map(l => html`<a class="link-chip" href=${l.url} target="_blank" rel="noopener">${l.service}</a>`)}</div>`
-              : html`<${StreamingLinks} album=${fullAlbum} />`
-            }
           </div>
           <div class="today-secondary">
             <div class="album-panel">
@@ -3385,7 +3419,7 @@ function Nav({ projectName, tab, backlogCount, unreadCount, theme }) {
           <nav class="tabs" ref=${tabsRef}>
             ${topTabs.map((t, i) => html`
               ${i > 0 && html`<span class="tab-sep">|</span>`}
-              <a class=${`tab ${tab === t.id ? 'active' : ''}`} href=${routePath(projectName, t.id)} onClick=${(e) => { e.preventDefault(); setVtDirection(tab, t.id); navigateTo(routePath(projectName, t.id)); }}>${t.label}</a>
+              <a class=${`tab ${navTab(tab) === t.id ? 'active' : ''}`} href=${routePath(projectName, t.id)} onClick=${(e) => { e.preventDefault(); setVtDirection(tab, t.id); navigateTo(routePath(projectName, t.id)); }}>${t.label}</a>
             `)}
           </nav>
           <div class="nav-actions">
@@ -3426,12 +3460,12 @@ function Nav({ projectName, tab, backlogCount, unreadCount, theme }) {
       >
         ${bottomTabs.map(t => html`
           <a
-            class=${`bottom-nav-item ${tab === t.id ? 'active' : ''}`}
+            class=${`bottom-nav-item ${navTab(tab) === t.id ? 'active' : ''}`}
             style=${{ height: '58px', minHeight: '58px', maxHeight: '58px' }}
             href=${routePath(projectName, t.id)}
             onClick=${(e) => { e.preventDefault(); haptic(6); setVtDirection(tab, t.id); navigateTo(routePath(projectName, t.id)); }}
             aria-label=${t.badge ? `${t.label}, ${t.badge} items` : t.label}
-            aria-current=${tab === t.id ? 'page' : undefined}
+            aria-current=${navTab(tab) === t.id ? 'page' : undefined}
           >
             <span class="bottom-nav-icon" aria-hidden="true">${t.icon}</span>
             <span class="bottom-nav-label">${t.label}</span>
@@ -3527,7 +3561,7 @@ function RatingEditor({ projectName, albumUuid, generatedAlbumId, initialNotes, 
       </div>
       <textarea
         class="rate-optional-notes"
-        style=${{ width: '100%', minHeight: '90px', padding: '8px 10px', font: 'inherit', resize: 'vertical', marginTop: '8px' }}
+        style=${{ width: '100%', minHeight: '180px', padding: '8px 10px', font: 'inherit', resize: 'vertical', marginTop: '8px' }}
         placeholder="Optional review…"
         value=${notes}
         onInput=${(e) => { setNotes(e.target.value); setStatus('idle'); }}
@@ -3554,14 +3588,17 @@ function AlbumSpotlight({ album, projectName, groupSlug = null, comparison = nul
     <div class="today-layout">
       <div class="today-primary">
         ${album.images && album.images[0] && html`<img class="album-art" src=${album.images[0].url} alt=${album.name} loading="lazy" decoding="async" />`}
-        <p class="album-title">${album.name}</p>
-        <p class="album-artist" style=${{ marginBottom: '12px' }}>${album.artist}${album.releaseDate ? ` (${album.releaseDate})` : ''}</p>
-        <${AlbumSummaryContext} album=${album} projectName=${projectName} sections=${['genres']} />
-        <div class="context-section-title" data-badge="headphones">Listen On</div>
-        <${StreamingLinks} album=${album} />
+        <div class="album-header-row">
+          <div class="album-header-text">
+            <p class="album-title">${album.name}</p>
+            <p class="album-artist">${album.artist}${album.releaseDate ? ` (${album.releaseDate})` : ''}</p>
+          </div>
+          <${StreamingLinks} album=${album} />
+        </div>
+        <${AlbumSummaryContext} album=${album} projectName=${projectName} sections=${['genres', 'discovery']} />
       </div>
       <div class="today-secondary">
-        <${AlbumInfoTabs} album=${album} projectName=${projectName} groupSlug=${groupSlug} tab=${tab} onTabChange=${onTabChange} comparison=${comparison} summarySections=${['compare', 'discovery']} />
+        <${AlbumInfoTabs} album=${album} projectName=${projectName} groupSlug=${groupSlug} tab=${tab} onTabChange=${onTabChange} comparison=${comparison} summarySections=${['compare']} />
         ${action}
       </div>
     </div>
@@ -3582,7 +3619,6 @@ function TodayView({ projectName, me, backlog, subTab, comparison }) {
         </div>
       `}
       <div class="card te-panel">
-        <h2>Today's Album</h2>
         ${album ? html`
           <${AlbumSpotlight}
             album=${album}
@@ -3621,7 +3657,6 @@ function BacklogAlbumView({ projectName, entry, groupSlug, comparison, subTab, o
         <a class="primary" href=${routePath(projectName, 'backlog')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'backlog')); }}>View backlog →</a>
       </div>
       <div class="card te-panel">
-        <h2>Backlog Album</h2>
         <${AlbumSpotlight}
           album=${album}
           projectName=${projectName}
@@ -3658,7 +3693,6 @@ function AlbumDetailView({ projectName, albumRecord, groupSlug, comparison, subT
         <a href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'group')); }}>Back to group</a>
       </div>
       <div class="card te-panel">
-        <h2>Album Snapshot</h2>
         <${AlbumSpotlight}
           album=${album}
           projectName=${projectName}
@@ -3773,7 +3807,7 @@ function GroupView({ group, members, projectName }) {
 
       <div class="card te-panel">
         <h2>Roster</h2>
-        <div class="data-card-list">
+        <div class="data-card-list data-card-list--2col">
           ${roster.map(r => html`
             <button class="data-card" onClick=${() => navigateTo(memberRoutePath(projectName, r.name))}>
               <div class="data-card-main">
@@ -3849,6 +3883,7 @@ function GroupView({ group, members, projectName }) {
 // ---------- Activity ----------
 function ActivityView({ members, projectName, group, notifications }) {
   const feed = useMemo(() => deriveActivityFeed(members), [members]);
+  const thumbBySpotifyId = useAlbumThumbs();
   const feedByDay = useMemo(() => {
     const groups = [];
     let current = null;
@@ -3864,60 +3899,78 @@ function ActivityView({ members, projectName, group, notifications }) {
   }, [feed]);
   return html`
     <div>
-      <div class="card te-panel">
-        <div style=${{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '8px' }}>
-          <h2 style=${{ margin: 0 }}>Notifications${notifications.notifications.length > 0 ? ` (${notifications.notifications.length})` : ''}</h2>
-          ${notifications.status === 'ready' && notifications.notifications.length > 0 && html`
-            <button type="button" class="pill-btn" disabled=${notifications.markingRead} onClick=${notifications.markAllRead}>
-              ${notifications.markingRead ? 'Marking…' : 'Mark as read'}
-            </button>
+      ${(notifications.status !== 'ready' || notifications.notifications.length > 0) && html`
+        <div class="card te-panel">
+          <div class="activity-panel-header">
+            <span class="activity-panel-title">Notifications${notifications.notifications.length > 0 ? ` (${notifications.notifications.length})` : ''}</span>
+            ${notifications.status === 'ready' && notifications.notifications.length > 0 && html`
+              <button type="button" class="pill-btn" disabled=${notifications.markingRead} onClick=${notifications.markAllRead}>
+                ${notifications.markingRead ? 'Marking…' : 'Mark as read'}
+              </button>
+            `}
+          </div>
+          ${notifications.markReadMessage && html`<p class="muted">${notifications.markReadMessage}</p>`}
+          ${notifications.status === 'loading' && html`<${LoadingNote} label="Loading notifications…" />`}
+          ${notifications.status === 'error' && html`<p class="muted">${notifications.errorMessage || "Couldn't load notifications."}</p>`}
+          ${notifications.status === 'ready' && html`
+            <div class="data-card-list">
+              ${notifications.notifications.map(n => {
+                const { text, prefix, albumName, suffix, albumId } = formatNotification(n);
+                const isAlbum = prefix != null;
+                const El = isAlbum ? 'button' : 'div';
+                return html`
+                  <${El}
+                    class="data-card"
+                    key=${n._id}
+                    onClick=${isAlbum ? () => navigateTo(routePath(projectName, 'album', albumId, 'group')) : undefined}
+                  >
+                    <div class="data-card-main">
+                      <div class="data-card-title">${isAlbum ? albumName : text}</div>
+                      ${isAlbum && html`<div class="data-card-sub">${prefix}${suffix}</div>`}
+                    </div>
+                    <div class="data-card-aside">${formatNotifTime(new Date(n.createdAt))}</div>
+                  <//>
+                `;
+              })}
+            </div>
           `}
         </div>
-        ${notifications.markReadMessage && html`<p class="muted">${notifications.markReadMessage}</p>`}
-        ${notifications.status === 'loading' && html`<${LoadingNote} label="Loading notifications…" />`}
-        ${notifications.status === 'error' && html`<p class="muted">${notifications.errorMessage || "Couldn't load notifications."}</p>`}
-        ${notifications.status === 'ready' && (notifications.notifications.length === 0 ? html`
-          <p class="muted"><${LankyMascot} />No unread notifications.</p>
-        ` : html`
-          <div class="notification-list">
-            ${notifications.notifications.map(n => {
-              const { text, prefix, albumName, suffix, albumId } = formatNotification(n);
-              return html`
-                <div class="notification-item" key=${n._id}>
-                  <span>
-                    ${prefix != null
-                      ? html`${prefix}<a class="row-link" href=${routePath(projectName, 'album', albumId, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'album', albumId, 'group')); }}>${albumName}</a>${suffix}`
-                      : text}
-                  </span>
-                  <span class="notification-time">${formatNotifTime(new Date(n.createdAt))}</span>
-                </div>
-              `;
-            })}
-          </div>
-        `)}
-      </div>
+      `}
 
       <div class="card te-panel">
-        <h2>Group Activity History</h2>
-        ${!group && html`<p class="muted">This project isn't part of a group — showing your own rating history.</p>`}
+        <div class="activity-panel-header">
+          <span class="activity-panel-title">Activity</span>
+          ${!group && html`<span class="muted" style=${{ fontSize: '12px' }}>Your history</span>`}
+        </div>
         ${feed.length === 0 ? html`
           <p class="muted"><${LankyMascot} />No one's rated anything yet.</p>
         ` : html`
-          <div class="review-list review-list--unbounded">
+          <div class="data-card-list">
             ${feedByDay.map(dayGroup => html`
               <div class="activity-day-group" key=${dayGroup.day}>
                 <div class="activity-day-header">${dayGroup.day}</div>
-                ${dayGroup.items.map((item, i) => html`
-                  <article class=${`review-item ${item.member === projectName ? 'is-you' : ''}`} key=${`${item.member}-${item.album.uuid}-${i}`}>
-                    <div class="review-meta">
-                      <strong>${item.member}${item.member === projectName ? ' (you)' : ''}</strong>
-                      <span class=${item.rating === 'did-not-listen' ? '' : `rating-tier-${ratingTier(item.rating)}`} style=${{ fontWeight: 700 }}>${item.rating === 'did-not-listen' ? 'Did not listen' : `Rated ${item.rating}/5`}</span>
-                      <a class="row-link" href=${routePath(projectName, 'album', item.album.uuid, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'album', item.album.uuid, 'group')); }}>${item.album.name}</a>
-                      <span class="muted">${item.album.artist}</span>
-                    </div>
-                    ${item.review ? html`<p class="review-text">${item.review}</p>` : ''}
-                  </article>
-                `)}
+                ${dayGroup.items.map((item, i) => {
+                  const thumbUrl = item.album?.spotifyId && thumbBySpotifyId.get(item.album.spotifyId);
+                  const isYou = item.member === projectName;
+                  return html`
+                    <button class="data-card" key=${`${item.member}-${item.album.uuid}-${i}`}
+                      onClick=${() => navigateTo(routePath(projectName, 'album', item.album.uuid, 'group'))}>
+                      ${thumbUrl
+                        ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" />`
+                        : html`<div class="explore-album-thumb"></div>`}
+                      <div class="data-card-main">
+                        <div class="data-card-title">${item.album.name}</div>
+                        <div class="data-card-sub">${item.album.artist} · ${isYou ? 'you' : item.member}</div>
+                        ${item.review && html`<div class="data-card-sub activity-review-text">${item.review}</div>`}
+                      </div>
+                      <div class="data-card-aside">
+                        ${item.rating === 'did-not-listen'
+                          ? html`<span class="muted">DNL</span>`
+                          : html`<span class=${`rating-tier-${ratingTier(item.rating)}`} style=${{ fontWeight: 700 }}>${item.rating} ★</span>`}
+                      </div>
+                    </button>
+                  `;
+                })}
               </div>
             `)}
           </div>
@@ -3994,6 +4047,16 @@ function MemberView({ memberName, project, projectName }) {
     .slice()
     .reverse();
   const thumbBySpotifyId = useAlbumThumbs();
+  const [query, setQuery] = useState('');
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return history;
+    return history.filter(e =>
+      e.album?.name?.toLowerCase().includes(q) ||
+      e.album?.artist?.toLowerCase().includes(q) ||
+      e.review?.toLowerCase().includes(q)
+    );
+  }, [history, query]);
   return html`
     <div>
       <div class="banner te-banner">
@@ -4005,9 +4068,18 @@ function MemberView({ memberName, project, projectName }) {
       ${project && project.__error && html`<div class="card te-panel"><p class="muted">Couldn't load data for ${memberName}.</p></div>`}
       ${history.length > 0 && html`
         <div class="card te-panel">
-          <h2>Ratings (${history.length})</h2>
+          <div class="sort-controls" style=${{ marginBottom: '10px' }}>
+            <input
+              type="search"
+              class="explore-input"
+              placeholder="Search albums, artists, reviews…"
+              value=${query}
+              onInput=${(e) => setQuery(e.target.value)}
+            />
+          </div>
           <div class="data-card-list">
-            ${history.map(e => {
+            ${filtered.length === 0 && html`<p class="muted">No results.</p>`}
+            ${filtered.map(e => {
               const thumbUrl = e.album?.spotifyId && thumbBySpotifyId.get(e.album.spotifyId);
               return html`
                 <button class="data-card" style=${{ alignItems: 'flex-start' }} onClick=${() => navigateTo(routePath(projectName, 'album', e.album.uuid, 'group'))}>
@@ -4018,7 +4090,7 @@ function MemberView({ memberName, project, projectName }) {
                   <div class="data-card-main">
                     <div class="data-card-title">${e.album.name}</div>
                     <div class="data-card-sub">${e.album.artist}</div>
-                    ${e.review && html`<div class="data-card-sub" style=${{ marginTop: '4px', whiteSpace: 'normal' }}>${e.review}</div>`}
+                    ${e.review && html`<div class="activity-review-text">${e.review}</div>`}
                   </div>
                   <div class="data-card-aside">
                     <span class=${`rating-tier-${ratingTier(e.rating)}`} style=${{ fontWeight: 700 }}>${e.rating} ★</span>
@@ -4107,7 +4179,7 @@ function FavoriteTracksSection({ projectName }) {
       <div class="data-card-list">
         ${visible.map(track => html`
           <div class="data-card">
-            <button type="button" class="star-btn active" aria-label="Unfavorite track" style=${{ fontSize: '36px' }} onClick=${() => favorites.toggle(track)}>★</button>
+            <button type="button" class="star-btn active" aria-label="Unfavorite track" onClick=${() => favorites.toggle(track)}>★</button>
             ${track.artworkUrl
               ? html`<img src=${track.artworkUrl} alt="" width="44" height="44" loading="lazy" style=${{ borderRadius: '4px', display: 'block', flexShrink: 0, objectFit: 'cover' }} />`
               : html`<div class="explore-album-thumb"></div>`
@@ -4189,18 +4261,30 @@ function BreakdownStats({ genres, styles, decades, ratings, projectName }) {
     body = html`<${AlbumCardList} albums=${filtered} projectName=${projectName} thumbBySpotifyId=${thumbBySpotifyId} />`;
   } else {
     const items = current.items;
+    const activeItem = items.find((i) => current.keyOf(i) === expanded);
     if (q) {
-      const seen = new Set();
-      const unique = items.flatMap(i => i.albums).filter(a => {
-        if (seen.has(a.album.uuid)) return false;
-        seen.add(a.album.uuid);
-        return true;
-      });
-      const filtered = filterAlbums(unique);
-      body = html`<${AlbumCardList} albums=${filtered} projectName=${projectName} thumbBySpotifyId=${thumbBySpotifyId} />`;
+      const pool = activeItem
+        ? activeItem.albums
+        : (() => {
+            const seen = new Set();
+            return items.flatMap(i => i.albums).filter(a => {
+              if (seen.has(a.album.uuid)) return false;
+              seen.add(a.album.uuid);
+              return true;
+            });
+          })();
+      const filtered = filterAlbums(pool);
+      body = html`
+        <div class="keyword-row" style=${{ marginBottom: '10px' }}>
+          ${activeItem && html`<button type="button" class="style-chip active" onClick=${() => setExpanded(null)}>
+            <span class="style-chip-name">${current.labelOf(activeItem)}</span>
+            <span class=${`style-chip-rating tier-${ratingTier(activeItem.avg)}`}>${activeItem.avg}</span>
+          </button>`}
+        </div>
+        <${AlbumCardList} albums=${filtered} projectName=${projectName} thumbBySpotifyId=${thumbBySpotifyId} />
+      `;
     } else {
       const visible = showAll ? items : items.slice(0, 100);
-      const activeItem = items.find((i) => current.keyOf(i) === expanded);
       body = html`
         <p class="muted">Click one to see the albums in it.</p>
         <div class="keyword-row">
@@ -4425,7 +4509,7 @@ function App() {
 
   return html`
     <div class="app-shell">
-      <${Nav} projectName=${projectName} tab=${tab === 'album' ? (subTab === 'group' ? 'group' : 'today') : (tab === 'pair' || tab === 'member') ? 'today' : tab} backlogCount=${backlog.length} unreadCount=${notifications.notifications.length} theme=${theme} />
+      <${Nav} projectName=${projectName} tab=${navTab(tab === 'album' ? (subTab === 'group' ? 'group' : 'today') : tab)} backlogCount=${backlog.length} unreadCount=${notifications.notifications.length} theme=${theme} />
       <${RefreshErrorToast} error=${hub.refreshError} onDismiss=${hub.dismissRefreshError} />
       ${pullY > 0 && html`
         <div class="ptr-indicator" style=${{
