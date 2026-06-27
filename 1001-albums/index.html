@@ -212,7 +212,8 @@
     #app { min-height: 100dvh; background: var(--bg); }
     #app > .app-shell {
       min-height: 100dvh;
-      overflow: visible;
+      overflow-x: hidden;
+      overflow-y: visible;
       background: var(--bg);
     }
     .topbar { flex: 0 0 auto; }
@@ -349,7 +350,7 @@
     display: flex; align-items: center; gap: 12px;
     padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
     background: var(--bg); text-decoration: none; color: inherit; width: 100%; text-align: left;
-    font-family: inherit; font-size: 13px;
+    font-family: inherit; font-size: 13px; min-width: 0;
   }
   button.data-card:hover, a.data-card:hover { border-color: var(--accent); background: var(--accent-soft); }
   button.data-card, a.data-card { cursor: pointer; }
