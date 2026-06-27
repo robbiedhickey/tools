@@ -321,7 +321,7 @@
   .wiki-summary p { margin: 0 0 8px; }
   .wiki-summary p:last-child { margin-bottom: 0; }
   .album-panel { margin: 12px 0 14px; }
-  .album-panel-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+  .album-panel-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 10px; flex-wrap: wrap; min-width: 0; }
   .album-panel-tab {
     border: 0; border-bottom: 2px solid transparent; background: transparent;
     cursor: pointer; padding: 7px 10px; color: var(--text-dim); font-size: 13px;
@@ -341,7 +341,7 @@
   }
   .review-list--unbounded { max-height: none; overflow-y: visible; }
   .review-list--unbounded .review-item { content-visibility: visible; contain: none; }
-  .data-card-list { display: grid; gap: 6px; }
+  .data-card-list { display: grid; gap: 6px; min-width: 0; max-width: 100%; }
   .data-card-list--3col { grid-template-columns: 1fr 1fr 1fr; }
   .data-card {
     display: flex; align-items: center; gap: 12px;
@@ -525,9 +525,11 @@
     .te-panel .today-primary .album-header-row,
     .te-panel .today-primary .context-section-title,
     .te-panel .today-primary .keyword-row,
+    .te-panel .today-primary .discovery-row,
     .te-panel .today-primary .links-row {
       padding-left: 16px; padding-right: 16px;
     }
+    .data-card-list--3col { grid-template-columns: 1fr 1fr; }
   }
   .te-panel .context-section-title {
     font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;
@@ -776,7 +778,7 @@
   tr:last-child td { border-bottom: none; }
   .row-link { color: var(--accent); font-weight: 600; }
   .row-link::after { content: ' \203A'; }
-  .sort-controls { display: flex; gap: 6px; margin-bottom: 10px; }
+  .sort-controls { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; min-width: 0; }
   .sort-controls button {
     border: 1px solid var(--border); background: var(--bg); color: var(--text);
     border-radius: 999px; padding: 4px 10px; font-size: 11px; cursor: pointer;
