@@ -97,7 +97,9 @@
   .brand {
     font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em;
     white-space: nowrap; flex: 0 0 auto;
+    text-decoration: none; color: inherit;
   }
+  .brand:hover { opacity: 0.75; }
   .brand-text { display: inline; }
   .brand-text-mobile { display: none; }
   .mascot {
@@ -149,7 +151,7 @@
   }
   .name-entry-toggle { display: flex; justify-content: flex-end; }
   .bell-badge {
-    position: absolute; top: -7px; right: -9px;
+    position: absolute; top: -3px; right: -5px;
     background: var(--accent); color: #fff; border-radius: 999px;
     padding: 1px 5px; font-size: 10px; font-weight: 700; line-height: 1.3;
     min-width: 15px; text-align: center;
@@ -331,6 +333,19 @@
   }
   .review-list--unbounded { max-height: none; overflow-y: visible; }
   .review-list--unbounded .review-item { content-visibility: visible; contain: none; }
+  .data-card-list { display: grid; gap: 6px; }
+  .data-card {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg); text-decoration: none; color: inherit; width: 100%; text-align: left;
+    font-family: inherit; font-size: 13px;
+  }
+  button.data-card:hover, a.data-card:hover { border-color: var(--accent); background: var(--accent-soft); }
+  button.data-card, a.data-card { cursor: pointer; }
+  .data-card-main { flex: 1; min-width: 0; }
+  .data-card-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .data-card-sub { font-size: 12px; color: var(--text-dim); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .data-card-aside { flex-shrink: 0; text-align: right; font-size: 12px; color: var(--text-dim); line-height: 1.5; }
   .review-item.is-you { border-left: 3px solid var(--accent); padding-left: 9px; }
   .notification-list { display: grid; }
   .notification-item {
@@ -748,7 +763,7 @@
   .star-btn { border: 0; background: transparent; cursor: pointer; font-size: 16px; line-height: 1; padding: 0; color: var(--text-dim); }
   .star-btn.active { color: var(--warn); }
   .rating-stars { display: flex; gap: 4px; }
-  .star-pick { border: 0; background: transparent; cursor: pointer; font-size: 26px; line-height: 1; padding: 0; color: var(--border); -webkit-touch-callout: none; user-select: none; transition: transform 0.1s; }
+  .star-pick { border: 0; background: transparent; cursor: pointer; font-size: 36px; line-height: 1; padding: 0; color: var(--border); -webkit-touch-callout: none; user-select: none; transition: transform 0.1s; }
   .star-pick:active { transform: scale(0.78); }
   .star-pick.active { color: var(--warn); }
   .apple-music-link {
@@ -800,13 +815,22 @@
     margin-left: auto; border: 0; background: transparent; color: var(--text-dim);
     cursor: pointer; font-size: 18px; line-height: 1; padding: 0 2px;
   }
-  .settings-view { max-width: 480px; margin: 0 auto; padding: 16px; }
-  .settings-view h2 { font-size: 1.25rem; font-weight: 700; margin: 0 0 16px; }
-  .settings-view h3 { font-size: .9rem; font-weight: 600; margin: 0; }
+  .settings-view { max-width: 480px; margin: 0 auto; }
+  .settings-section { margin-bottom: 20px; }
+  .settings-section-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-dim); padding: 0 4px; margin-bottom: 4px;
+  }
+  .settings-section .card { padding: 0; overflow: hidden; }
   .settings-row {
     display: flex; align-items: center; justify-content: space-between;
-    gap: 12px; padding: 10px 0;
+    gap: 16px; padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
   }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-row-left { flex: 1; min-width: 0; }
+  .settings-row-label { font-size: .9rem; color: var(--text); font-weight: 500; display: flex; align-items: center; gap: 6px; }
+  .settings-row-desc { font-size: .78rem; color: var(--text-dim); margin-top: 2px; }
   .settings-row label { font-size: .9rem; color: var(--text); }
   .settings-row select {
     border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px;
@@ -1289,7 +1313,11 @@ function computeUserStats(project) {
       decade, count, avg: Math.round((sum / count) * 100) / 100, albums: albums.sort((a, b) => b.rating - a.rating),
     }))
     .sort((a, b) => a.decade.localeCompare(b.decade));
-  return { dist, dnl, totalRated, avgRating: totalRated ? Math.round((sumRating / totalRated) * 100) / 100 : null, genres, styles, decades };
+  const ratings = (project.history || [])
+    .filter(e => typeof e.rating === 'number' && e.album)
+    .map(e => ({ album: e.album, rating: e.rating }))
+    .reverse();
+  return { dist, dnl, totalRated, avgRating: totalRated ? Math.round((sumRating / totalRated) * 100) / 100 : null, genres, styles, decades, ratings };
 }
 
 function streamingLinks(album) {
@@ -2562,73 +2590,107 @@ function SettingsView({ me, projectName, theme, diddy }) {
 
   return html`
     <div class="settings-view">
-      <h2>Settings</h2>
 
-      <div class="card" style="margin-bottom:1rem">
-        <h3>Appearance</h3>
-        <div class="settings-row">
-          <span>Theme</span>
-          <div class="theme-picker" role="group" aria-label="Theme">
+      <div class="settings-section">
+        <div class="settings-section-title">Appearance</div>
+        <div class="card">
+          <div class="settings-row">
+            <div class="settings-row-left">
+              <div class="settings-row-label">Theme</div>
+              <div class="settings-row-desc">Choose light or dark mode</div>
+            </div>
+            <div class="theme-picker" role="group" aria-label="Theme">
+              <button
+                type="button"
+                class=${`theme-option ${theme.theme === 'light' ? 'active' : ''}`}
+                onClick=${() => theme.theme !== 'light' && theme.toggle()}
+                aria-pressed=${theme.theme === 'light'}
+              ><span class="icon-symbol">light_mode</span> Light</button>
+              <button
+                type="button"
+                class=${`theme-option ${theme.theme === 'dark' ? 'active' : ''}`}
+                onClick=${() => theme.theme !== 'dark' && theme.toggle()}
+                aria-pressed=${theme.theme === 'dark'}
+              ><span class="icon-symbol">dark_mode</span> Dark</button>
+            </div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-row-left">
+              <div class="settings-row-label">
+                Recommendations
+                <img src=${DIDDY_GIF_URL} alt="" style=${{ height: '22px', width: 'auto', verticalAlign: 'middle' }} />
+              </div>
+              <div class="settings-row-desc">Similar album suggestions from Diddy Kong</div>
+            </div>
             <button
               type="button"
-              class=${`theme-option ${theme.theme === 'light' ? 'active' : ''}`}
-              onClick=${() => theme.theme !== 'light' && theme.toggle()}
-              aria-pressed=${theme.theme === 'light'}
-            ><span class="icon-symbol">light_mode</span> Light</button>
-            <button
-              type="button"
-              class=${`theme-option ${theme.theme === 'dark' ? 'active' : ''}`}
-              onClick=${() => theme.theme !== 'dark' && theme.toggle()}
-              aria-pressed=${theme.theme === 'dark'}
-            ><span class="icon-symbol">dark_mode</span> Dark</button>
+              class=${`toggle-btn ${diddy.enabled ? 'on' : ''}`}
+              onClick=${diddy.toggle}
+              aria-pressed=${diddy.enabled}
+            >${diddy.enabled ? 'On' : 'Off'}</button>
           </div>
         </div>
-        <div class="settings-row">
-          <label style="display:flex;align-items:center;gap:6px">
-            Album recommendations from
-            <img src=${DIDDY_GIF_URL} alt="Diddy" style="height:28px;width:auto;vertical-align:middle" />
-          </label>
-          <button
-            type="button"
-            class=${`toggle-btn ${diddy.enabled ? 'on' : ''}`}
-            onClick=${diddy.toggle}
-            aria-pressed=${diddy.enabled}
-          >${diddy.enabled ? 'On' : 'Off'}</button>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Notifications</div>
+        <div class="card">
+          ${!pushSupported && html`
+            <div class="settings-row">
+              <div class="settings-row-left">
+                <div class="settings-row-label">Push notifications</div>
+                <div class="settings-row-desc">Not supported in this browser</div>
+              </div>
+            </div>
+          `}
+          ${pushSupported && iosNotInstalled && html`
+            <div class="settings-row">
+              <div class="settings-row-left">
+                <div class="settings-row-label">Push notifications</div>
+                <div class="settings-row-desc">Add this app to your Home Screen to enable</div>
+              </div>
+            </div>
+          `}
+          ${pushSupported && !iosNotInstalled && html`
+            ${prefs === null && html`
+              <div class="settings-row"><div class="settings-row-desc">Loading…</div></div>
+            `}
+            ${prefs !== null && html`
+              <div class="settings-row">
+                <div class="settings-row-left">
+                  <div class="settings-row-label">New album of the day</div>
+                  <div class="settings-row-desc">Get notified when your next album drops</div>
+                </div>
+                <button
+                  id="push-toggle"
+                  type="button"
+                  class=${`toggle-btn ${prefs.subscribed ? 'on' : ''}`}
+                  onClick=${handleToggle}
+                  disabled=${toggling}
+                  aria-pressed=${prefs.subscribed}
+                >${prefs.subscribed ? 'On' : 'Off'}</button>
+              </div>
+              ${prefs.subscribed && html`
+                <div class="settings-row">
+                  <div class="settings-row-left">
+                    <div class="settings-row-label">Deliver at</div>
+                    <div class="settings-row-desc">Approximate local delivery time</div>
+                  </div>
+                  <select id="notify-hour" value=${localHour} onChange=${handleHourChange}>
+                    ${hours.map(h => html`<option value=${h.value} selected=${h.value === localHour}>${h.label}</option>`)}
+                  </select>
+                </div>
+              `}
+              ${pushError && html`
+                <div class="settings-row">
+                  <p class="error-text" style=${{ margin: 0 }}>${pushError}</p>
+                </div>
+              `}
+            `}
+          `}
         </div>
       </div>
 
-      <div class="card">
-        <h3>Notifications</h3>
-        ${!pushSupported && html`<p class="muted">Notifications aren't supported in this browser.</p>`}
-        ${pushSupported && iosNotInstalled && html`
-          <p class="muted">Add this app to your Home Screen to enable push notifications.</p>
-        `}
-        ${pushSupported && !iosNotInstalled && html`
-          ${prefs === null && html`<p class="muted">Loading…</p>`}
-          ${prefs !== null && html`
-            <div class="settings-row">
-              <label for="push-toggle">New album of the day</label>
-              <button
-                id="push-toggle"
-                type="button"
-                class=${`toggle-btn ${prefs.subscribed ? 'on' : ''}`}
-                onClick=${handleToggle}
-                disabled=${toggling}
-                aria-pressed=${prefs.subscribed}
-              >${prefs.subscribed ? 'On' : 'Off'}</button>
-            </div>
-            ${prefs.subscribed && html`
-              <div class="settings-row">
-                <label for="notify-hour">Deliver at</label>
-                <select id="notify-hour" value=${localHour} onChange=${handleHourChange}>
-                  ${hours.map(h => html`<option value=${h.value} selected=${h.value === localHour}>${h.label}</option>`)}
-                </select>
-              </div>
-            `}
-            ${pushError && html`<p class="error-text" style="margin-top:.5rem">${pushError}</p>`}
-          `}
-        `}
-      </div>
     </div>
   `;
 }
@@ -2660,6 +2722,24 @@ function useAlbumCatalog(source = 'global') {
   return { ...state, load };
 }
 
+function useAlbumThumbs() {
+  const catalog = useAlbumCatalog('global');
+  useEffect(() => { catalog.load(); }, [catalog.load]);
+  return useMemo(() => {
+    const map = new Map();
+    for (const a of catalog.albums) if (a.spotifyId && a.images?.[0]) map.set(a.spotifyId, a.images[0].url);
+    return map;
+  }, [catalog.albums]);
+}
+
+function useEditorState(initialNotes, resetKey) {
+  const [notes, setNotes] = useState(initialNotes || '');
+  const [status, setStatus] = useState('idle');
+  const [errorMessage, setErrorMessage] = useState('');
+  useEffect(() => { setNotes(initialNotes || ''); setStatus('idle'); setErrorMessage(''); }, [resetKey, initialNotes]);
+  return { notes, setNotes, status, setStatus, errorMessage, setErrorMessage };
+}
+
 function formatCacheAge(fetchedAt) {
   const ms = Date.now() - fetchedAt;
   const days = Math.floor(ms / 86400000);
@@ -2684,7 +2764,7 @@ function ExploreAlbumRow({ album, mentionCount, onClick, tags, selectedTags, onT
         <div class="explore-album-meta">
           ${mentionCount != null
             ? html`<span class="explore-mention-count">${mentionCount} mention${mentionCount !== 1 ? 's' : ''} in reviews</span>`
-            : (album.votes ? html`★ ${album.averageRating?.toFixed(2)} · ${album.votes.toLocaleString()} votes` : '')
+            : (album.votes ? html`${album.averageRating?.toFixed(2)} ★ | ${album.votes.toLocaleString()} votes` : '')
           }
         </div>
         ${tags && tags.length > 0 && html`
@@ -2943,7 +3023,7 @@ function DiscoverAlbumView({ albumSlug, projectName, source = 'global', hubData 
               </div>
               ${discoverTab === 'summary' && html`
                 <div class="context-grid">
-                  ${album.averageRating && html`<div class="context-stat"><div class="value">★ ${album.averageRating.toFixed(2)}</div><div class="label">Global rating</div></div>`}
+                  ${album.averageRating && html`<div class="context-stat"><div class="value">${album.averageRating.toFixed(2)} ★</div><div class="label">Global rating</div></div>`}
                   ${album.votes && html`<div class="context-stat"><div class="value">${album.votes.toLocaleString()}</div><div class="label">Votes</div></div>`}
                   ${album.controversialScore && html`<div class="context-stat"><div class="value">${album.controversialScore.toFixed(2)}</div><div class="label">Controversy</div></div>`}
                 </div>
@@ -3301,7 +3381,7 @@ function Nav({ projectName, tab, backlogCount, unreadCount, theme }) {
     <${Fragment}>
       <header class="topbar">
         <div class="topbar-inner">
-          <div class="brand"><${LankyMascot} /><span class="brand-text">1001 Albums Kongsole</span><span class="brand-text-mobile">Kongsole</span></div>
+          <a class="brand" href=${routePath(projectName, 'today')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'today')); }}><${LankyMascot} /><span class="brand-text">1001 Albums Kongsole</span><span class="brand-text-mobile">Kongsole</span></a>
           <nav class="tabs" ref=${tabsRef}>
             ${topTabs.map((t, i) => html`
               ${i > 0 && html`<span class="tab-sep">|</span>`}
@@ -3376,11 +3456,7 @@ function ThemeToggle({ theme, toggle }) {
 }
 
 function ListeningNoteEditor({ projectName, albumId, initialNotes }) {
-  const [notes, setNotes] = useState(initialNotes || '');
-  const [status, setStatus] = useState('idle');
-  const [errorMessage, setErrorMessage] = useState('');
-
-  useEffect(() => { setNotes(initialNotes || ''); setStatus('idle'); setErrorMessage(''); }, [albumId, initialNotes]);
+  const { notes, setNotes, status, setStatus, errorMessage, setErrorMessage } = useEditorState(initialNotes, albumId);
 
   const save = async () => {
     setStatus('saving');
@@ -3417,14 +3493,8 @@ function ListeningNoteEditor({ projectName, albumId, initialNotes }) {
 
 function RatingEditor({ projectName, albumUuid, generatedAlbumId, initialNotes, onRated }) {
   const [rating, setRating] = useState(0);
-  const [notes, setNotes] = useState(initialNotes || '');
-  const [status, setStatus] = useState('idle');
-  const [errorMessage, setErrorMessage] = useState('');
-
-  // Carries over any note already saved on this entry (e.g. via the listening-note editor while
-  // it was still currentAlbum) — same field (`review`) the real site's history page reads to
-  // pre-fill its own rating form, so you can edit or accept it rather than starting blank.
-  useEffect(() => { setNotes(initialNotes || ''); }, [albumUuid, initialNotes]);
+  const [hoverRating, setHoverRating] = useState(0);
+  const { notes, setNotes, status, setStatus, errorMessage, setErrorMessage } = useEditorState(initialNotes, albumUuid);
 
   const submit = async () => {
     if (!rating) return;
@@ -3444,12 +3514,13 @@ function RatingEditor({ projectName, albumUuid, generatedAlbumId, initialNotes, 
   return html`
     <div style=${{ marginTop: '12px', marginBottom: '16px' }}>
       <div class="context-section-title" data-badge="rate_review">Rate Album</div>
-      <div class="rating-stars" role="group" aria-label="Rating">
+      <div class="rating-stars" role="group" aria-label="Rating" onMouseLeave=${() => setHoverRating(0)}>
         ${[1, 2, 3, 4, 5].map(n => html`
           <button
             type="button"
-            class=${`star-pick ${n <= rating ? 'active' : ''}`}
+            class=${`star-pick ${n <= (hoverRating || rating) ? 'active' : ''}`}
             aria-label=${`${n} star${n === 1 ? '' : 's'}`}
+            onMouseEnter=${() => setHoverRating(n)}
             onClick=${() => { haptic(8); setRating(n); setStatus('idle'); }}
           >★</button>
         `)}
@@ -3607,6 +3678,7 @@ function BacklogView({ projectName, backlog, members }) {
     for (const row of deriveGroupAlbumTable(members)) map.set(row.album.uuid, row);
     return map;
   }, [members]);
+  const thumbBySpotifyId = useAlbumThumbs();
 
   return html`
     <div class="card te-panel">
@@ -3614,25 +3686,34 @@ function BacklogView({ projectName, backlog, members }) {
       ${backlog.length === 0 ? html`
         <p class="muted"><${LankyMascot} />Lanky says: you're all caught up!</p>
       ` : html`
-        <div class="table-scroll">
-          <table>
-            <thead><tr><th>Date</th><th>Album</th><th>Artist</th><th>Rating</th></tr></thead>
-            <tbody>
-              ${backlog.map(e => {
-                const groupRow = groupRatings.get(e.album.uuid);
-                return html`
-                <tr>
-                  <td>${new Date(e.generatedAt).toLocaleDateString()}</td>
-                  <td><a class="row-link" href=${routePath(projectName, 'backlog', backlogEntryId(e))} onClick=${(event) => { event.preventDefault(); navigateTo(routePath(projectName, 'backlog', backlogEntryId(e))); }}>${e.album.name}</a></td>
-                  <td>${e.album.artist}</td>
-                  <td>
-                    <div>${groupRow && groupRow.averageRating != null ? html`<span class=${`rating-tier-${ratingTier(groupRow.averageRating)}`} style=${{ fontWeight: 700 }}>${formatRating(groupRow.averageRating)}</span>` : formatRating(null)} <span class="muted" style=${{ fontSize: '11px' }}>grp${groupRow && groupRow.votes ? ` (${groupRow.votes})` : ''}</span></div>
-                    <div class="muted" style=${{ fontSize: '11px' }}>${e.globalRating != null ? e.globalRating : '—'} global</div>
-                  </td>
-                </tr>
-              `})}
-            </tbody>
-          </table>
+        <div class="data-card-list">
+          ${backlog.map(e => {
+            const groupRow = groupRatings.get(e.album.uuid);
+            const href = routePath(projectName, 'backlog', backlogEntryId(e));
+            const thumbUrl = thumbBySpotifyId.get(e.album.spotifyId);
+            return html`
+              <button class="data-card" onClick=${() => navigateTo(href)}>
+                ${thumbUrl
+                  ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" />`
+                  : html`<div class="explore-album-thumb"></div>`
+                }
+                <div class="data-card-main">
+                  <div class="data-card-title">${e.album.name}</div>
+                  <div class="data-card-sub">${e.album.artist} · ${new Date(e.generatedAt).toLocaleDateString()}</div>
+                </div>
+                <div class="data-card-aside">
+                  ${groupRow?.averageRating != null
+                    ? html`<div><span class=${`rating-tier-${ratingTier(groupRow.averageRating)}`} style=${{ fontWeight: 700 }}>${formatRating(groupRow.averageRating)} ★</span> <span class="muted">grp</span></div>`
+                    : html`<div class="muted">— grp</div>`
+                  }
+                  ${e.globalRating != null
+                    ? html`<div>${e.globalRating} ★ <span class="muted">global</span></div>`
+                    : html`<div class="muted">— global</div>`
+                  }
+                </div>
+              </button>
+            `;
+          })}
         </div>
       `}
     </div>
@@ -3647,6 +3728,7 @@ function GroupView({ group, members, projectName }) {
   const [showAllAlbums, setShowAllAlbums] = useState(false);
   const albumTable = useMemo(() => deriveGroupAlbumTable(members), [members]);
   const alignment = useMemo(() => deriveAlignment(members), [members]);
+  const thumbBySpotifyId = useAlbumThumbs();
   const sortedAlbums = useMemo(() => {
     const rows = albumTable.slice();
     if (sortBy === 'rating') rows.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
@@ -3677,23 +3759,7 @@ function GroupView({ group, members, projectName }) {
         </div>
       </div>
 
-      <div class="card te-panel">
-        <h2>Roster</h2>
-        <table>
-          <thead><tr><th>Member</th><th>Unrated</th><th>Last rated</th></tr></thead>
-          <tbody>
-            ${roster.map(r => html`
-              <tr>
-                <td><a class="row-link" href=${memberRoutePath(projectName, r.name)} onClick=${(e) => { e.preventDefault(); navigateTo(memberRoutePath(projectName, r.name)); }}>${r.name}</a>${r.name === projectName ? ' (you)' : ''}</td>
-                <td>${r.error ? '—' : html`${r.unrated > 0 ? html`<span class="badge">${r.unrated}</span>` : html`<span class="icon-symbol" style=${{ fontSize: '16px', color: 'var(--good)', verticalAlign: 'middle' }}>check</span>`}`}</td>
-                <td>${r.lastRatedAt ? new Date(r.lastRatedAt).toLocaleDateString() : '—'}</td>
-              </tr>
-            `)}
-          </tbody>
-        </table>
-      </div>
-
-      <div class="grid cols-2">
+      <div style=${{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
         <div class="card te-panel">
           <h3>Group Favorites</h3>
           <p>Decade: <strong>${group.ratingByDecade && group.ratingByDecade.length ? group.ratingByDecade.slice().sort((a,b)=>b.rating-a.rating)[0].decade : '—'}</strong></p>
@@ -3706,25 +3772,53 @@ function GroupView({ group, members, projectName }) {
       </div>
 
       <div class="card te-panel">
+        <h2>Roster</h2>
+        <div class="data-card-list">
+          ${roster.map(r => html`
+            <button class="data-card" onClick=${() => navigateTo(memberRoutePath(projectName, r.name))}>
+              <div class="data-card-main">
+                <div class="data-card-title">${r.name}${r.name === projectName ? html` <span class="muted" style=${{ fontWeight: 400 }}>(you)</span>` : ''}</div>
+                <div class="data-card-sub">${r.lastRatedAt ? `Last rated ${new Date(r.lastRatedAt).toLocaleDateString()}` : 'No ratings yet'}</div>
+              </div>
+              <div class="data-card-aside">
+                ${r.error ? '—' : r.unrated > 0 ? html`<span class="badge">${r.unrated} unrated</span>` : html`<span style=${{ color: 'var(--good)' }}>✓ caught up</span>`}
+              </div>
+            </button>
+          `)}
+        </div>
+      </div>
+
+      <div class="card te-panel">
         <h2>All Rated Albums (${sortedAlbums.length})</h2>
         <p class="muted">Computed client-side from every member's history — the public API only exposes the top/bottom 5.</p>
         <div class="sort-controls">
           <button class=${sortBy === 'date' ? 'active' : ''} onClick=${() => { setSortBy('date'); setShowAllAlbums(false); }}>Date</button>
           <button class=${sortBy === 'rating' ? 'active' : ''} onClick=${() => { setSortBy('rating'); setShowAllAlbums(false); }}>Rating</button>
         </div>
-        <table>
-          <thead><tr><th>Album</th><th>Artist</th><th>Rating</th><th>Votes</th></tr></thead>
-          <tbody>
-            ${visibleAlbums.map(r => html`
-              <tr>
-                <td><a class="row-link" href=${routePath(projectName, 'album', r.album.uuid, 'group')} onClick=${(event) => { event.preventDefault(); navigateTo(routePath(projectName, 'album', r.album.uuid, 'group')); }}>${r.album.name}</a></td>
-                <td>${r.album.artist}</td>
-                <td>${r.averageRating != null ? html`<span class=${`rating-tier-${ratingTier(r.averageRating)}`} style=${{ fontWeight: 700 }}>${r.averageRating}</span>` : '—'}</td>
-                <td>${r.votes}</td>
-              </tr>
-            `)}
-          </tbody>
-        </table>
+        <div class="data-card-list">
+          ${visibleAlbums.map(r => {
+            const thumbUrl = thumbBySpotifyId.get(r.album.spotifyId);
+            return html`
+              <button class="data-card" onClick=${() => navigateTo(routePath(projectName, 'album', r.album.uuid, 'group'))}>
+                ${thumbUrl
+                  ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" />`
+                  : html`<div class="explore-album-thumb"></div>`
+                }
+                <div class="data-card-main">
+                  <div class="data-card-title">${r.album.name}</div>
+                  <div class="data-card-sub">${r.album.artist}</div>
+                </div>
+                <div class="data-card-aside">
+                  ${r.averageRating != null
+                    ? html`<div><span class=${`rating-tier-${ratingTier(r.averageRating)}`} style=${{ fontWeight: 700 }}>${r.averageRating} ★</span></div>`
+                    : html`<div class="muted">—</div>`
+                  }
+                  <div class="muted">${r.votes} vote${r.votes !== 1 ? 's' : ''}</div>
+                </div>
+              </button>
+            `;
+          })}
+        </div>
         ${sortedAlbums.length > GROUP_ALBUMS_VISIBLE_DEFAULT && html`
           <a class="show-all-link" href="#" onClick=${(e) => { e.preventDefault(); setShowAllAlbums(!showAllAlbums); }}>${showAllAlbums ? 'Show fewer' : `Show all ${sortedAlbums.length} →`}</a>
         `}
@@ -3733,18 +3827,20 @@ function GroupView({ group, members, projectName }) {
       <div class="card te-panel">
         <h2>Taste Alignment</h2>
         <p class="disclaimer">Our own estimate (100 × (1 − mean rating difference ÷ 4) over albums both members rated, min. 2 shared) — not the site's official algorithm. See the <${SiteModalLink} href=${`${SITE_BASE}/groups/${encodeURIComponent(group.slug)}/taste-alignments`} title="Official alignments">official Alignments page<//> for that.</p>
-        <table>
-          <thead><tr><th>Pair</th><th>Alignment</th><th>Shared albums</th></tr></thead>
-          <tbody>
-            ${alignment.map(p => html`
-              <tr>
-                <td><a class="row-link" href=${pairRoutePath(projectName, p.a, p.b)} onClick=${(event) => { event.preventDefault(); navigateTo(pairRoutePath(projectName, p.a, p.b)); }}>${p.a} ↔ ${p.b}</a></td>
-                <td>${p.alignment}%</td>
-                <td>${p.shared}</td>
-              </tr>
-            `)}
-          </tbody>
-        </table>
+        <div class="data-card-list">
+          ${alignment.map(p => html`
+            <button class="data-card" onClick=${() => navigateTo(pairRoutePath(projectName, p.a, p.b))}>
+              <div class="data-card-main">
+                <div class="data-card-title">${p.a} ↔ ${p.b}</div>
+                <div class="data-card-sub">${p.shared} shared album${p.shared !== 1 ? 's' : ''}</div>
+              </div>
+              <div class="data-card-aside">
+                <div style=${{ fontWeight: 700 }}>${p.alignment}%</div>
+                <div class="muted">alignment</div>
+              </div>
+            </button>
+          `)}
+        </div>
       </div>
     </div>
   `;
@@ -3835,6 +3931,12 @@ function ActivityView({ members, projectName, group, notifications }) {
 function PairDetailView({ projectName, members, pairA, pairB }) {
   const alignment = useMemo(() => deriveAlignment(members), [members]);
   const pair = alignment.find(p => (p.a === pairA && p.b === pairB) || (p.a === pairB && p.b === pairA));
+  const [sortDir, setSortDir] = useState('desc');
+  const thumbBySpotifyId = useAlbumThumbs();
+  const sortedDetails = useMemo(() => {
+    if (!pair) return [];
+    return [...pair.details].sort((a, b) => sortDir === 'desc' ? b.diff - a.diff : a.diff - b.diff);
+  }, [pair, sortDir]);
 
   if (!pair) {
     return html`
@@ -3855,21 +3957,30 @@ function PairDetailView({ projectName, members, pairA, pairB }) {
       </div>
       <div class="card te-panel">
         <h2>Shared Albums (${pair.shared})</h2>
-        <p class="muted">Sorted by biggest disagreement first.</p>
-        <div class="table-scroll">
-          <table>
-            <thead><tr><th>Album</th><th>Artist</th><th>${pair.a}</th><th>${pair.b}</th></tr></thead>
-            <tbody>
-              ${pair.details.map(d => html`
-                <tr>
-                  <td>${d.album ? html`<a class="row-link" href=${routePath(projectName, 'album', d.album.uuid, 'group')} onClick=${(event) => { event.preventDefault(); navigateTo(routePath(projectName, 'album', d.album.uuid, 'group')); }}>${d.album.name}</a>` : '—'}</td>
-                  <td>${d.album ? d.album.artist : '—'}</td>
-                  <td>${formatRating(d.ratingA)}</td>
-                  <td>${formatRating(d.ratingB)}</td>
-                </tr>
-              `)}
-            </tbody>
-          </table>
+        <div class="sort-controls">
+          <button class=${sortDir === 'desc' ? 'active' : ''} onClick=${() => setSortDir('desc')}>Most disagreed</button>
+          <button class=${sortDir === 'asc' ? 'active' : ''} onClick=${() => setSortDir('asc')}>Most agreed</button>
+        </div>
+        <div class="data-card-list">
+          ${sortedDetails.map(d => {
+            const thumbUrl = d.album?.spotifyId && thumbBySpotifyId.get(d.album.spotifyId);
+            return html`
+              <button class="data-card" onClick=${d.album ? () => navigateTo(routePath(projectName, 'album', d.album.uuid, 'group')) : undefined} style=${!d.album ? { cursor: 'default' } : {}}>
+                ${thumbUrl
+                  ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" />`
+                  : html`<div class="explore-album-thumb"></div>`
+                }
+                <div class="data-card-main">
+                  <div class="data-card-title">${d.album ? d.album.name : '—'}</div>
+                  <div class="data-card-sub">${d.album ? d.album.artist : ''}</div>
+                </div>
+                <div class="data-card-aside">
+                  <div><span class=${`rating-tier-${ratingTier(d.ratingA)}`} style=${{ fontWeight: 700 }}>${formatRating(d.ratingA)} ★</span> <span class="muted">${pair.a}</span></div>
+                  <div><span class=${`rating-tier-${ratingTier(d.ratingB)}`} style=${{ fontWeight: 700 }}>${formatRating(d.ratingB)} ★</span> <span class="muted">${pair.b}</span></div>
+                </div>
+              </button>
+            `;
+          })}
         </div>
       </div>
     </div>
@@ -3882,6 +3993,7 @@ function MemberView({ memberName, project, projectName }) {
     .filter(e => 'rating' in e)
     .slice()
     .reverse();
+  const thumbBySpotifyId = useAlbumThumbs();
   return html`
     <div>
       <div class="banner te-banner">
@@ -3894,19 +4006,27 @@ function MemberView({ memberName, project, projectName }) {
       ${history.length > 0 && html`
         <div class="card te-panel">
           <h2>Ratings (${history.length})</h2>
-          <table>
-            <thead><tr><th>Album</th><th>Artist</th><th>Rating</th><th>Review</th></tr></thead>
-            <tbody>
-              ${history.map(e => html`
-                <tr>
-                  <td><a class="row-link" href=${routePath(projectName, 'album', e.album.uuid, 'group')} onClick=${(ev) => { ev.preventDefault(); navigateTo(routePath(projectName, 'album', e.album.uuid, 'group')); }}>${e.album.name}</a></td>
-                  <td>${e.album.artist}</td>
-                  <td><span class=${`rating-tier-${ratingTier(e.rating)}`} style=${{ fontWeight: 700 }}>${e.rating}/5</span></td>
-                  <td class="muted" style=${{ maxWidth: '320px' }}>${e.review || '—'}</td>
-                </tr>
-              `)}
-            </tbody>
-          </table>
+          <div class="data-card-list">
+            ${history.map(e => {
+              const thumbUrl = e.album?.spotifyId && thumbBySpotifyId.get(e.album.spotifyId);
+              return html`
+                <button class="data-card" style=${{ alignItems: 'flex-start' }} onClick=${() => navigateTo(routePath(projectName, 'album', e.album.uuid, 'group'))}>
+                  ${thumbUrl
+                    ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" />`
+                    : html`<div class="explore-album-thumb"></div>`
+                  }
+                  <div class="data-card-main">
+                    <div class="data-card-title">${e.album.name}</div>
+                    <div class="data-card-sub">${e.album.artist}</div>
+                    ${e.review && html`<div class="data-card-sub" style=${{ marginTop: '4px', whiteSpace: 'normal' }}>${e.review}</div>`}
+                  </div>
+                  <div class="data-card-aside">
+                    <span class=${`rating-tier-${ratingTier(e.rating)}`} style=${{ fontWeight: 700 }}>${e.rating} ★</span>
+                  </div>
+                </button>
+              `;
+            })}
+          </div>
         </div>
       `}
     </div>
@@ -3944,7 +4064,7 @@ function MeView({ me, projectName }) {
           </div>
         `)}
       </div>
-      <${BreakdownStats} genres=${stats.genres} styles=${stats.styles} decades=${stats.decades} projectName=${projectName} />
+      <${BreakdownStats} genres=${stats.genres} styles=${stats.styles} decades=${stats.decades} ratings=${stats.ratings} projectName=${projectName} />
       <${FavoriteTracksSection} projectName=${projectName} />
       <p class="muted">For a fuller polished writeup, see your <${SiteModalLink} href=${`${SITE_BASE}/shares/${encodeURIComponent(me.shareableUrl ? me.shareableUrl.split('/').pop() : '')}`} title="Official summary">official Summary page<//>.</p>
     </div>
@@ -3956,7 +4076,12 @@ const FAVORITE_TRACKS_VISIBLE_DEFAULT = 50;
 function FavoriteTracksSection({ projectName }) {
   const favorites = useFavoriteTracks(projectName);
   const [showAll, setShowAll] = useState(false);
-  const visible = showAll ? favorites.list : favorites.list.slice(0, FAVORITE_TRACKS_VISIBLE_DEFAULT);
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? favorites.list.filter(t => (t.title || '').toLowerCase().includes(q) || (t.artistName || '').toLowerCase().includes(q) || (t.albumName || '').toLowerCase().includes(q))
+    : favorites.list;
+  const visible = showAll ? filtered : filtered.slice(0, FAVORITE_TRACKS_VISIBLE_DEFAULT);
 
   if (favorites.list.length === 0) {
     return html`
@@ -3972,53 +4097,132 @@ function FavoriteTracksSection({ projectName }) {
       <h3>Favorite Tracks (${favorites.list.length})</h3>
       <p class="muted">Synced to this 1001 Albums project name — anyone using the same name shares this list.</p>
       ${favorites.errorMessage && html`<p class="muted">${favorites.errorMessage}</p>`}
-      <div class="table-scroll">
-        <table>
-          <thead><tr><th></th><th>Track</th><th>Artist</th><th>Album</th><th>Length</th><th></th></tr></thead>
-          <tbody>
-            ${visible.map(track => html`
-              <tr>
-                <td>
-                  ${track.artworkUrl && html`<img src=${track.artworkUrl} alt="" width="32" height="32" loading="lazy" style=${{ borderRadius: '4px', display: 'block' }} />`}
-                </td>
-                <td>
-                  ${track.trackViewUrl
-                    ? html`<a href=${track.trackViewUrl} target="_blank" rel="noopener" class="track-link" title="Open in Apple Music">${track.title || `Unknown track (${track.appleTrackId})`}</a>`
-                    : (track.title || `Unknown track (${track.appleTrackId})`)}
-                </td>
-                <td>${track.artistName || '—'}</td>
-                <td>${track.albumName || '—'}</td>
-                <td>${formatDurationMs(track.durationMs)}</td>
-                <td>
-                  <button type="button" class="star-btn active" aria-label="Unfavorite track" onClick=${() => favorites.toggle(track)}>★</button>
-                </td>
-              </tr>
-            `)}
-          </tbody>
-        </table>
+      <input
+        type="search"
+        placeholder="Filter by track, artist, or album…"
+        value=${query}
+        onInput=${(e) => setQuery(e.target.value)}
+        style=${{ width: '100%', padding: '7px 10px', marginBottom: '10px', border: '1px solid var(--border)', borderRadius: '6px', font: 'inherit', fontSize: '13px', background: 'var(--bg)', color: 'var(--text)', boxSizing: 'border-box' }}
+      />
+      <div class="data-card-list">
+        ${visible.map(track => html`
+          <div class="data-card">
+            <button type="button" class="star-btn active" aria-label="Unfavorite track" style=${{ fontSize: '36px' }} onClick=${() => favorites.toggle(track)}>★</button>
+            ${track.artworkUrl
+              ? html`<img src=${track.artworkUrl} alt="" width="44" height="44" loading="lazy" style=${{ borderRadius: '4px', display: 'block', flexShrink: 0, objectFit: 'cover' }} />`
+              : html`<div class="explore-album-thumb"></div>`
+            }
+            <div class="data-card-main">
+              <div class="data-card-title">
+                ${track.trackViewUrl
+                  ? html`<a href=${track.trackViewUrl} target="_blank" rel="noopener" class="track-link" title="Open in Apple Music">${track.title || `Unknown track (${track.appleTrackId})`}</a>`
+                  : (track.title || `Unknown track (${track.appleTrackId})`)}
+              </div>
+              <div class="data-card-sub">${track.artistName || '—'} · ${track.albumName || '—'}</div>
+            </div>
+            <div class="data-card-aside">
+              <span class="muted">${formatDurationMs(track.durationMs)}</span>
+            </div>
+          </div>
+        `)}
       </div>
-      ${favorites.list.length > FAVORITE_TRACKS_VISIBLE_DEFAULT && html`
-        <a class="show-all-link" href="#" onClick=${(e) => { e.preventDefault(); setShowAll(!showAll); }}>${showAll ? 'Show fewer' : `Show all ${favorites.list.length} →`}</a>
+      ${filtered.length > FAVORITE_TRACKS_VISIBLE_DEFAULT && html`
+        <a class="show-all-link" href="#" onClick=${(e) => { e.preventDefault(); setShowAll(!showAll); }}>${showAll ? 'Show fewer' : `Show all ${filtered.length} →`}</a>
       `}
     </div>
   `;
 }
 
-function BreakdownStats({ genres, styles, decades, projectName }) {
+function AlbumCardList({ albums, projectName, thumbBySpotifyId }) {
+  return html`
+    <div class="data-card-list">
+      ${albums.map((a) => {
+        const thumbUrl = a.album?.spotifyId && thumbBySpotifyId.get(a.album.spotifyId);
+        return html`
+          <button class="data-card" onClick=${() => navigateTo(routePath(projectName, 'album', a.album.uuid))}>
+            ${thumbUrl
+              ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" />`
+              : html`<div class="explore-album-thumb"></div>`
+            }
+            <div class="data-card-main">
+              <div class="data-card-title">${a.album.name}</div>
+              <div class="data-card-sub">${a.album.artist}</div>
+            </div>
+            <div class="data-card-aside">
+              ${a.rating != null
+                ? html`<span class=${`rating-tier-${ratingTier(a.rating)}`} style=${{ fontWeight: 700 }}>${formatRating(a.rating)} ★</span>`
+                : html`<span class="muted">—</span>`
+              }
+            </div>
+          </button>
+        `;
+      })}
+    </div>
+  `;
+}
+
+function BreakdownStats({ genres, styles, decades, ratings, projectName }) {
   const dimensions = {
-    genre: { label: 'By Genre', items: genres, keyOf: (i) => i.genre, labelOf: (i) => i.genre },
-    style: { label: 'By Style', items: styles, keyOf: (i) => i.style, labelOf: (i) => i.style },
+    genre:  { label: 'By Genre',  items: genres,  keyOf: (i) => i.genre,  labelOf: (i) => i.genre },
+    style:  { label: 'By Style',  items: styles,  keyOf: (i) => i.style,  labelOf: (i) => i.style },
     decade: { label: 'By Decade', items: decades, keyOf: (i) => i.decade, labelOf: (i) => `${i.decade}s` },
+    all:    { label: 'All' },
   };
   const [dimension, setDimension] = useState('genre');
   const [expanded, setExpanded] = useState(null);
   const [showAll, setShowAll] = useState(false);
+  const [query, setQuery] = useState('');
+  const thumbBySpotifyId = useAlbumThumbs();
+
   const selectDimension = (key) => { setDimension(key); setExpanded(null); setShowAll(false); };
 
+  const q = query.trim().toLowerCase();
+  const filterAlbums = (list) => q
+    ? list.filter(a => a.album.name.toLowerCase().includes(q) || a.album.artist.toLowerCase().includes(q))
+    : list;
+
   const current = dimensions[dimension];
-  const items = current.items;
-  const visible = showAll ? items : items.slice(0, 100);
-  const activeItem = items.find((i) => current.keyOf(i) === expanded);
+
+  let body;
+  if (dimension === 'all') {
+    const filtered = filterAlbums(ratings);
+    body = html`<${AlbumCardList} albums=${filtered} projectName=${projectName} thumbBySpotifyId=${thumbBySpotifyId} />`;
+  } else {
+    const items = current.items;
+    if (q) {
+      const seen = new Set();
+      const unique = items.flatMap(i => i.albums).filter(a => {
+        if (seen.has(a.album.uuid)) return false;
+        seen.add(a.album.uuid);
+        return true;
+      });
+      const filtered = filterAlbums(unique);
+      body = html`<${AlbumCardList} albums=${filtered} projectName=${projectName} thumbBySpotifyId=${thumbBySpotifyId} />`;
+    } else {
+      const visible = showAll ? items : items.slice(0, 100);
+      const activeItem = items.find((i) => current.keyOf(i) === expanded);
+      body = html`
+        <p class="muted">Click one to see the albums in it.</p>
+        <div class="keyword-row">
+          ${visible.map((i) => html`
+            <button type="button" class=${`style-chip ${expanded === current.keyOf(i) ? 'active' : ''}`} onClick=${() => setExpanded(expanded === current.keyOf(i) ? null : current.keyOf(i))}>
+              <span class="style-chip-name">${current.labelOf(i)}</span>
+              <span class=${`style-chip-rating tier-${ratingTier(i.avg)}`}>${i.avg}</span>
+              <span class="style-chip-count">(${i.count})</span>
+            </button>
+          `)}
+        </div>
+        ${items.length > 100 && html`
+          <a class="show-all-link" href="#" onClick=${(e) => { e.preventDefault(); setShowAll(!showAll); }}>${showAll ? 'Show fewer' : `Show all ${items.length} →`}</a>
+        `}
+        ${activeItem && html`
+          <div style=${{ marginTop: '10px' }}>
+            <${AlbumCardList} albums=${activeItem.albums} projectName=${projectName} thumbBySpotifyId=${thumbBySpotifyId} />
+          </div>
+        `}
+      `;
+    }
+  }
 
   return html`
     <div class="card te-panel">
@@ -4027,35 +4231,14 @@ function BreakdownStats({ genres, styles, decades, projectName }) {
           <button type="button" class=${`album-panel-tab ${dimension === key ? 'active' : ''}`} onClick=${() => selectDimension(key)}>${d.label}</button>
         `)}
       </div>
-      <p class="muted">Click one to see the albums in it.</p>
-      <div class="keyword-row">
-        ${visible.map((i) => html`
-          <button type="button" class=${`style-chip ${expanded === current.keyOf(i) ? 'active' : ''}`} onClick=${() => setExpanded(expanded === current.keyOf(i) ? null : current.keyOf(i))}>
-            <span class="style-chip-name">${current.labelOf(i)}</span>
-            <span class=${`style-chip-rating tier-${ratingTier(i.avg)}`}>${i.avg}</span>
-            <span class="style-chip-count">(${i.count})</span>
-          </button>
-        `)}
-      </div>
-      ${items.length > 100 && html`
-        <a class="show-all-link" href="#" onClick=${(e) => { e.preventDefault(); setShowAll(!showAll); }}>${showAll ? 'Show fewer' : `Show all ${items.length} →`}</a>
-      `}
-      ${activeItem && html`
-        <div class="table-scroll" style=${{ marginTop: '10px' }}>
-          <table>
-            <thead><tr><th>Album</th><th>Artist</th><th>Rating</th></tr></thead>
-            <tbody>
-              ${activeItem.albums.map((a) => html`
-                <tr>
-                  <td><a class="row-link" href=${routePath(projectName, 'album', a.album.uuid)} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'album', a.album.uuid)); }}>${a.album.name}</a></td>
-                  <td>${a.album.artist}</td>
-                  <td>${formatRating(a.rating)}</td>
-                </tr>
-              `)}
-            </tbody>
-          </table>
-        </div>
-      `}
+      <input
+        type="search"
+        placeholder="Filter by album or artist…"
+        value=${query}
+        onInput=${(e) => { setQuery(e.target.value); setExpanded(null); }}
+        style=${{ width: '100%', padding: '7px 10px', marginBottom: '10px', border: '1px solid var(--border)', borderRadius: '6px', font: 'inherit', fontSize: '13px', background: 'var(--bg)', color: 'var(--text)', boxSizing: 'border-box' }}
+      />
+      ${body}
     </div>
   `;
 }
