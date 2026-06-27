@@ -4470,7 +4470,7 @@ function usePullToRefresh(onRefresh, enabled, scrollRef) {
       if (dy < 6) return;
       r.pulling = true;
       if (e.cancelable) e.preventDefault();
-      const rubber = Math.min(Math.sqrt(dy) * 4, THRESHOLD * 1.5);
+      const rubber = Math.min(Math.sqrt(dy) * 5.5, THRESHOLD * 1.8);
       r.pullY = rubber;
       setPullY(rubber);
     };
@@ -4547,7 +4547,7 @@ function App() {
   const PTR_THRESHOLD = 64;
   const pullY = usePullToRefresh(hub.refresh, hub.status === 'ready' && !hub.refreshing, pageRef);
   const pullProgress = Math.min(pullY / PTR_THRESHOLD, 1);
-  const pagePullY = pullY > 0 ? Math.min(pullY * 0.58, 48) : 0;
+  const pagePullY = pullY > 0 ? Math.min(pullY * 0.65, 68) : 0;
 
   if (!projectName && currentProjectName) return null;
   if (!projectName) return html`<${NameEntry} theme=${theme} />`;
