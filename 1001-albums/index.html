@@ -298,11 +298,12 @@
   .album-title { font-size: 22px; font-weight: 700; margin: 0 0 2px; }
   .album-artist { font-size: 16px; color: var(--text-dim); margin: 0 0 2px; }
   .links-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-  .album-header-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .album-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
   .album-header-text { flex: 1; min-width: 0; }
   .album-header-text .album-title { margin-bottom: 2px; }
   .album-header-text .album-artist { margin-bottom: 0; }
   .streaming-icons-col { display: flex; flex-direction: row; gap: 8px; flex-shrink: 0; align-items: center; }
+  .te-panel .streaming-icons-col { padding-top: 14px; align-self: flex-start; }
   .streaming-icon-btn { display: inline-flex; border-radius: 6px; line-height: 0; opacity: 0.55; transition: opacity 0.15s, transform 0.15s; }
   .streaming-icon-btn svg { fill: var(--text); }
   .streaming-icon-btn:hover { opacity: 1; transform: scale(1.08); }
@@ -366,6 +367,10 @@
   .activity-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
   .activity-review-text { white-space: normal; overflow: visible; text-overflow: unset; font-size: 12px; color: var(--text); margin-top: 4px; line-height: 1.4; }
   .activity-panel-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); }
+  .alignment-group { margin-bottom: 6px; }
+  .alignment-bar-wrap { height: 3px; background: var(--border); border-radius: 99px; margin-top: 6px; overflow: hidden; }
+  .alignment-bar { height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.3s ease; }
+  .alignment-pct { font-weight: 700; font-size: 14px; }
   .activity-day-group { display: grid; gap: 6px; }
   .activity-day-group + .activity-day-group { margin-top: 10px; }
   .activity-day-header {
@@ -376,7 +381,7 @@
   .review-text { margin: 0; color: var(--text); }
   .keyword-highlight { background: var(--accent-soft); color: var(--accent); border-radius: 3px; padding: 0 2px; font-weight: 600; }
   .context-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
-  @media (max-width: 700px) { .context-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 700px) { .context-grid { grid-template-columns: 1fr; } .context-grid--fixed { grid-template-columns: repeat(3, 1fr); } }
   .context-stat {
     border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
     padding: 10px 12px;
@@ -516,7 +521,7 @@
     margin: 14px 0 2px; line-height: 1.2;
   }
   .te-panel .album-artist {
-    font-size: 14px; color: var(--text-dim); margin: 0;
+    font-size: 14px; color: var(--text-dim); margin: 0; white-space: nowrap;
   }
   @media (max-width: 760px) {
     .te-panel .today-primary {
@@ -784,7 +789,8 @@
     border-radius: 999px; padding: 4px 10px; font-size: 11px; cursor: pointer;
   }
   .sort-controls button.active { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
-  .star-btn { border: 0; background: transparent; cursor: pointer; font-size: 24px; line-height: 1; padding: 0; color: var(--text-dim); }
+  .star-btn { border: 0; background: transparent; cursor: pointer; font-size: 28px; line-height: 1; padding: 0; color: var(--text-dim); transition: color 0.1s; }
+  .star-btn:hover { color: var(--warn); }
   .star-btn.active { color: var(--warn); }
   .rating-stars { display: flex; gap: 4px; }
   .star-pick { border: 0; background: transparent; cursor: pointer; font-size: 36px; line-height: 1; padding: 0; color: var(--border); -webkit-touch-callout: none; user-select: none; transition: transform 0.1s; }
@@ -1363,7 +1369,7 @@ const cacheKey = (name) => `hub:${name}`;
 // Reviews + the keyword/distribution context are two halves of one scraped page fetch, so they
 // share one cache entry — that also means a Summary-tab visit and a Reviews-tab visit reuse the
 // same fetch instead of each independently hitting the network.
-const globalAlbumPageCacheKey = (url) => `global-album-page:v2:${url}`;
+const globalAlbumPageCacheKey = (url) => `global-album-page:v3:${url}`;
 // Bump this version segment whenever parseAppleLookupResults's output shape changes, so stale
 // cached entries (missing newly-added fields) get invalidated instead of silently served forever.
 const APPLE_TRACKS_CACHE_VERSION = 'v2';
@@ -1713,7 +1719,14 @@ function fetchDeduped(cacheKey, fetcher) {
 // no way to recover short of clearing localStorage by hand — see the Tracks-tab bug this fixed.
 // cacheKey of null/'' means there's nothing to fetch (e.g. no Apple Music ID) → status 'hidden'.
 function useCachedFetch(cacheKey, fetcher, { isEmpty } = {}) {
-  const [state, setState] = useState({ status: cacheKey ? 'loading' : 'hidden', value: null, error: null });
+  const [state, setState] = useState(() => {
+    if (!cacheKey) return { status: 'hidden', value: null, error: null };
+    const cached = readJsonCache(cacheKey);
+    if (cached && cached.value != null && !(isEmpty && isEmpty(cached.value))) {
+      return { status: 'ready', value: cached.value, error: null };
+    }
+    return { status: 'loading', value: null, error: null };
+  });
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   useEffect(() => {
@@ -1727,7 +1740,7 @@ function useCachedFetch(cacheKey, fetcher, { isEmpty } = {}) {
       setState({ status: 'ready', value: cached.value, error: null });
       return;
     }
-    setState({ status: 'loading', value: null, error: null });
+    setState(s => s.status === 'loading' ? s : { status: 'loading', value: null, error: null });
     fetchDeduped(cacheKey, fetcher)
       .then((value) => {
         writeJsonCache(cacheKey, value);
@@ -1750,7 +1763,12 @@ function useCachedFetch(cacheKey, fetcher, { isEmpty } = {}) {
 }
 
 function useHub(projectName) {
-  const [state, setState] = useState({ status: 'loading', data: null, error: null, refreshError: null, fetchedAt: null, stale: false, refreshing: false });
+  const [state, setState] = useState(() => {
+    if (!projectName) return { status: 'loading', data: null, error: null, refreshError: null, fetchedAt: null, stale: false, refreshing: false };
+    const cached = readCache(projectName);
+    if (cached) return { status: 'ready', data: cached.data, error: null, refreshError: null, fetchedAt: cached.fetchedAt, stale: cached.stale, refreshing: cached.stale };
+    return { status: 'loading', data: null, error: null, refreshError: null, fetchedAt: null, stale: false, refreshing: false };
+  });
 
   const load = useCallback(async (force) => {
     if (!projectName) return;
@@ -1812,7 +1830,7 @@ function useNotifications(projectName) {
 }
 
 // ---------- small components ----------
-const PRIMARY_STREAMING_SERVICES = ['Spotify', 'Apple Music', 'YouTube Music'];
+const PRIMARY_STREAMING_SERVICES = ['Spotify', 'Apple Music'];
 
 const STREAMING_ICONS = {
   'Spotify':       (size = 36) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-label="Spotify"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>`,
@@ -1835,8 +1853,11 @@ function StreamingServiceIcon({ service, url }) {
   `;
 }
 
-function StreamingLinks({ album }) {
-  const links = streamingLinks(album).filter(l => PRIMARY_STREAMING_SERVICES.includes(l.service));
+function StreamingLinks({ album, extraLinks = [] }) {
+  const base = streamingLinks(album).filter(l => PRIMARY_STREAMING_SERVICES.includes(l.service));
+  const seen = new Set(base.map(l => l.service));
+  const extra = extraLinks.filter(l => PRIMARY_STREAMING_SERVICES.includes(l.service) && !seen.has(l.service));
+  const links = [...base, ...extra];
   if (!links.length) return null;
   return html`
     <div class="streaming-icons-col">
@@ -1861,28 +1882,25 @@ function wikipediaTitleFromUrl(url) {
 }
 
 function WikipediaSummary({ url }) {
-  const [state, setState] = useState({ status: 'idle' });
+  const cacheKey = url ? `wiki-summary:v1:${url}` : null;
+  const { status, value: data } = useCachedFetch(
+    cacheKey,
+    () => {
+      const title = wikipediaTitleFromUrl(url);
+      if (!title) return Promise.reject(new Error('no title'));
+      return fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`)
+        .then((r) => { if (!r.ok) throw new Error('lookup failed'); return r.json(); });
+    },
+    { isEmpty: (v) => !v || !v.extract }
+  );
 
-  useEffect(() => {
-    const title = wikipediaTitleFromUrl(url);
-    if (!title) { setState({ status: 'hidden' }); return; }
-    let cancelled = false;
-    setState({ status: 'loading' });
-    fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`)
-      .then((r) => { if (!r.ok) throw new Error('lookup failed'); return r.json(); })
-      .then((data) => { if (!cancelled) setState({ status: 'ready', data }); })
-      .catch(() => { if (!cancelled) setState({ status: 'hidden' }); });
-    return () => { cancelled = true; };
-  }, [url]);
-
-  if (state.status === 'hidden') return null;
+  if (status === 'hidden' || status === 'error') return null;
 
   return html`
     <div class="wiki-summary">
-      ${state.status === 'loading' && html`<${LoadingNote} label="Loading Wikipedia summary…" className="" />`}
-      ${state.status === 'ready' && html`
-        <p>${state.data.extract}</p>
-        <${SiteModalLink} href=${(state.data.content_urls && state.data.content_urls.desktop && state.data.content_urls.desktop.page) || url} title="Wikipedia" className="">Full Wikipedia Article →<//>
+      ${status === 'ready' && data && html`
+        <p>${data.extract}</p>
+        <${SiteModalLink} href=${(data.content_urls && data.content_urls.desktop && data.content_urls.desktop.page) || url} title="Wikipedia" className="">Full Wikipedia Article →<//>
       `}
     </div>
   `;
@@ -1926,12 +1944,17 @@ function parseGlobalAlbumContext(htmlText) {
     .map(a => {
       let url = a.getAttribute('href') || '';
       if (url.startsWith('spotify:album:')) url = `https://open.spotify.com/album/${url.slice(14)}`;
-      if (url.includes('youtube.com/results')) return null; // search link, not a direct album
+      const ytMatch = url.match(/youtube\.com\/results\?search_query=(.+)/);
+      if (ytMatch) url = `https://music.youtube.com/search?q=${ytMatch[1]}`;
       const service = (a.getAttribute('aria-label') || '').replace(/^(Open in |Open on |Listen on |Search on )/i, '');
       return service && url ? { service, url } : null;
     })
     .filter(Boolean);
-  return { stats, distribution, metadata, keywords, streamingLinks };
+  const wikipediaUrl = (() => {
+    const a = doc.querySelector('a[href*="wikipedia.org/wiki/"]');
+    return a ? a.getAttribute('href') : null;
+  })();
+  return { stats, distribution, metadata, keywords, streamingLinks, wikipediaUrl };
 }
 
 // One fetch of the scraped global-reviews page serves both AlbumSummaryContext (genres/rating)
@@ -2093,17 +2116,23 @@ function AlbumSummaryContext({ album, projectName = null, discoverSource = 'glob
     <div>
       ${show('compare') && comparison && html`
         <div class="context-section-title" data-badge="balance">How We Compare</div>
-        <div class="context-grid">
+        <div class="context-grid context-grid--fixed">
           <div class="context-stat"><div class="value">${formatRating(comparison.userRating)}</div><div class="label">You</div></div>
           <div class="context-stat"><div class="value">${formatRating(comparison.groupAverage)}</div><div class="label">Group avg${comparison.groupVotes ? ` (${comparison.groupVotes})` : ''}</div></div>
           <div class="context-stat"><div class="value">${formatRating(comparison.globalRating != null ? comparison.globalRating : (context && context.stats.rating))}</div><div class="label">Global avg</div></div>
         </div>
       `}
 
-      ${needsFetch && state.status === 'loading' && html`<${LoadingNote} label="Loading album details…" />`}
+      ${show('rating') && !(comparison && comparison.globalRating != null) && (album.averageRating || album.votes || album.controversialScore) && html`
+        <div class="context-grid context-grid--fixed">
+          <div class="context-stat"><div class="value">${album.averageRating ? album.averageRating.toFixed(2) + ' ★' : (context?.stats?.rating || '—')}</div><div class="label">Global rating</div></div>
+          ${album.votes && html`<div class="context-stat"><div class="value">${album.votes.toLocaleString()}</div><div class="label">Votes</div></div>`}
+          ${album.controversialScore && html`<div class="context-stat"><div class="value">${album.controversialScore.toFixed(2)}</div><div class="label">Controversy</div></div>`}
+        </div>
+      `}
       ${needsFetch && state.status === 'error' && html`<p class="muted">${state.errorMessage || "Couldn't load album details."}</p>`}
       ${state.status === 'ready' && context && html`
-        ${show('rating') && context.stats.rating && !(comparison && comparison.globalRating != null) && html`
+        ${show('rating') && !(comparison && comparison.globalRating != null) && !album.averageRating && context.stats.rating && html`
           <div class="context-grid">
             <div class="context-stat"><div class="value">${context.stats.rating}</div><div class="label">Global rating</div></div>
           </div>
@@ -2179,7 +2208,6 @@ function GlobalReviewsPreview({ url, initialKeyword = null }) {
 
   return html`
     <div>
-      ${state.status === 'loading' && html`<${LoadingNote} label="Loading global reviews…" />`}
       ${state.status === 'error' && html`<p class="muted">${state.errorMessage || "Couldn't load global reviews."}</p>`}
       ${state.status === 'ready' && html`
         ${state.context && html`
@@ -2275,7 +2303,6 @@ function TracksPreview({ album, projectName }) {
     <div>
       ${favorites.errorMessage && html`<p class="muted">${favorites.errorMessage}</p>`}
       ${state.status === 'hidden' && html`<p class="muted">No Apple Music ID is available for this album.</p>`}
-      ${state.status === 'loading' && html`<${LoadingNote} label="Loading track metadata…" />`}
       ${state.status === 'error' && html`<p class="muted">Couldn't load track metadata. <a href="#" onClick=${(e) => { e.preventDefault(); cache.refresh(); }}>Refresh</a></p>`}
       ${state.status === 'ready' && state.data && html`
         ${state.data.album && html`
@@ -2347,7 +2374,6 @@ function GroupReviewsPreview({ groupSlug, album }) {
 
   return html`
     <div>
-      ${state.status === 'loading' && html`<${LoadingNote} label="Loading group reviews…" />`}
       ${state.status === 'error' && html`<p class="muted">Couldn't load group reviews.</p>`}
       ${state.status === 'ready' && html`
         ${state.reviews.length === 0 ? html`
@@ -2372,7 +2398,7 @@ function GroupReviewsPreview({ groupSlug, album }) {
   `;
 }
 
-function AlbumInfoTabs({ album, projectName = null, groupSlug = null, comparison = null, tab = 'summary', onTabChange, summarySections = null }) {
+function AlbumInfoTabs({ album, projectName = null, groupSlug = null, comparison = null, tab = 'summary', onTabChange, summarySections = null, reviewKeyword = '' }) {
   const hasGroupReviews = !!(groupSlug && album && album.uuid);
 
   return html`
@@ -2392,7 +2418,7 @@ function AlbumInfoTabs({ album, projectName = null, groupSlug = null, comparison
         <${AlbumSummaryContext} album=${album} projectName=${projectName} comparison=${comparison} sections=${summarySections} />
       `}
       ${tab === 'tracks' && html`<${TracksPreview} album=${album} projectName=${projectName} />`}
-      ${tab === 'reviews' && album.globalReviewsUrl && html`<${GlobalReviewsPreview} url=${album.globalReviewsUrl} />`}
+      ${tab === 'reviews' && album.globalReviewsUrl && html`<${GlobalReviewsPreview} url=${album.globalReviewsUrl} initialKeyword=${reviewKeyword} />`}
       ${tab === 'group' && hasGroupReviews && html`<${GroupReviewsPreview} groupSlug=${groupSlug} album=${album} />`}
     </div>
   `;
@@ -2984,52 +3010,62 @@ function SimilarAlbumsHelper({ album, projectName, source = 'global' }) {
   `, document.body);
 }
 
-function DiscoverAlbumView({ albumSlug, projectName, source = 'global', hubData = null, initialTab = 'summary', reviewKeyword = '' }) {
+function useDiscoverAlbum(albumSlug, source, hubData) {
   const catalog = useAlbumCatalog(source);
-  const [discoverTab, setDiscoverTab] = useState(initialTab);
   useEffect(() => { catalog.load(); }, [catalog.load]);
-  useEffect(() => { setDiscoverTab(initialTab); }, [albumSlug, initialTab]);
-  const album = useMemo(() => catalog.albums.find(a => a.slug === albumSlug), [catalog.albums, albumSlug]);
+  const catalogAlbum = useMemo(() => catalog.albums.find(a => a.slug === albumSlug), [catalog.albums, albumSlug]);
 
-  // Read streaming links from the album page cache without triggering a fetch.
-  // The cache is populated when the user views the Global Reviews tab (GlobalReviewsPreview
-  // fetches the same key). subscribeCacheKey keeps this in sync if that happens in-session.
-  const [scrapedStreamingLinks, setScrapedStreamingLinks] = useState(() => {
-    if (!album?.globalReviewsUrl) return null;
-    const cached = readJsonCache(globalAlbumPageCacheKey(album.globalReviewsUrl));
-    return cached?.value?.context?.streamingLinks ?? null;
-  });
-  useEffect(() => {
-    if (!album?.globalReviewsUrl) return;
-    return subscribeCacheKey(globalAlbumPageCacheKey(album.globalReviewsUrl), (value) => {
-      setScrapedStreamingLinks(value?.context?.streamingLinks ?? null);
-    });
-  }, [album?.globalReviewsUrl]);
+  const pageCache = useCachedFetch(
+    catalogAlbum?.globalReviewsUrl ? globalAlbumPageCacheKey(catalogAlbum.globalReviewsUrl) : null,
+    () => fetchGlobalAlbumPage(catalogAlbum.globalReviewsUrl),
+    { isEmpty: isGlobalAlbumPageEmpty }
+  );
+  const scrapedContext = pageCache.value?.context ?? null;
 
-  // Supplement catalog data with hub's streaming IDs when available (hub data is authoritative)
-  const fullAlbum = useMemo(() => {
-    if (!album || !hubData) return album;
-    for (const project of Object.values(hubData.members || {})) {
-      if (!project || project.__error) continue;
-      for (const entry of project.history || []) {
-        if (entry.album && entry.album.spotifyId === album.spotifyId) {
-          return { ...album, ...entry.album };
+  const album = useMemo(() => {
+    if (!catalogAlbum) return null;
+    let base = { ...catalogAlbum };
+    // Merge hub history data (authoritative for streaming IDs)
+    if (hubData) {
+      for (const project of Object.values(hubData.members || {})) {
+        if (!project || project.__error) continue;
+        for (const entry of project.history || []) {
+          if (entry.album?.spotifyId === catalogAlbum.spotifyId) { base = { ...base, ...entry.album }; break; }
         }
       }
     }
-    return album;
-  }, [album, hubData]);
+    // Fill in fields the API doesn't provide but the scraped page has
+    if (scrapedContext) {
+      if (!base.wikipediaUrl && scrapedContext.wikipediaUrl) base.wikipediaUrl = scrapedContext.wikipediaUrl;
+      if (!base.appleMusicId) {
+        const amLink = scrapedContext.streamingLinks?.find(l => l.service === 'Apple Music');
+        if (amLink) {
+          const m = amLink.url.match(/music\.apple\.com\/(?:[a-z]{2}\/)?album\/(?:[^/]+\/)?(\d+)/);
+          if (m) base.appleMusicId = m[1];
+        }
+      }
+    }
+    return base;
+  }, [catalogAlbum, hubData, scrapedContext]);
 
-  if (catalog.status === 'loading' && !album) return html`<${LoadingNote} label="Loading…" />`;
+  return { album, scrapedContext, catalogStatus: catalog.status };
+}
+
+function DiscoverAlbumView({ albumSlug, projectName, source = 'global', hubData = null, initialTab = 'summary', reviewKeyword = '' }) {
+  const [tab, setTab] = useState(initialTab);
+  useEffect(() => { setTab(initialTab); }, [albumSlug, initialTab]);
+  const { album, scrapedContext, catalogStatus } = useDiscoverAlbum(albumSlug, source, hubData);
+
+  if (catalogStatus === 'loading' && !album) return html`<${LoadingNote} label="Loading…" />`;
   if (!album) return html`<div class="card"><p class="muted">Album not found.</p></div>`;
 
-  const chips = [...(album.genres || []), ...(album.styles || [])];
-  const thumb = album.images && album.images[0];
-
+  const thumb = album.images?.[0];
   return html`
     <div>
       <div class="banner te-banner">
-        <a href=${readLastDiscoverPath(projectName)} onClick=${(e) => { e.preventDefault(); navigateTo(readLastDiscoverPath(projectName)); }}>← Explore</a>
+        <strong>Album Details</strong>
+        <span class="spacer"></span>
+        <a class="pill-btn primary" href=${readLastDiscoverPath(projectName)} onClick=${(e) => { e.preventDefault(); navigateTo(readLastDiscoverPath(projectName)); }}>Back to Explore →</a>
       </div>
       <div class="card te-panel">
         <div class="today-layout">
@@ -3040,32 +3076,13 @@ function DiscoverAlbumView({ albumSlug, projectName, source = 'global', hubData 
                 <p class="album-title">${album.name}</p>
                 <p class="album-artist">${album.artist}${album.releaseDate ? ` (${album.releaseDate})` : ''}</p>
               </div>
-              <${StreamingLinks} album=${fullAlbum} />
+              <${StreamingLinks} album=${album} extraLinks=${scrapedContext?.streamingLinks || []} />
             </div>
-            ${chips.length > 0 && html`
-              <div class="context-section-title" data-badge="sell">Genres & Styles</div>
-              <div class="keyword-row">
-                ${chips.map(g => html`<span class="keyword-chip">${g}</span>`)}
-              </div>
-              <${SimilarAlbumsHelper} album=${album} projectName=${projectName} source=${source} />
-              <div style=${{ marginBottom: '12px' }}></div>
-            `}
+            <${AlbumSummaryContext} album=${album} projectName=${projectName} discoverSource=${source} sections=${['genres', 'discovery']} />
+            <${SimilarAlbumsHelper} album=${album} projectName=${projectName} source=${source} />
           </div>
           <div class="today-secondary">
-            <div class="album-panel">
-              <div class="album-panel-tabs">
-                <button type="button" class=${`album-panel-tab ${discoverTab === 'summary' ? 'active' : ''}`} onClick=${() => setDiscoverTab('summary')}>Summary</button>
-                ${album.globalReviewsUrl && html`<button type="button" class=${`album-panel-tab ${discoverTab === 'reviews' ? 'active' : ''}`} onClick=${() => setDiscoverTab('reviews')}>Global Reviews</button>`}
-              </div>
-              ${discoverTab === 'summary' && html`
-                <div class="context-grid">
-                  ${album.averageRating && html`<div class="context-stat"><div class="value">${album.averageRating.toFixed(2)} ★</div><div class="label">Global rating</div></div>`}
-                  ${album.votes && html`<div class="context-stat"><div class="value">${album.votes.toLocaleString()}</div><div class="label">Votes</div></div>`}
-                  ${album.controversialScore && html`<div class="context-stat"><div class="value">${album.controversialScore.toFixed(2)}</div><div class="label">Controversy</div></div>`}
-                </div>
-              `}
-              ${discoverTab === 'reviews' && album.globalReviewsUrl && html`<${GlobalReviewsPreview} url=${album.globalReviewsUrl} initialKeyword=${reviewKeyword} />`}
-            </div>
+            <${AlbumInfoTabs} album=${album} projectName=${projectName} tab=${tab} onTabChange=${setTab} summarySections=${['rating']} reviewKeyword=${reviewKeyword} />
           </div>
         </div>
       </div>
@@ -3507,7 +3524,7 @@ function ListeningNoteEditor({ projectName, albumId, initialNotes }) {
 
   return html`
     <div style=${{ marginTop: '12px' }}>
-      <div class="context-section-title" data-badge="edit_note">Listening Note</div>
+      <div class="context-section-title" data-badge="edit_note">Listening Notes</div>
       <textarea
         class="rate-optional-notes"
         style=${{ width: '100%', minHeight: '180px', padding: '8px 10px', font: 'inherit', resize: 'vertical' }}
@@ -3643,7 +3660,7 @@ function BacklogAlbumView({ projectName, entry, groupSlug, comparison, subTab, o
       <div class="card">
         <h2>Backlog Album</h2>
         <p class="muted">That album isn't in your current unrated backlog.</p>
-        <a class="pill-btn" href=${routePath(projectName, 'backlog')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'backlog')); }}>Back to backlog</a>
+        <a class="pill-btn primary" href=${routePath(projectName, 'backlog')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'backlog')); }}>Back to backlog →</a>
       </div>
     `;
   }
@@ -3679,7 +3696,7 @@ function AlbumDetailView({ projectName, albumRecord, groupSlug, comparison, subT
       <div class="card">
         <h2>Album</h2>
         <p class="muted">That album wasn't found in the loaded group history.</p>
-        <a class="pill-btn" href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'group')); }}>Back to group</a>
+        <a class="pill-btn primary" href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'group')); }}>Back to group →</a>
       </div>
     `;
   }
@@ -3692,7 +3709,7 @@ function AlbumDetailView({ projectName, albumRecord, groupSlug, comparison, subT
       <div class="banner te-banner">
         <strong>Generated ${new Date(albumRecord.generatedAt).toLocaleDateString()}</strong>
         <span class="spacer"></span>
-        <a href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'group')); }}>Back to group</a>
+        <a class="pill-btn primary" href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'group')); }}>Back to group →</a>
       </div>
       <div class="card te-panel">
         <${AlbumSpotlight}
@@ -3757,7 +3774,7 @@ function BacklogView({ projectName, backlog, members }) {
 }
 
 // ---------- Group ----------
-const GROUP_ALBUMS_VISIBLE_DEFAULT = 50;
+const GROUP_ALBUMS_VISIBLE_DEFAULT = 10;
 
 function GroupView({ group, members, projectName }) {
   const [sortBy, setSortBy] = useState('date');
@@ -3834,7 +3851,6 @@ function GroupView({ group, members, projectName }) {
 
       <div class="card te-panel">
         <h2>All Rated Albums (${sortedAlbums.length})</h2>
-        <p class="muted">Computed client-side from every member's history — the public API only exposes the top/bottom 5.</p>
         <div class="sort-controls">
           <button class=${sortBy === 'date' ? 'active' : ''} onClick=${() => { setSortBy('date'); setShowAllAlbums(false); }}>Date</button>
           <button class=${sortBy === 'rating' ? 'active' : ''} onClick=${() => { setSortBy('rating'); setShowAllAlbums(false); }}>Rating</button>
@@ -3872,18 +3888,23 @@ function GroupView({ group, members, projectName }) {
         <h2>Taste Alignment</h2>
         <p class="disclaimer">Our own estimate (100 × (1 − mean rating difference ÷ 4) over albums both members rated, min. 2 shared) — not the site's official algorithm. See the <${SiteModalLink} href=${`${SITE_BASE}/groups/${encodeURIComponent(group.slug)}/taste-alignments`} title="Official alignments">official Alignments page<//> for that.</p>
         <div class="data-card-list">
-          ${alignment.map(p => html`
+          ${alignment.map(p => {
+            const left = p.b === projectName ? p.b : p.a;
+            const right = p.b === projectName ? p.a : p.b;
+            return html`
             <button class="data-card" onClick=${() => navigateTo(pairRoutePath(projectName, p.a, p.b))}>
               <div class="data-card-main">
-                <div class="data-card-title">${p.a} ↔ ${p.b}</div>
-                <div class="data-card-sub">${p.shared} shared album${p.shared !== 1 ? 's' : ''}</div>
+                <div class="data-card-title">${left} ↔ ${right}</div>
+                <div class="alignment-bar-wrap">
+                  <div class="alignment-bar" style=${{ width: `${p.alignment}%` }}></div>
+                </div>
               </div>
               <div class="data-card-aside">
-                <div style=${{ fontWeight: 700 }}>${p.alignment}%</div>
-                <div class="muted">alignment</div>
+                <span class="alignment-pct">${p.alignment}%</span>
+                <div class="data-card-sub">${p.shared} shared</div>
               </div>
             </button>
-          `)}
+          `;})}
         </div>
       </div>
     </div>
@@ -4006,7 +4027,7 @@ function PairDetailView({ projectName, members, pairA, pairB }) {
       <div class="card te-panel">
         <h2>Taste Alignment</h2>
         <p class="muted">Couldn't find a comparison for ${pairA} and ${pairB} — they may not have enough albums rated in common.</p>
-        <a class="pill-btn" href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'group')); }}>Back to group</a>
+        <a class="pill-btn primary" href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'group')); }}>Back to group →</a>
       </div>
     `;
   }
@@ -4016,7 +4037,7 @@ function PairDetailView({ projectName, members, pairA, pairB }) {
       <div class="banner te-banner">
         <strong>${pair.a} ↔ ${pair.b}: ${pair.alignment}% aligned</strong>
         <span class="spacer"></span>
-        <a href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'group')); }}>Back to group</a>
+        <a class="pill-btn primary" href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'group')); }}>Back to group →</a>
       </div>
       <div class="card te-panel">
         <h2>Shared Albums (${pair.shared})</h2>
@@ -4072,7 +4093,7 @@ function MemberView({ memberName, project, projectName }) {
       <div class="banner te-banner">
         <strong>${memberName}</strong>
         <span class="spacer"></span>
-        <a href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'group')); }}>Back to group</a>
+        <a class="pill-btn primary" href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'group')); }}>Back to group →</a>
       </div>
       ${!project && html`<div class="card te-panel"><p class="muted">Loading member data…</p></div>`}
       ${project && project.__error && html`<div class="card te-panel"><p class="muted">Couldn't load data for ${memberName}.</p></div>`}
