@@ -342,7 +342,7 @@
   .review-list--unbounded { max-height: none; overflow-y: visible; }
   .review-list--unbounded .review-item { content-visibility: visible; contain: none; }
   .data-card-list { display: grid; gap: 6px; }
-  .data-card-list--2col { grid-template-columns: 1fr 1fr 1fr; }
+  .data-card-list--3col { grid-template-columns: 1fr 1fr 1fr; }
   .data-card {
     display: flex; align-items: center; gap: 12px;
     padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
@@ -3780,6 +3780,14 @@ function GroupView({ group, members, projectName }) {
       ? (proj.history || []).filter(e => 'rating' in e).slice(-1)[0]
       : null;
     return { name: m.name, unrated, lastRatedAt: lastRated ? lastRated.generatedAt : null, error: proj && proj.__error };
+  }).sort((a, b) => {
+    const aCaughtUp = a.unrated === 0;
+    const bCaughtUp = b.unrated === 0;
+    if (aCaughtUp !== bCaughtUp) return aCaughtUp ? -1 : 1;
+    if (!a.lastRatedAt && !b.lastRatedAt) return 0;
+    if (!a.lastRatedAt) return 1;
+    if (!b.lastRatedAt) return -1;
+    return new Date(b.lastRatedAt) - new Date(a.lastRatedAt);
   });
 
   return html`
@@ -3807,7 +3815,7 @@ function GroupView({ group, members, projectName }) {
 
       <div class="card te-panel">
         <h2>Roster</h2>
-        <div class="data-card-list data-card-list--2col">
+        <div class="data-card-list data-card-list--3col">
           ${roster.map(r => html`
             <button class="data-card" onClick=${() => navigateTo(memberRoutePath(projectName, r.name))}>
               <div class="data-card-main">
