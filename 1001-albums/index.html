@@ -188,14 +188,16 @@
   .bottom-nav-icon { font-family: 'Material Symbols Outlined'; font-size: 22px; line-height: 1; }
   .bottom-nav-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
   @media (prefers-reduced-motion: no-preference) {
-    @keyframes vt-out-left  { to   { transform: translateX(-28px); opacity: 0; } }
-    @keyframes vt-in-right  { from { transform: translateX(28px);  opacity: 0; } }
-    @keyframes vt-out-right { to   { transform: translateX(28px);  opacity: 0; } }
-    @keyframes vt-in-left   { from { transform: translateX(-28px); opacity: 0; } }
-    :root[data-vt="forward"] ::view-transition-old(root) { animation: vt-out-left  220ms ease both; }
-    :root[data-vt="forward"] ::view-transition-new(root) { animation: vt-in-right  220ms ease both; }
-    :root[data-vt="back"]    ::view-transition-old(root) { animation: vt-out-right 220ms ease both; }
-    :root[data-vt="back"]    ::view-transition-new(root) { animation: vt-in-left   220ms ease both; }
+    @keyframes vt-out       { to   { opacity: 0; transform: translateY(-16px); } }
+    @keyframes vt-in        { from { opacity: 0; transform: translateY(24px);  } }
+    @keyframes vt-slide-out      { to   { opacity: 0; transform: translateX(-28px); } }
+    @keyframes vt-slide-in       { from { opacity: 0; transform: translateX(28px);  } }
+    @keyframes vt-slide-back-out { to   { opacity: 0; transform: translateX(28px);  } }
+    @keyframes vt-slide-back-in  { from { opacity: 0; transform: translateX(-28px); } }
+    @keyframes vt-fade-out { to   { opacity: 0; transform: scale(0.99); } }
+    @keyframes vt-fade-in  { from { opacity: 0; transform: scale(0.99); } }
+    ::view-transition-old(root) { animation: var(--vt-out, vt-out) 220ms ease-out both; }
+    ::view-transition-new(root) { animation: var(--vt-in, vt-in)  220ms ease-out both; }
     @keyframes tab-pop {
       0%   { transform: scale(0.72); }
       60%  { transform: scale(1.18); }
@@ -1619,16 +1621,30 @@ function navigateToProject(name) {
 function haptic(ms) {
   if (navigator.vibrate) navigator.vibrate(ms);
 }
-const TAB_ORDER = { today: 0, backlog: 1, group: 2, me: 3, activity: 4 };
+const TAB_ORDER = { today: 0, backlog: 1, group: 2, me: 3, discover: 4, activity: 5, settings: 6 };
 const NAV_TAB_PARENT = { member: 'group', pair: 'group' };
 function navTab(tab) { return NAV_TAB_PARENT[tab] || tab; }
+let _pendingVt = false;
+let _pendingVtOut = null;
+let _pendingVtIn = null;
 function setVtDirection(fromTab, toTab) {
   const a = TAB_ORDER[fromTab], b = TAB_ORDER[toTab];
-  if (a !== undefined && b !== undefined && a !== b) {
-    document.documentElement.dataset.vt = b > a ? 'forward' : 'back';
-  } else {
-    delete document.documentElement.dataset.vt;
-  }
+  _pendingVt = a !== undefined && b !== undefined && a !== b;
+}
+function navigateTab(path, { out: outAnim, in: inAnim } = {}) {
+  _pendingVt = true;
+  _pendingVtOut = outAnim || null;
+  _pendingVtIn = inAnim || null;
+  navigateTo(path);
+}
+function navigateForward(path) {
+  navigateTab(path, { out: 'vt-slide-out', in: 'vt-slide-in' });
+}
+function navigateSubTab(path) {
+  navigateTab(path, { out: 'vt-fade-out', in: 'vt-fade-in' });
+}
+function navigateBack(path) {
+  navigateTab(path, { out: 'vt-slide-back-out', in: 'vt-slide-back-in' });
 }
 
 // ---------- hook ----------
@@ -2147,7 +2163,7 @@ function AlbumSummaryContext({ album, projectName = null, discoverSource = 'glob
             }).map(tag => {
               const href = projectName ? discoverGenreStyleRoutePath(projectName, tag, discoverSource) : '';
               return href
-                ? html`<a class="keyword-chip keyword-chip-link" href=${href} title=${`Explore ${tag}`}>${tag}</a>`
+                ? html`<a class="keyword-chip keyword-chip-link" href=${href} title=${`Explore ${tag}`} onClick=${(e) => { e.preventDefault(); navigateForward(href); }}>${tag}</a>`
                 : html`<span class="keyword-chip">${tag}</span>`;
             })}
           </div>
@@ -2997,7 +3013,7 @@ function SimilarAlbumsHelper({ album, projectName, source = 'global' }) {
       ${bubbleOpen && html`
         <div class="diddy-bubble">
           <div class="diddy-bubble-headline">${headline}</div>
-          <a class="diddy-bubble-link" href=${href} onClick=${(e) => { e.preventDefault(); navigateTo(href); }}>
+          <a class="diddy-bubble-link" href=${href} onClick=${(e) => { e.preventDefault(); navigateForward(href); }}>
             ${linkFn(result.count)}
           </a>
           <button class="diddy-bubble-close" onClick=${() => setDismissed(true)}>✕</button>
@@ -3065,7 +3081,7 @@ function DiscoverAlbumView({ albumSlug, projectName, source = 'global', hubData 
       <div class="banner te-banner">
         <strong>Album Details</strong>
         <span class="spacer"></span>
-        <a class="pill-btn primary" href=${readLastDiscoverPath(projectName)} onClick=${(e) => { e.preventDefault(); navigateTo(readLastDiscoverPath(projectName)); }}>Back to Explore →</a>
+        <a class="pill-btn primary" href=${readLastDiscoverPath(projectName)} onClick=${(e) => { e.preventDefault(); navigateBack(readLastDiscoverPath(projectName)); }}>← Back to Explore</a>
       </div>
       <div class="card te-panel">
         <div class="today-layout">
@@ -3109,7 +3125,7 @@ function ExploreView({ projectName, source = 'global', mode = 'browse', initialQ
 
   useEffect(() => {
     if (source === 'user' && mode === 'keyword') {
-      navigateTo(discoverModeRoutePath(projectName, source, 'browse'));
+      navigateSubTab(discoverModeRoutePath(projectName, source, 'browse'));
     }
   }, [projectName, source, mode]);
 
@@ -3197,16 +3213,16 @@ function ExploreView({ projectName, source = 'global', mode = 'browse', initialQ
   const handleAlbumClick = (album) => {
     writeLastDiscoverPath(projectName, discoverModeRoutePath(projectName, source, mode, mode === 'keyword' ? kwQuery : (mode === 'genre-style' ? selectedTags.join(',') : '')));
     if (mode === 'keyword' && kwQuery.trim()) {
-      navigateTo(discoverAlbumRoutePath(projectName, album.slug, source, 'reviews', kwQuery));
+      navigateForward(discoverAlbumRoutePath(projectName, album.slug, source, 'reviews', kwQuery));
       return;
     }
-    navigateTo(discoverAlbumRoutePath(projectName, album.slug, source));
+    navigateForward(discoverAlbumRoutePath(projectName, album.slug, source));
   };
 
   const handleKwSearch = async (e) => {
     e.preventDefault();
     if (!kwQuery.trim()) return;
-    navigateTo(discoverModeRoutePath(projectName, source, 'keyword', kwQuery));
+    navigateSubTab(discoverModeRoutePath(projectName, source, 'keyword', kwQuery));
   };
 
   const addTag = (query) => {
@@ -3244,9 +3260,9 @@ function ExploreView({ projectName, source = 'global', mode = 'browse', initialQ
       <div class="modal-header" style=${{ borderRadius: 'var(--radius) var(--radius) 0 0' }}>
         <div class="modal-title">Explore Albums</div>
         <div class="explore-mode-toggle">
-          <button class=${`explore-mode-btn ${mode === 'browse' ? 'active' : ''}`} type="button" onClick=${() => navigateTo(discoverModeRoutePath(projectName, source, 'browse'))}>Browse</button>
-          ${keywordEnabled && html`<button class=${`explore-mode-btn ${mode === 'keyword' ? 'active' : ''}`} type="button" onClick=${() => navigateTo(discoverModeRoutePath(projectName, source, 'keyword'))}>Keyword</button>`}
-          <button class=${`explore-mode-btn ${mode === 'genre-style' ? 'active' : ''}`} type="button" onClick=${() => navigateTo(discoverModeRoutePath(projectName, source, 'genre-style'))}>Genres</button>
+          <button class=${`explore-mode-btn ${mode === 'browse' ? 'active' : ''}`} type="button" onClick=${() => navigateSubTab(discoverModeRoutePath(projectName, source, 'browse'))}>Browse</button>
+          ${keywordEnabled && html`<button class=${`explore-mode-btn ${mode === 'keyword' ? 'active' : ''}`} type="button" onClick=${() => navigateSubTab(discoverModeRoutePath(projectName, source, 'keyword'))}>Keyword</button>`}
+          <button class=${`explore-mode-btn ${mode === 'genre-style' ? 'active' : ''}`} type="button" onClick=${() => navigateSubTab(discoverModeRoutePath(projectName, source, 'genre-style'))}>Genres</button>
         </div>
       </div>
 
@@ -3254,7 +3270,7 @@ function ExploreView({ projectName, source = 'global', mode = 'browse', initialQ
         <div class="explore-controls">
           <div class="explore-search-row">
             <div class="explore-field">
-              <button class="explore-source-chip" type="button" onClick=${() => navigateTo(discoverModeRoutePath(projectName, toggledSource, 'browse'))}>
+              <button class="explore-source-chip" type="button" onClick=${() => navigateSubTab(discoverModeRoutePath(projectName, toggledSource, 'browse'))}>
                 <span style=${`color:${source === 'global' ? 'var(--accent)' : 'var(--text-dim)'}`}>Global</span><span style="color:var(--text-dim)">|</span><span style=${`color:${source === 'user' ? 'var(--accent)' : 'var(--text-dim)'}`}>User</span>
               </button>
               <input
@@ -3340,7 +3356,7 @@ function ExploreView({ projectName, source = 'global', mode = 'browse', initialQ
         <div class="explore-controls">
           <form class="explore-search-row" onSubmit=${handleGenreStyleSearch}>
             <div class="explore-field">
-              <button class="explore-source-chip" type="button" onClick=${() => navigateTo(discoverModeRoutePath(projectName, toggledSource, 'genre-style', selectedTags.join(',')))}>
+              <button class="explore-source-chip" type="button" onClick=${() => navigateSubTab(discoverModeRoutePath(projectName, toggledSource, 'genre-style', selectedTags.join(',')))}>
                 <span style=${`color:${source === 'global' ? 'var(--accent)' : 'var(--text-dim)'}`}>Global</span><span style="color:var(--text-dim)">|</span><span style=${`color:${source === 'user' ? 'var(--accent)' : 'var(--text-dim)'}`}>User</span>
               </button>
               <div class="explore-suggest-wrap">
@@ -3434,11 +3450,11 @@ function Nav({ projectName, tab, backlogCount, unreadCount, theme }) {
     <${Fragment}>
       <header class="topbar">
         <div class="topbar-inner">
-          <a class="brand" href=${routePath(projectName, 'today')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'today')); }}><${LankyMascot} /><span class="brand-text">1001 Albums Kongsole</span><span class="brand-text-mobile">Kongsole</span></a>
+          <a class="brand" href=${routePath(projectName, 'today')} onClick=${(e) => { e.preventDefault(); navigateTab(routePath(projectName, 'today')); }}><${LankyMascot} /><span class="brand-text">1001 Albums Kongsole</span><span class="brand-text-mobile">Kongsole</span></a>
           <nav class="tabs" ref=${tabsRef}>
             ${topTabs.map((t, i) => html`
               ${i > 0 && html`<span class="tab-sep">|</span>`}
-              <a class=${`tab ${navTab(tab) === t.id ? 'active' : ''}`} href=${routePath(projectName, t.id)} onClick=${(e) => { e.preventDefault(); setVtDirection(tab, t.id); navigateTo(routePath(projectName, t.id)); }}>${t.label}</a>
+              <a class=${`tab ${navTab(tab) === t.id ? 'active' : ''}`} href=${routePath(projectName, t.id)} onClick=${(e) => { e.preventDefault(); setVtDirection(tab, t.id); navigateTab(routePath(projectName, t.id)); }}>${t.label}</a>
             `)}
           </nav>
           <div class="nav-actions">
@@ -3447,14 +3463,14 @@ function Nav({ projectName, tab, backlogCount, unreadCount, theme }) {
               type="button"
               aria-label="Explore albums"
               title="Explore albums"
-              onClick=${() => navigateTo(routePath(projectName, 'discover'))}
+              onClick=${() => { setVtDirection(tab, 'discover'); navigateTab(routePath(projectName, 'discover')); }}
             >
               <span class="icon-symbol">search</span>
             </button>
             <a
               class=${`bell-link ${tab === 'activity' ? 'active' : ''}`}
               href=${routePath(projectName, 'activity')}
-              onClick=${(e) => { e.preventDefault(); setVtDirection(tab, 'activity'); navigateTo(routePath(projectName, 'activity')); }}
+              onClick=${(e) => { e.preventDefault(); setVtDirection(tab, 'activity'); navigateTab(routePath(projectName, 'activity')); }}
               aria-label=${`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}
               title="Recent activity"
             >
@@ -3463,7 +3479,7 @@ function Nav({ projectName, tab, backlogCount, unreadCount, theme }) {
             <a
               class=${`bell-link ${tab === 'settings' ? 'active' : ''}`}
               href=${routePath(projectName, 'settings')}
-              onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'settings')); }}
+              onClick=${(e) => { e.preventDefault(); setVtDirection(tab, 'settings'); navigateTab(routePath(projectName, 'settings')); }}
               aria-label="Settings"
               title="Settings"
             >
@@ -3482,7 +3498,7 @@ function Nav({ projectName, tab, backlogCount, unreadCount, theme }) {
             class=${`bottom-nav-item ${navTab(tab) === t.id ? 'active' : ''}`}
             style=${{ height: '58px', minHeight: '58px', maxHeight: '58px' }}
             href=${routePath(projectName, t.id)}
-            onClick=${(e) => { e.preventDefault(); haptic(6); setVtDirection(tab, t.id); navigateTo(routePath(projectName, t.id)); }}
+            onClick=${(e) => { e.preventDefault(); haptic(6); setVtDirection(tab, t.id); navigateTab(routePath(projectName, t.id)); }}
             aria-label=${t.badge ? `${t.label}, ${t.badge} items` : t.label}
             aria-current=${navTab(tab) === t.id ? 'page' : undefined}
           >
@@ -3627,14 +3643,14 @@ function AlbumSpotlight({ album, projectName, groupSlug = null, comparison = nul
 function TodayView({ projectName, me, backlog, subTab, comparison }) {
   const album = me.currentAlbum;
   const tab = subTab || 'summary';
-  const setTab = (t) => navigateTo(routePath(projectName, 'today', null, t === 'summary' ? null : t));
+  const setTab = (t) => navigateSubTab(routePath(projectName, 'today', null, t === 'summary' ? null : t));
   return html`
     <div>
       ${backlog.length > 0 && html`
         <div class="banner te-banner">
           <strong>${backlog.length} album${backlog.length === 1 ? '' : 's'} to rate</strong>
           <span class="spacer"></span>
-          <a class="primary" href=${routePath(projectName, 'backlog')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'backlog')); }}>View backlog →</a>
+          <a class="primary" href=${routePath(projectName, 'backlog')} onClick=${(e) => { e.preventDefault(); navigateTab(routePath(projectName, 'backlog')); }}>View backlog →</a>
         </div>
       `}
       <div class="card te-panel">
@@ -3660,20 +3676,20 @@ function BacklogAlbumView({ projectName, entry, groupSlug, comparison, subTab, o
       <div class="card">
         <h2>Backlog Album</h2>
         <p class="muted">That album isn't in your current unrated backlog.</p>
-        <a class="pill-btn primary" href=${routePath(projectName, 'backlog')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'backlog')); }}>Back to backlog →</a>
+        <a class="pill-btn primary" href=${routePath(projectName, 'backlog')} onClick=${(e) => { e.preventDefault(); navigateBack(routePath(projectName, 'backlog')); }}>← Back to backlog</a>
       </div>
     `;
   }
 
   const album = entry.album;
   const tab = subTab || 'summary';
-  const setTab = (t) => navigateTo(routePath(projectName, 'backlog', backlogEntryId(entry), t === 'summary' ? null : t));
+  const setTab = (t) => navigateSubTab(routePath(projectName, 'backlog', backlogEntryId(entry), t === 'summary' ? null : t));
   return html`
     <div>
       <div class="banner te-banner">
         <strong>Unrated album from ${new Date(entry.generatedAt).toLocaleDateString()}</strong>
         <span class="spacer"></span>
-        <a class="primary" href=${routePath(projectName, 'backlog')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'backlog')); }}>View backlog →</a>
+        <a class="primary" href=${routePath(projectName, 'backlog')} onClick=${(e) => { e.preventDefault(); navigateTab(routePath(projectName, 'backlog')); }}>View backlog →</a>
       </div>
       <div class="card te-panel">
         <${AlbumSpotlight}
@@ -3696,20 +3712,20 @@ function AlbumDetailView({ projectName, albumRecord, groupSlug, comparison, subT
       <div class="card">
         <h2>Album</h2>
         <p class="muted">That album wasn't found in the loaded group history.</p>
-        <a class="pill-btn primary" href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'group')); }}>Back to group →</a>
+        <a class="pill-btn primary" href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateBack(routePath(projectName, 'group')); }}>← Back to group</a>
       </div>
     `;
   }
 
   const album = albumRecord.album;
   const tab = subTab || 'summary';
-  const setTab = (t) => navigateTo(routePath(projectName, 'album', album.uuid, t === 'summary' ? null : t));
+  const setTab = (t) => navigateSubTab(routePath(projectName, 'album', album.uuid, t === 'summary' ? null : t));
   return html`
     <div>
       <div class="banner te-banner">
         <strong>Generated ${new Date(albumRecord.generatedAt).toLocaleDateString()}</strong>
         <span class="spacer"></span>
-        <a class="pill-btn primary" href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'group')); }}>Back to group →</a>
+        <a class="pill-btn primary" href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateBack(routePath(projectName, 'group')); }}>← Back to group</a>
       </div>
       <div class="card te-panel">
         <${AlbumSpotlight}
@@ -3745,7 +3761,7 @@ function BacklogView({ projectName, backlog, members }) {
             const href = routePath(projectName, 'backlog', backlogEntryId(e));
             const thumbUrl = thumbBySpotifyId.get(e.album.spotifyId);
             return html`
-              <button class="data-card" onClick=${() => navigateTo(href)}>
+              <button class="data-card" onClick=${() => navigateForward(href)}>
                 ${thumbUrl
                   ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" />`
                   : html`<div class="explore-album-thumb"></div>`
@@ -3836,7 +3852,7 @@ function GroupView({ group, members, projectName }) {
         <h2>Roster</h2>
         <div class="data-card-list data-card-list--3col">
           ${roster.map(r => html`
-            <button class="data-card" onClick=${() => navigateTo(memberRoutePath(projectName, r.name))}>
+            <button class="data-card" onClick=${() => navigateForward(memberRoutePath(projectName, r.name))}>
               <div class="data-card-main">
                 <div class="data-card-title">${r.name}${r.name === projectName ? html` <span class="muted" style=${{ fontWeight: 400 }}>(you)</span>` : ''}</div>
                 <div class="data-card-sub">${r.lastRatedAt ? `Last rated ${new Date(r.lastRatedAt).toLocaleDateString()}` : 'No ratings yet'}</div>
@@ -3859,7 +3875,7 @@ function GroupView({ group, members, projectName }) {
           ${visibleAlbums.map(r => {
             const thumbUrl = thumbBySpotifyId.get(r.album.spotifyId);
             return html`
-              <button class="data-card" onClick=${() => navigateTo(routePath(projectName, 'album', r.album.uuid, 'group'))}>
+              <button class="data-card" onClick=${() => navigateForward(routePath(projectName, 'album', r.album.uuid, 'group'))}>
                 ${thumbUrl
                   ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" />`
                   : html`<div class="explore-album-thumb"></div>`
@@ -3892,7 +3908,7 @@ function GroupView({ group, members, projectName }) {
             const left = p.b === projectName ? p.b : p.a;
             const right = p.b === projectName ? p.a : p.b;
             return html`
-            <button class="data-card" onClick=${() => navigateTo(pairRoutePath(projectName, p.a, p.b))}>
+            <button class="data-card" onClick=${() => navigateForward(pairRoutePath(projectName, p.a, p.b))}>
               <div class="data-card-main">
                 <div class="data-card-title">${left} ↔ ${right}</div>
                 <div class="alignment-bar-wrap">
@@ -3953,7 +3969,7 @@ function ActivityView({ members, projectName, group, notifications }) {
                   <${El}
                     class="data-card"
                     key=${n._id}
-                    onClick=${isAlbum ? () => navigateTo(routePath(projectName, 'album', albumId, 'group')) : undefined}
+                    onClick=${isAlbum ? () => navigateForward(routePath(projectName, 'album', albumId, 'group')) : undefined}
                   >
                     <div class="data-card-main">
                       <div class="data-card-title">${isAlbum ? albumName : text}</div>
@@ -3985,7 +4001,7 @@ function ActivityView({ members, projectName, group, notifications }) {
                   const isYou = item.member === projectName;
                   return html`
                     <button class="data-card" key=${`${item.member}-${item.album.uuid}-${i}`}
-                      onClick=${() => navigateTo(routePath(projectName, 'album', item.album.uuid, 'group'))}>
+                      onClick=${() => navigateForward(routePath(projectName, 'album', item.album.uuid, 'group'))}>
                       ${thumbUrl
                         ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" />`
                         : html`<div class="explore-album-thumb"></div>`}
@@ -4027,7 +4043,7 @@ function PairDetailView({ projectName, members, pairA, pairB }) {
       <div class="card te-panel">
         <h2>Taste Alignment</h2>
         <p class="muted">Couldn't find a comparison for ${pairA} and ${pairB} — they may not have enough albums rated in common.</p>
-        <a class="pill-btn primary" href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'group')); }}>Back to group →</a>
+        <a class="pill-btn primary" href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateBack(routePath(projectName, 'group')); }}>← Back to group</a>
       </div>
     `;
   }
@@ -4037,7 +4053,7 @@ function PairDetailView({ projectName, members, pairA, pairB }) {
       <div class="banner te-banner">
         <strong>${pair.a} ↔ ${pair.b}: ${pair.alignment}% aligned</strong>
         <span class="spacer"></span>
-        <a class="pill-btn primary" href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'group')); }}>Back to group →</a>
+        <a class="pill-btn primary" href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateBack(routePath(projectName, 'group')); }}>← Back to group</a>
       </div>
       <div class="card te-panel">
         <h2>Shared Albums (${pair.shared})</h2>
@@ -4049,7 +4065,7 @@ function PairDetailView({ projectName, members, pairA, pairB }) {
           ${sortedDetails.map(d => {
             const thumbUrl = d.album?.spotifyId && thumbBySpotifyId.get(d.album.spotifyId);
             return html`
-              <button class="data-card" onClick=${d.album ? () => navigateTo(routePath(projectName, 'album', d.album.uuid, 'group')) : undefined} style=${!d.album ? { cursor: 'default' } : {}}>
+              <button class="data-card" onClick=${d.album ? () => navigateForward(routePath(projectName, 'album', d.album.uuid, 'group')) : undefined} style=${!d.album ? { cursor: 'default' } : {}}>
                 ${thumbUrl
                   ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" />`
                   : html`<div class="explore-album-thumb"></div>`
@@ -4093,7 +4109,7 @@ function MemberView({ memberName, project, projectName }) {
       <div class="banner te-banner">
         <strong>${memberName}</strong>
         <span class="spacer"></span>
-        <a class="pill-btn primary" href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateTo(routePath(projectName, 'group')); }}>Back to group →</a>
+        <a class="pill-btn primary" href=${routePath(projectName, 'group')} onClick=${(e) => { e.preventDefault(); navigateBack(routePath(projectName, 'group')); }}>← Back to group</a>
       </div>
       ${!project && html`<div class="card te-panel"><p class="muted">Loading member data…</p></div>`}
       ${project && project.__error && html`<div class="card te-panel"><p class="muted">Couldn't load data for ${memberName}.</p></div>`}
@@ -4113,7 +4129,7 @@ function MemberView({ memberName, project, projectName }) {
             ${filtered.map(e => {
               const thumbUrl = e.album?.spotifyId && thumbBySpotifyId.get(e.album.spotifyId);
               return html`
-                <button class="data-card" style=${{ alignItems: 'flex-start' }} onClick=${() => navigateTo(routePath(projectName, 'album', e.album.uuid, 'group'))}>
+                <button class="data-card" style=${{ alignItems: 'flex-start' }} onClick=${() => navigateForward(routePath(projectName, 'album', e.album.uuid, 'group'))}>
                   ${thumbUrl
                     ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" />`
                     : html`<div class="explore-album-thumb"></div>`
@@ -4242,7 +4258,7 @@ function AlbumCardList({ albums, projectName, thumbBySpotifyId }) {
       ${albums.map((a) => {
         const thumbUrl = a.album?.spotifyId && thumbBySpotifyId.get(a.album.spotifyId);
         return html`
-          <button class="data-card" onClick=${() => navigateTo(routePath(projectName, 'album', a.album.uuid))}>
+          <button class="data-card" onClick=${() => navigateForward(routePath(projectName, 'album', a.album.uuid))}>
             ${thumbUrl
               ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" />`
               : html`<div class="explore-album-thumb"></div>`
@@ -4489,12 +4505,22 @@ function App() {
   useEffect(() => {
     const onNav = () => {
       const newRoute = getRouteFromLocation();
-      if (document.startViewTransition) {
+      const isNavTransition = _pendingVt;
+      const outAnim = _pendingVtOut;
+      const inAnim = _pendingVtIn;
+      _pendingVt = false; _pendingVtOut = null; _pendingVtIn = null;
+      if (outAnim) document.documentElement.style.setProperty('--vt-out', outAnim);
+      else document.documentElement.style.removeProperty('--vt-out');
+      if (inAnim) document.documentElement.style.setProperty('--vt-in', inAnim);
+      else document.documentElement.style.removeProperty('--vt-in');
+      if (isNavTransition && document.startViewTransition) {
         const t = document.startViewTransition(() => setRoute(newRoute));
-        t.finished.then(() => delete document.documentElement.dataset.vt);
+        t.finished.then(() => {
+          document.documentElement.style.removeProperty('--vt-out');
+          document.documentElement.style.removeProperty('--vt-in');
+        });
       } else {
         setRoute(newRoute);
-        delete document.documentElement.dataset.vt;
       }
     };
     window.addEventListener('hashchange', onNav);

@@ -63,47 +63,113 @@ Also ensure the flex chain all the way down to your page element works — every
 
 ---
 
-## 3. Directional Tab Transitions (View Transitions API)
+## 3. Page Transitions (View Transitions API)
 
-Tab switches feel native when content slides directionally — right when going to a later tab, left when going back. The View Transitions API makes this possible with minimal code.
+Top-level navigation feels native when it animates. The View Transitions API makes this possible with minimal code, but there are important gotchas.
+
+### The key gotcha: CSS scoping doesn't work
+
+The intuitive approach — setting a `data-vt` attribute on `:root` and scoping CSS rules with `:root[data-vt] ::view-transition-old(root)` — **does not work**. The `::view-transition-*` pseudo-elements live in a special rendering layer and are not true CSS descendants of `:root`, so ancestor/descendant combinators never match them.
+
+**Don't do this:**
+```css
+/* This selector never matches — ::view-transition-old is not a real descendant */
+:root[data-vt="forward"] ::view-transition-old(root) { animation: ...; }
+```
+
+CSS custom properties **do** inherit into `::view-transition-*` via `var()`, so you can use them to swap animation names without scoping selectors.
+
+### The correct approach: opt in via JS, not CSS
+
+Control which navigations animate by conditionally calling `startViewTransition`. Navigations that call it get animated; others get an instant update. Use `var()` with defaults to support per-navigation animation variants.
 
 ```css
 @media (prefers-reduced-motion: no-preference) {
-  @keyframes vt-out-left  { to   { transform: translateX(-28px); opacity: 0; } }
-  @keyframes vt-in-right  { from { transform: translateX(28px);  opacity: 0; } }
-  @keyframes vt-out-right { to   { transform: translateX(28px);  opacity: 0; } }
-  @keyframes vt-in-left   { from { transform: translateX(-28px); opacity: 0; } }
+  /* Tab switch — vertical rise */
+  @keyframes vt-out { to   { opacity: 0; transform: translateY(-16px); } }
+  @keyframes vt-in  { from { opacity: 0; transform: translateY(24px);  } }
+  /* Forward drill — slide right */
+  @keyframes vt-slide-out      { to   { opacity: 0; transform: translateX(-28px); } }
+  @keyframes vt-slide-in       { from { opacity: 0; transform: translateX(28px);  } }
+  /* Back — slide left */
+  @keyframes vt-slide-back-out { to   { opacity: 0; transform: translateX(28px);  } }
+  @keyframes vt-slide-back-in  { from { opacity: 0; transform: translateX(-28px); } }
+  /* Sub-tab / filter — subtle fade, barely any movement */
+  @keyframes vt-fade-out { to   { opacity: 0; transform: scale(0.99); } }
+  @keyframes vt-fade-in  { from { opacity: 0; transform: scale(0.99); } }
 
-  :root[data-vt="forward"] ::view-transition-old(root) { animation: vt-out-left  220ms ease both; }
-  :root[data-vt="forward"] ::view-transition-new(root) { animation: vt-in-right  220ms ease both; }
-  :root[data-vt="back"]    ::view-transition-old(root) { animation: vt-out-right 220ms ease both; }
-  :root[data-vt="back"]    ::view-transition-new(root) { animation: vt-in-left   220ms ease both; }
+  ::view-transition-old(root) { animation: var(--vt-out, vt-out) 220ms ease-out both; }
+  ::view-transition-new(root) { animation: var(--vt-in,  vt-in)  220ms ease-out both; }
 }
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; }
 }
 ```
 
-Set the direction attribute **before** calling the navigation, then clean it up after the transition finishes:
-
 ```js
-const TAB_ORDER = { today: 0, backlog: 1, group: 2, me: 3, activity: 4 };
+// Module-level state — avoids race conditions with t.finished cleanup
+let _pendingVt = false;
+let _pendingVtOut = null;
+let _pendingVtIn = null;
 
-function setVtDirection(fromTab, toTab) {
-  const a = TAB_ORDER[fromTab], b = TAB_ORDER[toTab];
-  if (a !== undefined && b !== undefined && a !== b) {
-    document.documentElement.dataset.vt = b > a ? 'forward' : 'back';
-  } else {
-    delete document.documentElement.dataset.vt;
-  }
+function navigateTo(path) { location.assign(path); }
+
+// Core: set animation variant and trigger
+function navigatePage(path, { out: outAnim, in: inAnim } = {}) {
+  _pendingVt = true;
+  _pendingVtOut = outAnim || null;
+  _pendingVtIn  = inAnim  || null;
+  navigateTo(path);
 }
 
-// In your hashchange handler:
-const t = document.startViewTransition(() => setRoute(newRoute));
-t.finished.then(() => delete document.documentElement.dataset.vt);
+// Navigation vocabulary — use the right one at every call site:
+function navigateTab(path)    { navigatePage(path); }                                                        // top nav bar tabs — vertical rise
+function navigateForward(path){ navigatePage(path, { out: 'vt-slide-out',      in: 'vt-slide-in'      }); } // drill into a screen — slides right
+function navigateBack(path)   { navigatePage(path, { out: 'vt-slide-back-out', in: 'vt-slide-back-in' }); } // back buttons — slides left
+function navigateSubTab(path) { navigatePage(path, { out: 'vt-fade-out',       in: 'vt-fade-in'       }); } // sub-tabs and filters — subtle fade
+
+// Hashchange handler reads and clears flags atomically
+const onNav = () => {
+  const newRoute = getRouteFromLocation();
+  const isNavTransition = _pendingVt;
+  const outAnim = _pendingVtOut;
+  const inAnim  = _pendingVtIn;
+  _pendingVt = false; _pendingVtOut = null; _pendingVtIn = null;
+  if (outAnim) document.documentElement.style.setProperty('--vt-out', outAnim);
+  else         document.documentElement.style.removeProperty('--vt-out');
+  if (inAnim)  document.documentElement.style.setProperty('--vt-in',  inAnim);
+  else         document.documentElement.style.removeProperty('--vt-in');
+  if (isNavTransition && document.startViewTransition) {
+    const t = document.startViewTransition(() => setRoute(newRoute));
+    t.finished.then(() => {
+      document.documentElement.style.removeProperty('--vt-out');
+      document.documentElement.style.removeProperty('--vt-in');
+    });
+  } else {
+    setRoute(newRoute);
+  }
+};
 ```
 
-Without the directional data attribute, the default cross-fade applies — a safe fallback for non-tab navigations.
+### Navigation vocabulary guidelines
+
+Every navigation in the app should use the right helper. The goal is to match the animation to the user's mental model of where they are in the hierarchy.
+
+| Helper | Animation | When to use |
+|---|---|---|
+| `navigateTo` | None (instant) | Truly stateless updates — URL-encoded state changes like search queries where a flash would be jarring |
+| `navigateTab` | Vertical rise | Tapping a top-level nav bar item |
+| `navigateForward` | Slide right | Clicking any card, row, or link that drills into a new screen |
+| `navigateSubTab` | Subtle fade (scale 0.99) | Switching tabs within a screen, toggling modes, swapping filter views |
+| `navigateBack` | Slide left | Any "← Back to X" button in a banner or header |
+
+**Opinion**: when in doubt, `navigateForward` is almost always correct for a tap on something that reveals new content. Reserve `navigateTo` for filter/state changes where the screen title doesn't change and content updates in place.
+
+**Back button copy convention**: back buttons should read `← Back to [place]` with the arrow at the start. Forward shortcuts to a top-level tab (e.g. "View backlog →") should use `navigateTab`, not `navigateForward` or `navigateBack` — the arrow at the end signals it's a tab jump, not a drill-in.
+
+### Why the module-level flag instead of setting an attribute?
+
+Setting `document.documentElement.dataset.vt` before `location.assign()` looks correct but has a race: if a previous transition's `t.finished` promise resolves after you set the attribute (but before the new transition starts), it deletes the value you just set. The module-level flag is read and cleared atomically at the start of the hashchange handler, eliminating the race.
 
 ---
 
