@@ -1026,48 +1026,27 @@ async function apiGet(path) {
 const fetchProject = (name) => apiGet(`/projects/${encodeURIComponent(name)}`);
 const fetchGroup = (slug) => apiGet(`/groups/${encodeURIComponent(slug)}`);
 const fetchGroupAlbumReviews = (groupSlug, albumUuid) => apiGet(`/groups/${encodeURIComponent(groupSlug)}/albums/${encodeURIComponent(albumUuid)}`);
-const ALBUM_CATALOG_CACHE_VERSION = 'v3';
+const ALBUM_CATALOG_CACHE_VERSION = 'v4';
 const albumCatalogCacheKey = (source) => `album-catalog:${ALBUM_CATALOG_CACHE_VERSION}:${source}`;
-const catalogMatchKey = (album) => `${(album?.name || '').trim().toLowerCase()}::${(album?.artist || '').trim().toLowerCase()}`;
-function parseCanonicalAlbumRows(htmlText, source = 'global') {
-  const doc = new DOMParser().parseFromString(htmlText, 'text/html');
-  const rows = [];
-  const hrefPrefix = source === 'user' ? '/user-albums/' : '/albums/';
-  doc.querySelectorAll('tr[data-album][data-artist]').forEach((row) => {
-    const link = Array.from(row.querySelectorAll(`a[href^="${hrefPrefix}"]`))
-      .find(a => /^\/(?:user-albums|albums)\/[A-Za-z0-9]+/.test(a.getAttribute('href') || ''));
-    const href = link?.getAttribute('href') || '';
-    const match = href.match(/^\/(?:user-albums|albums)\/([A-Za-z0-9]+)/);
-    if (!match) return;
-    rows.push({
-      name: row.getAttribute('data-album') || '',
-      artist: row.getAttribute('data-artist') || '',
-      spotifyId: match[1],
-      href,
-    });
-  });
-  return rows;
+let catalogCorrectionsPromise = null;
+async function fetchCatalogCorrections() {
+  if (!catalogCorrectionsPromise) {
+    catalogCorrectionsPromise = fetch(`${APP_BASE}catalog-corrections.json?v=${ALBUM_CATALOG_CACHE_VERSION}`)
+      .then(res => res.ok ? res.json() : { global: {}, user: {} })
+      .catch(() => ({ global: {}, user: {} }));
+  }
+  return catalogCorrectionsPromise;
 }
-async function fetchCanonicalAlbumRows(source = 'global') {
-  const path = source === 'user' ? '/user-albums' : '/albums';
-  const res = await fetch(`${SITE_BASE}${path}`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return parseCanonicalAlbumRows(await res.text(), source);
-}
-async function canonicalizeAlbumCatalog(albums, source = 'global') {
-  const canonicalRows = await fetchCanonicalAlbumRows(source);
-  const byName = new Map(canonicalRows.map(row => [catalogMatchKey(row), row]));
+function applyCatalogCorrections(albums, source, corrections) {
+  const sourceCorrections = corrections[source === 'user' ? 'user' : 'global'] || {};
   return albums.map((album) => {
-    const canonical = byName.get(catalogMatchKey(album));
-    if (!canonical || canonical.spotifyId === album.spotifyId) return album;
-    const slug = album.slug || canonical.href.split('/').filter(Boolean).slice(2).join('/');
+    const correction = sourceCorrections[album.spotifyId];
+    if (!correction?.spotifyId || correction.spotifyId === album.spotifyId) return album;
     return {
       ...album,
       originalSpotifyId: album.spotifyId,
-      spotifyId: canonical.spotifyId,
-      globalReviewsUrl: slug
-        ? `${SITE_BASE}${canonical.href.replace(/\/$/, '')}/${encodeURIComponent(slug)}`
-        : `${SITE_BASE}${canonical.href}`,
+      spotifyId: correction.spotifyId,
+      globalReviewsUrl: correction.globalReviewsUrl || album.globalReviewsUrl,
     };
   });
 }
@@ -1077,12 +1056,8 @@ async function fetchAlbumCatalog(source = 'global') {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   const albums = data.albums || [];
-  try {
-    return await canonicalizeAlbumCatalog(albums, source);
-  } catch (err) {
-    console.warn('Could not canonicalize album catalog', err);
-    return albums;
-  }
+  const corrections = await fetchCatalogCorrections();
+  return applyCatalogCorrections(albums, source, corrections);
 }
 async function searchAlbumsByWord(phrase) {
   const res = await fetch(`${SITE_BASE}/api/stats/albums-by-word`, {

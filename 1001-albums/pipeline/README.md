@@ -12,6 +12,7 @@ lists and service mappings.
 - `1001-albums/pipeline/data/user-tracks-data.json`: user-submitted album harvest from `/user-albums`.
 - `1001-albums/pipeline/data/apple-track-map.json`: Spotify track ID to Apple Music track ID mapping.
 - `1001-albums/pipeline/data/tracks-kv-bulk.json`: Wrangler KV bulk-upload artifact.
+- `1001-albums/catalog-corrections.json`: small app-served map for stale IDs in upstream stats.
 
 The JSON artifacts are intentionally under `1001-albums/pipeline/data/` so the enrichment
 pipeline is self-contained. These files are tracked via Git LFS because they are generated,
@@ -39,6 +40,12 @@ Sync upstream album images once per album:
 
 ```sh
 npm run tracks:images
+```
+
+Build the local catalog correction map:
+
+```sh
+npm run tracks:catalog-corrections
 ```
 
 Build the Apple Music track mapping from both harvests:
@@ -88,6 +95,7 @@ Expanded, that runs:
 ```sh
 npm run tracks:fetch:user
 npm run tracks:images
+npm run tracks:catalog-corrections
 npm run tracks:apple-map
 npm run tracks:kv:build
 npm run tracks:kv:validate
@@ -110,6 +118,7 @@ Expanded, that runs:
 npm run tracks:fetch
 npm run tracks:fetch:user
 npm run tracks:images
+npm run tracks:catalog-corrections
 npm run tracks:apple-map
 npm run tracks:kv:build
 npm run tracks:kv:validate

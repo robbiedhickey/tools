@@ -7,13 +7,14 @@
     "tracks:fetch": "uv run --with SpotAPI --with pymongo --with redis --with websockets 1001-albums/pipeline/scripts/fetch-1001-tracks.py --catalog book --output 1001-albums/pipeline/data/book-tracks-data.json",
     "tracks:fetch:user": "uv run --with SpotAPI --with pymongo --with redis --with websockets 1001-albums/pipeline/scripts/fetch-1001-tracks.py --catalog user --output 1001-albums/pipeline/data/user-tracks-data.json",
     "tracks:images": "uv run 1001-albums/pipeline/scripts/sync-upstream-images.py",
+    "tracks:catalog-corrections": "uv run 1001-albums/pipeline/scripts/build-catalog-corrections.py",
     "tracks:apple-map": "uv run 1001-albums/pipeline/scripts/build-apple-track-map.py 1001-albums/pipeline/data/book-tracks-data.json 1001-albums/pipeline/data/user-tracks-data.json --output 1001-albums/pipeline/data/apple-track-map.json",
     "tracks:kv:build": "uv run 1001-albums/pipeline/scripts/build-tracks-kv-bulk.py",
     "tracks:kv:validate": "uv run --with jsonschema 1001-albums/pipeline/scripts/validate-kv-bulk.py",
     "tracks:kv:put:local": "npx wrangler kv bulk put 1001-albums/pipeline/data/tracks-kv-bulk.json --binding TOOLS_KV --local",
     "tracks:kv:put": "npx wrangler kv bulk put 1001-albums/pipeline/data/tracks-kv-bulk.json --binding TOOLS_KV --remote",
-    "tracks:refresh:user": "npm run tracks:fetch:user && npm run tracks:images && npm run tracks:apple-map && npm run tracks:kv:build && npm run tracks:kv:validate && npm run tracks:kv:put",
-    "tracks:refresh": "npm run tracks:fetch && npm run tracks:fetch:user && npm run tracks:images && npm run tracks:apple-map && npm run tracks:kv:build && npm run tracks:kv:validate && npm run tracks:kv:put"
+    "tracks:refresh:user": "npm run tracks:fetch:user && npm run tracks:images && npm run tracks:catalog-corrections && npm run tracks:apple-map && npm run tracks:kv:build && npm run tracks:kv:validate && npm run tracks:kv:put",
+    "tracks:refresh": "npm run tracks:fetch && npm run tracks:fetch:user && npm run tracks:images && npm run tracks:catalog-corrections && npm run tracks:apple-map && npm run tracks:kv:build && npm run tracks:kv:validate && npm run tracks:kv:put"
   },
   "devDependencies": {
     "serve": "^14.2.3",
