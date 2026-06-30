@@ -3967,6 +3967,7 @@ const GROUP_ALBUMS_VISIBLE_DEFAULT = 10;
 
 function GroupView({ group, members, projectName }) {
   const [sortBy, setSortBy] = useState('date');
+  const [sortDir, setSortDir] = useState('desc');
   const [showAllAlbums, setShowAllAlbums] = useState(false);
   const [albumQuery, setAlbumQuery] = useState('');
   const albumTable = useMemo(() => deriveGroupAlbumTable(members), [members]);
@@ -3974,10 +3975,19 @@ function GroupView({ group, members, projectName }) {
   const thumbBySpotifyId = useAlbumThumbs();
   const sortedAlbums = useMemo(() => {
     const rows = albumTable.slice();
-    if (sortBy === 'rating') rows.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
-    else if (sortBy === 'date') rows.sort((a, b) => new Date(b.earliestAt) - new Date(a.earliestAt));
+    if (sortBy === 'rating') {
+      rows.sort((a, b) => {
+        const diff = (a.averageRating ?? -1) - (b.averageRating ?? -1);
+        return sortDir === 'asc' ? diff : -diff;
+      });
+    } else if (sortBy === 'date') {
+      rows.sort((a, b) => {
+        const diff = new Date(a.earliestAt) - new Date(b.earliestAt);
+        return sortDir === 'asc' ? diff : -diff;
+      });
+    }
     return rows;
-  }, [albumTable, sortBy]);
+  }, [albumTable, sortBy, sortDir]);
   const albumSearchTerm = albumQuery.trim().toLowerCase();
   const filteredAlbums = useMemo(() => {
     if (!albumSearchTerm) return sortedAlbums;
@@ -3998,6 +4008,18 @@ function GroupView({ group, members, projectName }) {
     : filteredAlbums.slice(0, GROUP_ALBUMS_VISIBLE_DEFAULT);
 
   if (!group) return html`<div class="card"><p class="muted">This project isn't part of a group.</p></div>`;
+
+  const setAlbumSort = (key) => {
+    setSortBy((current) => {
+      if (current === key) {
+        setSortDir((dir) => dir === 'asc' ? 'desc' : 'asc');
+        return current;
+      }
+      setSortDir('desc');
+      return key;
+    });
+    setShowAllAlbums(false);
+  };
 
   const roster = group.members.map(m => {
     const proj = members[m.name];
@@ -4066,8 +4088,16 @@ function GroupView({ group, members, projectName }) {
           style=${{ width: '100%', padding: '7px 10px', marginBottom: '10px', border: '1px solid var(--border)', borderRadius: '6px', font: 'inherit', fontSize: '13px', background: 'var(--bg)', color: 'var(--text)', boxSizing: 'border-box' }}
         />
         <div class="sort-controls">
-          <button class=${sortBy === 'date' ? 'active' : ''} onClick=${() => { setSortBy('date'); setShowAllAlbums(false); }}>Date</button>
-          <button class=${sortBy === 'rating' ? 'active' : ''} onClick=${() => { setSortBy('rating'); setShowAllAlbums(false); }}>Rating</button>
+          <button
+            class=${sortBy === 'date' ? 'active' : ''}
+            onClick=${() => setAlbumSort('date')}
+            aria-sort=${sortBy === 'date' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+          >Date ${sortBy === 'date' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</button>
+          <button
+            class=${sortBy === 'rating' ? 'active' : ''}
+            onClick=${() => setAlbumSort('rating')}
+            aria-sort=${sortBy === 'rating' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+          >Rating ${sortBy === 'rating' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</button>
         </div>
         <div class="data-card-list">
           ${visibleAlbums.map(r => {
