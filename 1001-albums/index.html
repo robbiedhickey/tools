@@ -300,12 +300,12 @@
   .album-title { font-size: 22px; font-weight: 700; margin: 0 0 2px; }
   .album-artist { font-size: 16px; color: var(--text-dim); margin: 0 0 2px; }
   .links-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-  .album-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .album-header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
   .album-header-text { flex: 1; min-width: 0; }
   .album-header-text .album-title { margin-bottom: 2px; }
   .album-header-text .album-artist { margin-bottom: 0; }
   .streaming-icons-col { display: flex; flex-direction: row; gap: 8px; flex-shrink: 0; align-items: center; }
-  .te-panel .streaming-icons-col { padding-top: 14px; align-self: flex-start; }
+  .te-panel .streaming-icons-col { align-self: center; }
   .streaming-icon-btn { display: inline-flex; border-radius: 6px; line-height: 0; opacity: 0.55; transition: opacity 0.15s, transform 0.15s; }
   .streaming-icon-btn svg { fill: var(--text); }
   .streaming-icon-btn:hover { opacity: 1; transform: scale(1.08); }
@@ -833,6 +833,78 @@
   .track-embed-label {
     display: flex; justify-content: space-between; gap: 8px; align-items: center;
     margin: 6px 0; color: var(--text-dim); font-size: 11px;
+  }
+  .album-play-btn {
+    border: 1px solid var(--accent); background: var(--accent); color: #fff;
+    border-radius: 999px; width: 38px; height: 38px; padding: 0; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
+    box-shadow: 0 8px 18px rgba(39, 92, 62, 0.18);
+    transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease;
+  }
+  .album-play-btn:hover { filter: brightness(1.02); transform: translateY(-1px) scale(1.04); box-shadow: 0 10px 22px rgba(39, 92, 62, 0.24); }
+  .album-play-btn:active { transform: scale(0.94); }
+  .album-play-btn .icon-symbol { color: inherit; font-size: 25px; transition: transform 140ms ease; }
+  .album-play-btn:hover .icon-symbol { transform: translateX(1px); }
+  .album-play-btn:disabled {
+    opacity: 0.45; cursor: default; transform: none; filter: none;
+    background: var(--bg); border-color: var(--border); color: var(--text-dim);
+    box-shadow: none;
+  }
+  .player-dock {
+    position: fixed; left: 50%; bottom: 14px; z-index: 24; transform: translateX(-50%);
+    width: min(780px, calc(100vw - 24px));
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 16px 36px rgba(31, 29, 26, 0.22);
+    overflow: hidden;
+  }
+  .player-dock.minimized { width: min(620px, calc(100vw - 24px)); }
+  .player-dock-head {
+    min-height: 58px; display: grid; grid-template-columns: 42px 1fr auto;
+    gap: 10px; align-items: center; padding: 8px 10px; background: var(--card);
+  }
+  .player-dock-art { width: 42px; height: 42px; border-radius: 6px; object-fit: cover; background: var(--bg); }
+  .player-dock-title, .player-dock-artist {
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+  }
+  .player-dock-title { font-size: 13px; font-weight: 700; color: var(--text); }
+  .player-dock-artist { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+  .player-dock-actions { display: flex; gap: 4px; align-items: center; }
+  .player-transport { display: flex; gap: 2px; align-items: center; margin-right: 4px; }
+  .player-dock-action {
+    border: 0; background: transparent; color: var(--text-dim); width: 32px; height: 32px;
+    border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; padding: 0;
+  }
+  .player-dock-action:hover { background: var(--neutral-soft); color: var(--text); }
+  .player-dock-action.primary { background: var(--accent); color: #fff; }
+  .player-dock-action.primary:hover { background: var(--accent); color: #fff; filter: brightness(0.98); }
+  .player-dock-action:disabled { opacity: 0.34; cursor: default; background: transparent; color: var(--text-dim); filter: none; }
+  .player-dock-action .icon-symbol { color: inherit; font-size: 21px; }
+  .player-service-toggle {
+    display: flex; gap: 0; border: 1px solid var(--border); border-radius: 999px; overflow: hidden;
+    margin-right: 4px; flex: 0 0 auto;
+  }
+  .player-service-toggle button {
+    border: 0; background: var(--card); color: var(--text-dim); font: inherit;
+    font-size: 11px; padding: 5px 9px; cursor: pointer;
+  }
+  .player-service-toggle button.active { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+  .player-dock-body { height: 352px; overflow: hidden; background: #fff; }
+  .player-dock.minimized .player-dock-body {
+    height: 1px; opacity: 0; pointer-events: none;
+  }
+  .player-dock-frame { width: 100%; height: 352px; border: 0; display: block; background: #fff; }
+  .spotify-api-frame, .spotify-api-frame iframe { width: 100%; height: 352px; border: 0; display: block; }
+  .app-shell.has-player .page { padding-bottom: 470px; }
+  @media (max-width: 620px) {
+    .player-dock { bottom: calc(74px + env(safe-area-inset-bottom)); width: 100%; border-radius: 8px 8px 0 0; border-left: 0; border-right: 0; }
+    .player-dock.minimized { width: 100%; }
+    .player-dock-head { grid-template-columns: 38px minmax(0, 1fr) auto; padding: 7px 9px; }
+    .player-dock-art { width: 38px; height: 38px; }
+    .player-dock-body, .player-dock-frame, .spotify-api-frame, .spotify-api-frame iframe { height: 310px; }
+    .player-dock.minimized .player-dock-body { height: 1px; }
+    .player-service-toggle button { padding: 5px 7px; }
+    .app-shell.has-player .page { padding-bottom: 492px; }
   }
   .apple-music-link {
     display: inline-flex; align-items: center; justify-content: center;
@@ -1583,6 +1655,67 @@ function spotifyTrackUrl(track) {
   return track?.spotifyTrackId ? `https://open.spotify.com/track/${encodeURIComponent(track.spotifyTrackId)}` : null;
 }
 
+function appleMusicAlbumEmbedUrl(album) {
+  if (!album?.appleMusicId) return null;
+  return `https://embed.music.apple.com/us/album/${encodeURIComponent(album.appleMusicId)}`;
+}
+
+function spotifyAlbumEmbedUrl(album) {
+  return album?.spotifyId ? `https://open.spotify.com/embed/album/${encodeURIComponent(album.spotifyId)}` : null;
+}
+
+function albumEmbed(album, preferredService = 'apple') {
+  const appleUrl = appleMusicAlbumEmbedUrl(album);
+  const spotifyUrl = spotifyAlbumEmbedUrl(album);
+  const embeds = {
+    apple: appleUrl ? {
+      service: 'Apple Music',
+      key: 'apple',
+      url: appleUrl,
+      openUrl: album.appleMusicId ? `https://music.apple.com/album/${encodeURIComponent(album.appleMusicId)}` : appleUrl,
+    } : null,
+    spotify: spotifyUrl ? {
+      service: 'Spotify',
+      key: 'spotify',
+      url: spotifyUrl,
+      openUrl: album.spotifyId ? `https://open.spotify.com/album/${encodeURIComponent(album.spotifyId)}` : spotifyUrl,
+    } : null,
+  };
+  return embeds[preferredService] || embeds.apple || embeds.spotify || null;
+}
+
+function albumAvailableEmbeds(album) {
+  return {
+    apple: albumEmbed(album, 'apple'),
+    spotify: albumEmbed(album, 'spotify'),
+  };
+}
+
+let spotifyIframeApi = null;
+let spotifyIframeApiPromise = null;
+function loadSpotifyIframeApi() {
+  if (spotifyIframeApi) return Promise.resolve(spotifyIframeApi);
+  if (!spotifyIframeApiPromise) {
+    spotifyIframeApiPromise = new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[src="https://open.spotify.com/embed/iframe-api/v1"]');
+      const previousReady = window.onSpotifyIframeApiReady;
+      window.onSpotifyIframeApiReady = (api) => {
+        spotifyIframeApi = api;
+        if (typeof previousReady === 'function') previousReady(api);
+        resolve(api);
+      };
+      if (!existing) {
+        const script = document.createElement('script');
+        script.src = 'https://open.spotify.com/embed/iframe-api/v1';
+        script.async = true;
+        script.onerror = () => reject(new Error('Spotify player API failed to load'));
+        document.body.appendChild(script);
+      }
+    });
+  }
+  return spotifyIframeApiPromise;
+}
+
 function trackEmbed(track, preferredService = 'apple') {
   const appleUrl = appleMusicEmbedUrl(track);
   const spotifyUrl = spotifyEmbedUrl(track);
@@ -1614,6 +1747,186 @@ function MusicServicePreferencePicker({ musicService }) {
         aria-pressed=${musicService.preference === 'spotify'}
       ><span class="icon-symbol">graphic_eq</span> Spotify</button>
     </div>
+  `;
+}
+
+const AlbumPlayerContext = createContext({
+  player: null,
+  openPlayer: () => {},
+  closePlayer: () => {},
+  setPlayerService: () => {},
+  togglePlayerExpanded: () => {},
+});
+
+function useAlbumPlayer() {
+  return useContext(AlbumPlayerContext);
+}
+
+function AlbumPlayerProvider({ musicService, children }) {
+  const [player, setPlayer] = useState(null);
+
+  const openPlayer = useCallback((album, service = musicService.preference) => {
+    const embed = albumEmbed(album, service);
+    if (!embed) return;
+    setPlayer({
+      album,
+      service: embed.key,
+      embed,
+      expanded: true,
+    });
+  }, [musicService.preference]);
+
+  const closePlayer = useCallback(() => setPlayer(null), []);
+  const setPlayerService = useCallback((service) => {
+    setPlayer(current => {
+      if (!current) return current;
+      const embed = albumEmbed(current.album, service);
+      if (!embed) return current;
+      return { ...current, service: embed.key, embed };
+    });
+  }, []);
+  const togglePlayerExpanded = useCallback(() => {
+    setPlayer(current => current ? { ...current, expanded: !current.expanded } : current);
+  }, []);
+
+  const value = useMemo(() => ({ player, openPlayer, closePlayer, setPlayerService, togglePlayerExpanded }), [player, openPlayer, closePlayer, setPlayerService, togglePlayerExpanded]);
+  return html`<${AlbumPlayerContext.Provider} value=${value}>${children}<//>`;
+}
+
+function AlbumPlayButton({ album, service = null, label = 'Play album' }) {
+  const musicService = useMusicServicePreferenceContext();
+  const player = useAlbumPlayer();
+  const embed = albumEmbed(album, service || musicService.preference);
+  return html`
+    <button
+      type="button"
+      class="album-play-btn"
+      disabled=${!embed}
+      aria-label=${embed ? `${label} with ${embed.service}` : 'No album player available'}
+      title=${embed ? `${label} with ${embed.service}` : 'No album player available'}
+      onClick=${() => embed && player.openPlayer(album, embed.key)}
+    ><span class="icon-symbol">play_arrow</span></button>
+  `;
+}
+
+function SpotifyAlbumControllerEmbed({ album, onController, onPlaybackUpdate }) {
+  const hostRef = useRef(null);
+
+  useEffect(() => {
+    if (!album?.spotifyId || !hostRef.current) return;
+    let cancelled = false;
+    let controller = null;
+    hostRef.current.innerHTML = '';
+    onController(null);
+
+    loadSpotifyIframeApi()
+      .then((api) => {
+        if (cancelled || !hostRef.current) return;
+        api.createController(
+          hostRef.current,
+          {
+            uri: `spotify:album:${album.spotifyId}`,
+            width: '100%',
+            height: '352',
+          },
+          (createdController) => {
+            if (cancelled) {
+              createdController.destroy();
+              return;
+            }
+            controller = createdController;
+            onController(createdController);
+            createdController.addListener('playback_update', (event) => onPlaybackUpdate(event.data || null));
+            createdController.addListener('playback_started', (event) => onPlaybackUpdate(event.data || null));
+          }
+        );
+      })
+      .catch(() => onController(null));
+
+    return () => {
+      cancelled = true;
+      onController(null);
+      if (controller) controller.destroy();
+    };
+  }, [album?.spotifyId]);
+
+  return html`<div class="spotify-api-frame" ref=${hostRef}></div>`;
+}
+
+function AlbumPlayerDock() {
+  const { player, closePlayer, setPlayerService, togglePlayerExpanded } = useAlbumPlayer();
+  const [spotifyController, setSpotifyController] = useState(null);
+  const [spotifyPaused, setSpotifyPaused] = useState(true);
+  if (!player) return null;
+  const album = player.album;
+  const available = albumAvailableEmbeds(album);
+  const art = album.images?.[0]?.url || album.images?.[1]?.url || '';
+  const controlsEnabled = player.service === 'spotify' && spotifyController;
+  const toggleSpotify = () => {
+    if (!spotifyController) return;
+    spotifyController.togglePlay();
+  };
+  return html`
+    <section class=${`player-dock ${player.expanded ? '' : 'minimized'}`} aria-label="Album player">
+      <div class="player-dock-head">
+        ${art
+          ? html`<img class="player-dock-art" src=${art} alt="" loading="lazy" decoding="async" />`
+          : html`<div class="player-dock-art" />`}
+        <div style=${{ minWidth: 0 }}>
+          <div class="player-dock-title">${album.name}</div>
+          <div class="player-dock-artist">${album.artist}${player.embed?.service ? ` · ${player.embed.service}` : ''}</div>
+        </div>
+        <div class="player-dock-actions">
+          ${player.service === 'spotify' && html`
+            <div class="player-transport">
+              <button
+                type="button"
+                class="player-dock-action primary"
+                disabled=${!controlsEnabled}
+                onClick=${toggleSpotify}
+                title="Play or pause Spotify"
+                aria-label=${spotifyPaused ? 'Play' : 'Pause'}
+              >
+                <span class="icon-symbol">${spotifyPaused ? 'play_arrow' : 'pause'}</span>
+              </button>
+            </div>
+          `}
+          ${(available.apple && available.spotify) && html`
+            <div class="player-service-toggle" aria-label="Player service">
+              <button type="button" class=${player.service === 'apple' ? 'active' : ''} onClick=${() => setPlayerService('apple')}>Apple</button>
+              <button type="button" class=${player.service === 'spotify' ? 'active' : ''} onClick=${() => setPlayerService('spotify')}>Spotify</button>
+            </div>
+          `}
+          <a class="player-dock-action" href=${player.embed.openUrl} target="_blank" rel="noopener" title="Open in service" aria-label="Open in service">
+            <span class="icon-symbol">open_in_new</span>
+          </a>
+          <button type="button" class="player-dock-action" onClick=${togglePlayerExpanded} aria-label=${player.expanded ? 'Minimize player' : 'Expand player'} title=${player.expanded ? 'Minimize player' : 'Expand player'}>
+            <span class="icon-symbol">${player.expanded ? 'keyboard_arrow_down' : 'keyboard_arrow_up'}</span>
+          </button>
+          <button type="button" class="player-dock-action" onClick=${closePlayer} aria-label="Close player" title="Close player">
+            <span class="icon-symbol">close</span>
+          </button>
+        </div>
+      </div>
+      <div class="player-dock-body" aria-hidden=${!player.expanded}>
+        ${player.service === 'spotify'
+          ? html`<${SpotifyAlbumControllerEmbed}
+              album=${album}
+              onController=${setSpotifyController}
+              onPlaybackUpdate=${(data) => {
+                if (typeof data?.isPaused === 'boolean') setSpotifyPaused(data.isPaused);
+              }}
+            />`
+          : html`
+            <iframe
+              class="player-dock-frame"
+              src=${player.embed.url}
+              title=${`${album.name} on ${player.embed.service}`}
+              allow="autoplay *; clipboard-write *; encrypted-media *; fullscreen *; picture-in-picture *"
+            ></iframe>
+          `}
+      </div>
+    </section>
   `;
 }
 
@@ -3372,6 +3685,7 @@ const DIDDY_GIF_URL = '/1001-albums/diddy.gif';
 
 function SimilarAlbumsHelper({ album, projectName, source = 'global' }) {
   const { enabled: diddyEnabled } = useDiddySetting();
+  const albumPlayer = useAlbumPlayer();
   const catalog = useAlbumCatalog(source);
   useEffect(() => { catalog.load(); }, [catalog.load]);
   const genreStyleIndex = useMemo(() => buildGenreStyleIndex(catalog.albums), [catalog.albums]);
@@ -3433,7 +3747,7 @@ function SimilarAlbumsHelper({ album, projectName, source = 'global' }) {
   const [headline] = useState(() => DIDDY_LINES[Math.floor(Math.random() * DIDDY_LINES.length)]);
   const [linkFn] = useState(() => DIDDY_LINK_LINES[Math.floor(Math.random() * DIDDY_LINK_LINES.length)]);
 
-  if (!diddyEnabled || !result || catalog.status !== 'ready' || dismissed) return null;
+  if (albumPlayer.player || !diddyEnabled || !result || catalog.status !== 'ready' || dismissed) return null;
 
   const href = discoverModeRoutePath(projectName, source, 'genre-style', result.tags.join(','));
 
@@ -3525,6 +3839,7 @@ function DiscoverAlbumView({ albumSlug, projectName, source = 'global', hubData 
                 <p class="album-title">${album.name}</p>
                 <p class="album-artist">${album.artist}${album.releaseDate ? ` (${album.releaseDate})` : ''}</p>
               </div>
+              <${AlbumPlayButton} album=${album} />
               <${StreamingLinks} album=${album} extraLinks=${scrapedContext?.streamingLinks || []} />
             </div>
             <${AlbumSummaryContext} album=${album} projectName=${projectName} discoverSource=${source} sections=${['genres', 'discovery']} />
@@ -4064,6 +4379,7 @@ function AlbumSpotlight({ album, projectName, groupSlug = null, comparison = nul
             <p class="album-title">${album.name}</p>
             <p class="album-artist">${album.artist}${album.releaseDate ? ` (${album.releaseDate})` : ''}</p>
           </div>
+          <${AlbumPlayButton} album=${album} />
           <${StreamingLinks} album=${album} />
         </div>
         <${AlbumSummaryContext} album=${album} projectName=${projectName} sections=${['genres', 'discovery']} />
@@ -4987,13 +5303,13 @@ function usePullToRefresh(onRefresh, enabled, scrollRef) {
   return pullY;
 }
 
-function App() {
+function App({ musicService }) {
   const [route, setRoute] = useState(getRouteFromLocation());
   const { projectName, tab, backlogAlbumId, albumId, subTab, discoverSource, discoverMode, discoverQuery, discoverAlbumTab, discoverReviewKeyword, pairA, pairB, memberName } = route;
   const currentProjectName = !projectName ? readCurrentProjectName() : '';
   const theme = useTheme();
   const diddy = useDiddySetting();
-  const musicService = useMusicServicePreference();
+  const albumPlayer = useAlbumPlayer();
   useSwipeNavigation();
   const pageRef = useRef(null);
   const scrollPositions = useRef({});
@@ -5092,7 +5408,7 @@ function App() {
 
   return html`
     <${MusicServicePreferenceContext.Provider} value=${musicService}>
-    <div class="app-shell">
+    <div class=${`app-shell ${albumPlayer.player ? 'has-player' : ''}`}>
       <${Splash} ready=${splashDone} refreshing=${splashRefreshing} />
       <${Nav} projectName=${projectName} tab=${navTab(tab === 'album' ? (subTab === 'group' ? 'group' : 'today') : tab)} backlogCount=${backlog.length} unreadCount=${notifications.notifications.length} theme=${theme} scrollToTop=${scrollToTop} />
       <${RefreshErrorToast} error=${hub.refreshError} onDismiss=${hub.dismissRefreshError} />
@@ -5138,12 +5454,24 @@ function App() {
           ${' · '}<a class="real-site-link" href=${`${SITE_BASE}/${encodeURIComponent(projectName)}`} target="_blank" rel="noopener">Open real site ↗</a>
         </p>
       </main>
+      <${AlbumPlayerDock} />
     </div>
     <//>
   `;
 }
 
-render(html`<${App} />`, document.getElementById('app'));
+function AppRoot() {
+  const musicService = useMusicServicePreference();
+  return html`
+      <${MusicServicePreferenceContext.Provider} value=${musicService}>
+      <${AlbumPlayerProvider} musicService=${musicService}>
+        <${App} musicService=${musicService} />
+      <//>
+    <//>
+  `;
+}
+
+render(html`<${AppRoot} />`, document.getElementById('app'));
 </script>
 </body>
 </html>
