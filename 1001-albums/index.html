@@ -1144,7 +1144,10 @@ async function putFavoriteTrack(projectName, trackId, entry) {
   } catch (err) {
     throw new Error(describeFetchFailure(err));
   }
-  if (!res.ok) throw new Error('Failed to save favorite.');
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.message || 'Failed to save favorite.');
+  }
 }
 async function deleteFavoriteTrack(projectName, trackId) {
   let res;
@@ -1153,7 +1156,10 @@ async function deleteFavoriteTrack(projectName, trackId) {
   } catch (err) {
     throw new Error(describeFetchFailure(err));
   }
-  if (!res.ok) throw new Error('Failed to remove favorite.');
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.message || 'Failed to remove favorite.');
+  }
 }
 
 // Undocumented endpoint the live site uses when its notification bell is opened. Keep this behind
