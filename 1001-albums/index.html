@@ -3152,7 +3152,7 @@ function ExploreView({ projectName, source = 'global', mode = 'browse', initialQ
   }, [projectName, source, mode, initialQuery]);
 
   useEffect(() => {
-    const t = setTimeout(() => inputRef.current?.focus(), 50);
+    const t = setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 50);
     return () => clearTimeout(t);
   }, [mode, source]);
 
