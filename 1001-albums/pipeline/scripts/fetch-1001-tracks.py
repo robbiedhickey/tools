@@ -111,7 +111,7 @@ def disc_number(track: dict[str, Any]) -> int:
     return value if isinstance(value, int) else 1
 
 
-def normalize_spotify_track(item: Any, fallback_number: int, album: dict[str, Any], apple_album_id: str | None) -> dict[str, Any] | None:
+def normalize_spotify_track(item: Any, fallback_number: int, album: dict[str, Any]) -> dict[str, Any] | None:
     track = item.get("track") if isinstance(item, dict) and isinstance(item.get("track"), dict) else item
     if not isinstance(track, dict):
         return None
@@ -131,22 +131,23 @@ def normalize_spotify_track(item: Any, fallback_number: int, album: dict[str, An
 
     playable = pick_path(track, [["playability", "playable"], ["streamable"]])
 
-    return {
+    value = {
         "discNumber": disc_number(track),
         "trackNumber": track_number(track, fallback_number),
         "title": title,
         "durationMs": track_duration_ms(track),
-        "artistName": first_artist_name(track) or album.get("artist"),
-        "albumName": album.get("name"),
-        "spotifyTrackId": track_id,
-        "spotifyAlbumId": album.get("spotifyId"),
-        "appleAlbumId": apple_album_id,
-        "appleTrackId": None,
-        "trackViewUrl": share_url,
-        "artworkUrl": ((album.get("images") or [{}])[0] or {}).get("url"),
         "explicit": explicit if isinstance(explicit, bool) else None,
         "streamable": playable if isinstance(playable, bool) else None,
+        "services": {"spotify": {"trackId": track_id, "url": share_url}},
     }
+    artist_name = first_artist_name(track)
+    if artist_name and artist_name != album.get("artist"):
+        value["artist"] = artist_name
+    if not track_id:
+        value["services"].pop("spotify")
+    if not value["services"]:
+        value.pop("services")
+    return {key: item for key, item in value.items() if item is not None}
 
 
 def scrape_apple_music_id(album: dict[str, Any]) -> str | None:
@@ -264,6 +265,15 @@ def read_existing(path: Path) -> dict[str, Any]:
     return data
 
 
+def album_services(spotify_album_id: str | None, apple_album_id: str | None) -> dict[str, Any]:
+    services: dict[str, Any] = {}
+    if spotify_album_id:
+        services["spotify"] = {"albumId": spotify_album_id}
+    if apple_album_id:
+        services["appleMusic"] = {"albumId": str(apple_album_id)}
+    return services
+
+
 def write_output(path: Path, data: dict[str, Any]) -> None:
     data["version"] = 1
     data["generatedAt"] = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -293,8 +303,8 @@ def main() -> int:
     for index, album in enumerate(albums, start=1):
         spotify_id = album["spotifyId"]
         album_metadata = {
-            "albumName": album.get("name"),
-            "artistName": album.get("artist"),
+            "name": album.get("name"),
+            "artist": album.get("artist"),
             "releaseDate": album.get("releaseDate"),
             "genres": album.get("genres") or [],
             "styles": album.get("styles") or [],
@@ -309,6 +319,10 @@ def main() -> int:
                 **existing_album,
                 **{key: value for key, value in album_metadata.items() if value not in (None, [], "")},
             }
+            existing["services"] = album_services(
+                album_metadata.get("spotifyAlbumId"),
+                (existing.get("services") or {}).get("appleMusic", {}).get("albumId"),
+            )
             output["albums"][spotify_id] = existing
             write_output(args.output, output)
             print(f"[{index}/{len(albums)}] skip {album.get('artist')} - {album.get('name')}")
@@ -321,7 +335,7 @@ def main() -> int:
             tracks = [
                 track
                 for pos, item in enumerate(raw_tracks, start=1)
-                if (track := normalize_spotify_track(item, pos, album, apple_album_id))
+                if (track := normalize_spotify_track(item, pos, album))
             ]
             tracks.sort(key=lambda t: ((t.get("discNumber") or 1), (t.get("trackNumber") or 0)))
             error = None
@@ -340,8 +354,8 @@ def main() -> int:
                 **album_metadata,
                 "trackCount": len(tracks),
                 "totalRuntimeMs": sum(track.get("durationMs") or 0 for track in tracks) or None,
-                "appleAlbumId": apple_album_id,
             },
+            "services": album_services(album_metadata.get("spotifyAlbumId"), apple_album_id),
             "tracks": tracks,
         }
         if error:

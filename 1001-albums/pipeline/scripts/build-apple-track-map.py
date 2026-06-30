@@ -123,6 +123,11 @@ def match_track(spotify_track: dict[str, Any], candidates: list[dict[str, Any]])
     return None, "none"
 
 
+def spotify_track_id(track: dict[str, Any]) -> str | None:
+    value = (track.get("services") or {}).get("spotify", {}).get("trackId")
+    return str(value) if value else None
+
+
 def load_existing(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {"version": 1, "albums": {}}
@@ -156,34 +161,35 @@ def main() -> int:
     records = iter_album_records(args.inputs)
     for index, (spotify_id, record, source_path) in enumerate(records, start=1):
         album = record.get("album") or {}
-        apple_album_id = album.get("appleAlbumId")
-        tracks = [track for track in record.get("tracks") or [] if track.get("spotifyTrackId")]
+        apple_id = ((record.get("services") or {}).get("appleMusic") or {}).get("albumId")
+        tracks = [track for track in record.get("tracks") or [] if spotify_track_id(track)]
         existing = output["albums"].get(spotify_id)
         if not args.force and existing and existing.get("mappedCount", 0) >= len(tracks):
             print(f"[{index}/{len(records)}] skip {spotify_id}")
             continue
-        if not apple_album_id or not tracks:
+        if not apple_id or not tracks:
             continue
 
-        print(f"[{index}/{len(records)}] map {album.get('artistName')} - {album.get('albumName')} ({spotify_id})")
+        print(f"[{index}/{len(records)}] map {album.get('artist')} - {album.get('name')} ({spotify_id})")
         try:
-            apple_data = fetch_apple_album(str(apple_album_id))
+            apple_data = fetch_apple_album(apple_id)
             apple_tracks = parse_apple_tracks(apple_data)
             mappings = {}
             unmatched = []
             for track in tracks:
                 match, method = match_track(track, apple_tracks)
+                track_id = spotify_track_id(track)
                 if match and match.get("trackId") is not None:
-                    mappings[track["spotifyTrackId"]] = {
+                    mappings[track_id] = {
                         "appleTrackId": str(match["trackId"]),
                         "trackViewUrl": match.get("trackViewUrl"),
                         "matchMethod": method,
                     }
                 else:
-                    unmatched.append(track.get("spotifyTrackId"))
+                    unmatched.append(track_id)
             output["albums"][spotify_id] = {
                 "spotifyAlbumId": spotify_id,
-                "appleAlbumId": str(apple_album_id),
+                "appleAlbumId": apple_id,
                 "sourcePath": source_path,
                 "mappedAt": utc_now(),
                 "trackCount": len(tracks),
@@ -194,7 +200,7 @@ def main() -> int:
         except Exception as err:
             output["albums"][spotify_id] = {
                 "spotifyAlbumId": spotify_id,
-                "appleAlbumId": str(apple_album_id),
+                "appleAlbumId": apple_id,
                 "sourcePath": source_path,
                 "mappedAt": utc_now(),
                 "error": {"type": type(err).__name__, "message": str(err)},

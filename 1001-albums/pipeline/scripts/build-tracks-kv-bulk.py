@@ -24,7 +24,10 @@ from pathlib import Path
 from typing import Any
 
 
-DEFAULT_INPUT = Path("1001-albums/pipeline/data/book-tracks-data.json")
+DEFAULT_INPUTS = [
+    Path("1001-albums/pipeline/data/book-tracks-data.json"),
+    Path("1001-albums/pipeline/data/user-tracks-data.json"),
+]
 DEFAULT_APPLE_MAP = Path("1001-albums/pipeline/data/apple-track-map.json")
 DEFAULT_OUTPUT = Path("1001-albums/pipeline/data/tracks-kv-bulk.json")
 DEFAULT_PREFIX = "1001-albums:album"
@@ -69,6 +72,11 @@ def service_obj(**values: Any) -> dict[str, Any] | None:
     return value or None
 
 
+def spotify_track_id(track: dict[str, Any]) -> str | None:
+    value = (track.get("services") or {}).get("spotify", {}).get("trackId")
+    return str(value) if value else None
+
+
 def album_summary(spotify_id: str, album: dict[str, Any], tracks: list[dict[str, Any]]) -> dict[str, Any]:
     total_runtime = album.get("totalRuntimeMs")
     if total_runtime is None:
@@ -76,21 +84,22 @@ def album_summary(spotify_id: str, album: dict[str, Any], tracks: list[dict[str,
 
     return {
         "spotifyAlbumId": spotify_id,
-        "name": album.get("albumName"),
-        "artist": album.get("artistName"),
+        "name": album.get("name"),
+        "artist": album.get("artist"),
         "releaseDate": album.get("releaseDate"),
         "genres": album.get("genres") or [],
         "styles": album.get("styles") or [],
         "catalogSource": album.get("catalogSource"),
         "catalogNumber": album.get("catalogNumber"),
+        "images": album.get("images") or [],
         "trackCount": album.get("trackCount") if album.get("trackCount") is not None else len(tracks),
         "totalRuntimeMs": total_runtime,
     }
 
 
-def album_services(spotify_id: str, album: dict[str, Any]) -> dict[str, Any]:
+def album_services(spotify_id: str, record: dict[str, Any]) -> dict[str, Any]:
     services: dict[str, Any] = {"spotify": {"albumId": spotify_id}}
-    apple_album_id = album.get("appleAlbumId")
+    apple_album_id = ((record.get("services") or {}).get("appleMusic") or {}).get("albumId")
     if apple_album_id:
         services["appleMusic"] = {"albumId": str(apple_album_id)}
     return services
@@ -98,11 +107,11 @@ def album_services(spotify_id: str, album: dict[str, Any]) -> dict[str, Any]:
 
 def track_services(track: dict[str, Any], apple_mapping: dict[str, Any] | None) -> dict[str, Any]:
     services: dict[str, Any] = {}
-    spotify_track_id = track.get("spotifyTrackId")
-    if spotify_track_id:
+    track_id = spotify_track_id(track)
+    if track_id:
         services["spotify"] = {
-            "trackId": spotify_track_id,
-            "url": f"https://open.spotify.com/track/{spotify_track_id}",
+            "trackId": track_id,
+            "url": (track.get("services") or {}).get("spotify", {}).get("url"),
         }
 
     apple_track_id = None
@@ -112,11 +121,6 @@ def track_services(track: dict[str, Any], apple_mapping: dict[str, Any] | None) 
         apple_track_id = apple_mapping.get("appleTrackId")
         apple_url = apple_mapping.get("trackViewUrl")
         match_method = apple_mapping.get("matchMethod")
-    if not apple_track_id:
-        apple_track_id = track.get("appleTrackId")
-    if not apple_url:
-        apple_url = track.get("trackViewUrl") if track.get("appleTrackId") else None
-
     apple_service = service_obj(trackId=str(apple_track_id) if apple_track_id else None, url=apple_url, matchMethod=match_method)
     if apple_service:
         services["appleMusic"] = apple_service
@@ -133,8 +137,10 @@ def compact_track(track: dict[str, Any], album: dict[str, Any], apple_mapping: d
         "streamable": track.get("streamable"),
         "services": track_services(track, apple_mapping),
     }
-    if track.get("artistName") and track.get("artistName") != album.get("artistName"):
-        value["artist"] = track["artistName"]
+    album_artist = album.get("artist")
+    track_artist = track.get("artist")
+    if track_artist and track_artist != album_artist:
+        value["artist"] = track_artist
     return {key: item for key, item in value.items() if item is not None and item != {}}
 
 
@@ -149,7 +155,7 @@ def build_album_record(
     source_tracks = [track for track in record.get("tracks") or [] if isinstance(track, dict)]
     apple_tracks = (apple_map_record or {}).get("tracks") or {}
     tracks = [
-        compact_track(track, source_album, apple_tracks.get(track.get("spotifyTrackId")))
+        compact_track(track, source_album, apple_tracks.get(spotify_track_id(track)))
         for track in source_tracks
     ]
     tracks.sort(key=lambda track: (track.get("discNumber") or 1, track.get("trackNumber") or 0))
@@ -161,7 +167,7 @@ def build_album_record(
         "source": "1001albumsgenerator.com",
         "spotifyAlbumId": spotify_id,
         "album": album_summary(spotify_id, source_album, source_tracks),
-        "services": album_services(spotify_id, source_album),
+        "services": album_services(spotify_id, record),
         "tracks": tracks,
     }
 
@@ -181,15 +187,22 @@ def build_album_record(
     return value
 
 
-def build_bulk(data: dict[str, Any], apple_map: dict[str, Any], prefix: str) -> list[dict[str, str]]:
-    albums = data.get("albums", {})
-    generated_at = data.get("generatedAt")
+def build_bulk(datasets: list[dict[str, Any]], apple_map: dict[str, Any], prefix: str) -> list[dict[str, str]]:
     prepared_at = utc_now()
+    merged_albums: dict[str, tuple[dict[str, Any], str | None]] = {}
+
+    for data in datasets:
+        generated_at = data.get("generatedAt")
+        for spotify_id, record in (data.get("albums") or {}).items():
+            if not isinstance(record, dict):
+                continue
+            existing = merged_albums.get(spotify_id)
+            if existing and (existing[0].get("album") or {}).get("catalogSource") == "book":
+                continue
+            merged_albums[spotify_id] = (record, generated_at)
 
     rows: list[dict[str, str]] = []
-    for spotify_id, record in sorted(albums.items()):
-        if not isinstance(record, dict):
-            continue
+    for spotify_id, (record, generated_at) in sorted(merged_albums.items()):
         value = build_album_record(
             spotify_id=spotify_id,
             record=record,
@@ -203,15 +216,16 @@ def build_bulk(data: dict[str, Any], apple_map: dict[str, Any], prefix: str) -> 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
+    parser.add_argument("--input", type=Path, action="append", dest="inputs", help="Track-data JSON input. May be passed more than once.")
     parser.add_argument("--apple-map", type=Path, default=DEFAULT_APPLE_MAP)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--prefix", default=DEFAULT_PREFIX)
     args = parser.parse_args()
 
-    data = load_track_data(args.input)
+    input_paths = args.inputs or DEFAULT_INPUTS
+    datasets = [load_track_data(path) for path in input_paths]
     apple_map = load_apple_map(args.apple_map)
-    rows = build_bulk(data, apple_map, args.prefix.rstrip(":"))
+    rows = build_bulk(datasets, apple_map, args.prefix.rstrip(":"))
     with args.output.open("w", encoding="utf-8") as f:
         json.dump(rows, f, ensure_ascii=False, indent=2)
         f.write("\n")

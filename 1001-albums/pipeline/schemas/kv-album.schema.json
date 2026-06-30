@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tools.robbiehickey.com/1001-albums/pipeline/schemas/kv-album.schema.json",
+  "title": "1001 Albums KV Album Enrichment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "preparedAt",
+    "source",
+    "spotifyAlbumId",
+    "album",
+    "services",
+    "tracks"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "generatedAt": { "type": ["string", "null"] },
+    "preparedAt": { "type": "string" },
+    "source": { "type": "string" },
+    "spotifyAlbumId": { "type": "string", "minLength": 1 },
+    "album": { "$ref": "#/$defs/album" },
+    "services": { "$ref": "#/$defs/albumServices" },
+    "tracks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/track" }
+    },
+    "mappings": { "$ref": "#/$defs/mappings" },
+    "errors": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/error" }
+    }
+  },
+  "$defs": {
+    "album": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spotifyAlbumId",
+        "name",
+        "artist",
+        "releaseDate",
+        "genres",
+        "styles",
+        "images",
+        "catalogSource",
+        "trackCount"
+      ],
+      "properties": {
+        "spotifyAlbumId": { "type": "string", "minLength": 1 },
+        "name": { "type": ["string", "null"] },
+        "artist": { "type": ["string", "null"] },
+        "releaseDate": { "type": ["string", "null"] },
+        "genres": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "styles": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "catalogSource": { "type": ["string", "null"], "enum": ["book", "user", null] },
+        "catalogNumber": { "type": ["integer", "string", "null"] },
+        "images": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/image" }
+        },
+        "trackCount": { "type": "integer", "minimum": 0 },
+        "totalRuntimeMs": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "albumServices": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["spotify"],
+      "properties": {
+        "spotify": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["albumId"],
+          "properties": {
+            "albumId": { "type": "string", "minLength": 1 }
+          }
+        },
+        "appleMusic": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["albumId"],
+          "properties": {
+            "albumId": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url"],
+      "properties": {
+        "url": { "type": "string", "minLength": 1 },
+        "height": { "type": ["integer", "null"], "minimum": 0 },
+        "width": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "track": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["discNumber", "trackNumber", "title", "services"],
+      "properties": {
+        "discNumber": { "type": "integer", "minimum": 1 },
+        "trackNumber": { "type": "integer", "minimum": 1 },
+        "title": { "type": "string" },
+        "artist": { "type": "string" },
+        "durationMs": { "type": ["integer", "null"], "minimum": 0 },
+        "explicit": { "type": ["boolean", "null"] },
+        "streamable": { "type": ["boolean", "null"] },
+        "services": { "$ref": "#/$defs/trackServices" }
+      }
+    },
+    "trackServices": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "spotify": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["trackId"],
+          "properties": {
+            "trackId": { "type": "string", "minLength": 1 },
+            "url": { "type": ["string", "null"] }
+          }
+        },
+        "appleMusic": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["trackId"],
+          "properties": {
+            "trackId": { "type": "string", "minLength": 1 },
+            "url": { "type": ["string", "null"] },
+            "matchMethod": { "type": ["string", "null"] }
+          }
+        }
+      },
+      "anyOf": [
+        { "required": ["spotify"] },
+        { "required": ["appleMusic"] }
+      ]
+    },
+    "mappings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "appleMusic": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mappedCount", "trackCount", "unmatchedSpotifyTrackIds"],
+          "properties": {
+            "mappedAt": { "type": ["string", "null"] },
+            "mappedCount": { "type": "integer", "minimum": 0 },
+            "trackCount": { "type": "integer", "minimum": 0 },
+            "unmatchedSpotifyTrackIds": {
+              "type": "array",
+              "items": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["type", "message"],
+      "properties": {
+        "type": { "type": "string" },
+        "message": { "type": "string" },
+        "failedAt": { "type": "string" }
+      }
+    }
+  }
+}

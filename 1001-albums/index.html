@@ -2137,7 +2137,7 @@ function normalizeStoredTrack(track, album, record) {
     spotifyTrackId: spotify.trackId ?? track.spotifyTrackId ?? null,
     spotifyAlbumId: record?.spotifyAlbumId ?? album?.spotifyAlbumId ?? null,
     trackViewUrl: apple.url || track.trackViewUrl || spotify.url || (spotify.trackId ? `https://open.spotify.com/track/${spotify.trackId}` : null),
-    artworkUrl: track.artworkUrl || null,
+    artworkUrl: track.artworkUrl || album?.images?.[0]?.url || null,
     explicit: typeof track.explicit === 'boolean' ? track.explicit : null,
     streamable: typeof track.streamable === 'boolean' ? track.streamable : null,
   };
