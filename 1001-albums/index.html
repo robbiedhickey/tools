@@ -795,8 +795,9 @@
   .tracks-table { table-layout: fixed; width: 100%; }
   .tracks-table th:nth-child(1), .tracks-table td:nth-child(1) { width: 28px; }
   .tracks-table th:nth-child(2), .tracks-table td:nth-child(2) { width: 32px; }
-  .tracks-table th:nth-child(3), .tracks-table td:nth-child(3) { }
-  .tracks-table th:nth-child(4), .tracks-table td:nth-child(4) { width: 60px; }
+  .tracks-table th:nth-child(3), .tracks-table td:nth-child(3) { width: 32px; }
+  .tracks-table th:nth-child(4), .tracks-table td:nth-child(4) { }
+  .tracks-table th:nth-child(5), .tracks-table td:nth-child(5) { width: 60px; }
   .tracks-table .truncate-cell { overflow: hidden; text-overflow: ellipsis; cursor: default; }
   th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); }
   th { color: var(--text-dim); font-weight: 600; font-size: 12px; text-transform: uppercase; }
@@ -816,6 +817,23 @@
   .star-pick { border: 0; background: transparent; cursor: pointer; font-size: 36px; line-height: 1; padding: 0; color: var(--border); -webkit-touch-callout: none; user-select: none; transition: transform 0.1s; }
   .star-pick:active { transform: scale(0.78); }
   .star-pick.active { color: var(--warn); }
+  .embed-btn {
+    border: 1px solid var(--border); background: var(--bg); color: var(--text-dim);
+    width: 24px; height: 24px; border-radius: 999px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .embed-btn:hover, .embed-btn.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+  .embed-btn .icon-symbol { font-size: 17px; color: inherit; }
+  .track-embed-row td { padding: 0 8px 10px 68px; background: var(--bg); }
+  .track-embed-frame {
+    width: 100%; height: 175px; border: 0; display: block;
+    border-radius: 8px; background: #fff;
+  }
+  .track-embed-label {
+    display: flex; justify-content: space-between; gap: 8px; align-items: center;
+    margin: 6px 0; color: var(--text-dim); font-size: 11px;
+  }
   .apple-music-link {
     display: inline-flex; align-items: center; justify-content: center;
     width: 24px; height: 24px; border-radius: 999px; vertical-align: middle;
@@ -918,8 +936,8 @@
 <div id="app"></div>
 
 <script type="module">
-import { h, render, Fragment } from 'https://esm.sh/preact@10.23.1';
-import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'https://esm.sh/preact@10.23.1/hooks';
+import { h, render, Fragment, createContext } from 'https://esm.sh/preact@10.23.1';
+import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef, useContext } from 'https://esm.sh/preact@10.23.1/hooks';
 import { createPortal } from 'https://esm.sh/preact@10.23.1/compat';
 import htm from 'https://esm.sh/htm@3.1.1';
 const html = htm.bind(h);
@@ -1041,7 +1059,7 @@ async function apiGet(path) {
 const fetchProject = (name) => apiGet(`/projects/${encodeURIComponent(name)}`);
 const fetchGroup = (slug) => apiGet(`/groups/${encodeURIComponent(slug)}`);
 const fetchGroupAlbumReviews = (groupSlug, albumUuid) => apiGet(`/groups/${encodeURIComponent(groupSlug)}/albums/${encodeURIComponent(albumUuid)}`);
-const ALBUM_CATALOG_CACHE_VERSION = 'v4';
+const ALBUM_CATALOG_CACHE_VERSION = 'v5';
 const albumCatalogCacheKey = (source) => `album-catalog:${ALBUM_CATALOG_CACHE_VERSION}:${source}`;
 let catalogCorrectionsPromise = null;
 async function fetchCatalogCorrections() {
@@ -1053,17 +1071,52 @@ async function fetchCatalogCorrections() {
   return catalogCorrectionsPromise;
 }
 function applyCatalogCorrections(albums, source, corrections) {
-  const sourceCorrections = corrections[source === 'user' ? 'user' : 'global'] || {};
-  return albums.map((album) => {
-    const correction = sourceCorrections[album.spotifyId];
-    if (!correction?.spotifyId || correction.spotifyId === album.spotifyId) return album;
+  return albums.map(album => applyCatalogCorrectionToAlbum(album, corrections, source));
+}
+function catalogCorrectionForAlbum(album, corrections, source = null) {
+  if (!album?.spotifyId) return null;
+  const maps = source
+    ? [corrections[source === 'user' ? 'user' : 'global'] || {}]
+    : [corrections.global || {}, corrections.user || {}];
+  for (const map of maps) {
+    if (map[album.spotifyId]) return map[album.spotifyId];
+  }
+  return null;
+}
+function applyCatalogCorrectionToAlbum(album, corrections, source = null) {
+  const correction = catalogCorrectionForAlbum(album, corrections, source);
+  if (!correction) return album;
+  const next = { ...album };
+  if (correction.spotifyId && correction.spotifyId !== album.spotifyId) {
+    next.originalSpotifyId = album.spotifyId;
+    next.spotifyId = correction.spotifyId;
+  }
+  if (correction.appleMusicId) next.appleMusicId = correction.appleMusicId;
+  if (correction.globalReviewsUrl) next.globalReviewsUrl = correction.globalReviewsUrl;
+  return next;
+}
+function applyHubCatalogCorrections(hub, corrections) {
+  const correctProject = (project) => {
+    if (!project || project.__error) return project;
     return {
-      ...album,
-      originalSpotifyId: album.spotifyId,
-      spotifyId: correction.spotifyId,
-      globalReviewsUrl: correction.globalReviewsUrl || album.globalReviewsUrl,
+      ...project,
+      currentAlbum: project.currentAlbum
+        ? applyCatalogCorrectionToAlbum(project.currentAlbum, corrections)
+        : project.currentAlbum,
+      history: (project.history || []).map(entry => entry.album
+        ? { ...entry, album: applyCatalogCorrectionToAlbum(entry.album, corrections) }
+        : entry),
     };
-  });
+  };
+  const members = {};
+  for (const [name, project] of Object.entries(hub.members || {})) {
+    members[name] = correctProject(project);
+  }
+  return {
+    ...hub,
+    me: correctProject(hub.me),
+    members,
+  };
 }
 async function fetchAlbumCatalog(source = 'global') {
   const endpoint = source === 'user' ? '/user-albums/stats' : '/albums/stats';
@@ -1198,9 +1251,10 @@ async function markAllNotificationsRead(projectName) {
   return body;
 }
 async function loadHub(projectName) {
+  const corrections = await fetchCatalogCorrections();
   const me = await fetchProject(projectName);
   if (!me.group || !me.group.slug) {
-    return { me, group: null, members: { [projectName]: me } };
+    return applyHubCatalogCorrections({ me, group: null, members: { [projectName]: me } }, corrections);
   }
   const group = await fetchGroup(me.group.slug);
   const memberNames = group.members.map(m => m.name);
@@ -1212,7 +1266,7 @@ async function loadHub(projectName) {
   const members = {};
   memberNames.forEach((name, i) => { members[name] = results[i]; });
   if (!members[projectName]) members[projectName] = me;
-  return { me, group, members };
+  return applyHubCatalogCorrections({ me, group, members }, corrections);
 }
 
 function isUnrated(entry) {
@@ -1484,6 +1538,85 @@ function favoriteTrackId(track) {
   return track?.appleTrackId || track?.spotifyTrackId || null;
 }
 
+const MUSIC_SERVICE_PREFERENCE_KEY = '1001-albums:setting:music-service';
+const MUSIC_SERVICE_PREFERENCES = new Set(['apple', 'spotify']);
+const MusicServicePreferenceContext = createContext({ preference: 'apple', setPreference: () => {} });
+
+function readMusicServicePreference() {
+  try {
+    const value = localStorage.getItem(MUSIC_SERVICE_PREFERENCE_KEY);
+    return MUSIC_SERVICE_PREFERENCES.has(value) ? value : 'apple';
+  } catch {
+    return 'apple';
+  }
+}
+
+function useMusicServicePreference() {
+  const [preference, setStoredPreference] = useState(readMusicServicePreference);
+  const setPreference = (next) => {
+    if (!MUSIC_SERVICE_PREFERENCES.has(next)) return;
+    try { localStorage.setItem(MUSIC_SERVICE_PREFERENCE_KEY, next); } catch (e) {}
+    setStoredPreference(next);
+  };
+  return { preference, setPreference };
+}
+
+function appleMusicEmbedUrl(track) {
+  const url = track?.trackViewUrl || '';
+  if (!track?.appleTrackId || !url.includes('music.apple.com/')) return null;
+  try {
+    const parsed = new URL(url);
+    parsed.hostname = 'embed.music.apple.com';
+    if (!parsed.searchParams.get('i')) parsed.searchParams.set('i', track.appleTrackId);
+    parsed.searchParams.set('autoplay', '1');
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function spotifyEmbedUrl(track) {
+  return track?.spotifyTrackId ? `https://open.spotify.com/embed/track/${encodeURIComponent(track.spotifyTrackId)}` : null;
+}
+
+function spotifyTrackUrl(track) {
+  return track?.spotifyTrackId ? `https://open.spotify.com/track/${encodeURIComponent(track.spotifyTrackId)}` : null;
+}
+
+function trackEmbed(track, preferredService = 'apple') {
+  const appleUrl = appleMusicEmbedUrl(track);
+  const spotifyUrl = spotifyEmbedUrl(track);
+  const embeds = {
+    apple: appleUrl ? { service: 'Apple Music', key: 'apple', url: appleUrl, openUrl: track.trackViewUrl || appleUrl } : null,
+    spotify: spotifyUrl ? { service: 'Spotify', key: 'spotify', url: spotifyUrl, openUrl: spotifyTrackUrl(track) || spotifyUrl } : null,
+  };
+  return embeds[preferredService] || embeds.apple || embeds.spotify || null;
+}
+
+function useMusicServicePreferenceContext() {
+  return useContext(MusicServicePreferenceContext);
+}
+
+function MusicServicePreferencePicker({ musicService }) {
+  if (!musicService) return null;
+  return html`
+    <div class="theme-picker" role="group" aria-label="Music service">
+      <button
+        type="button"
+        class=${`theme-option ${musicService.preference === 'apple' ? 'active' : ''}`}
+        onClick=${() => musicService.setPreference('apple')}
+        aria-pressed=${musicService.preference === 'apple'}
+      ><span class="icon-symbol">music_note</span> Apple</button>
+      <button
+        type="button"
+        class=${`theme-option ${musicService.preference === 'spotify' ? 'active' : ''}`}
+        onClick=${() => musicService.setPreference('spotify')}
+        aria-pressed=${musicService.preference === 'spotify'}
+      ><span class="icon-symbol">graphic_eq</span> Spotify</button>
+    </div>
+  `;
+}
+
 function useFavoriteTracks(projectName) {
   const [favorites, setFavorites] = useState({});
   const [errorMessage, setErrorMessage] = useState('');
@@ -1557,7 +1690,7 @@ const VALID_TABS = new Set(['today', 'backlog', 'group', 'activity', 'me', 'sett
 // Sub-tabs within the album info panel (AlbumInfoTabs) — linkable as a trailing path segment
 // on album/backlog-album routes, e.g. .../backlog/{id}/group, so a specific tab is shareable.
 const VALID_SUBTABS = new Set(['summary', 'tracks', 'reviews', 'group']);
-const DISCOVER_ALBUM_TABS = new Set(['summary', 'reviews']);
+const DISCOVER_ALBUM_TABS = new Set(['summary', 'tracks', 'reviews']);
 const DISCOVER_PATH_TO_MODE = { keyword: 'keyword', genres: 'genre-style' };
 const DISCOVER_MODE_TO_PATH = { browse: '', keyword: 'keyword', 'genre-style': 'genres' };
 const LAST_DISCOVER_PATH_KEY = 'last-discover-path';
@@ -1662,8 +1795,9 @@ function discoverModeRoutePath(projectName, source, mode, query = '') {
 function discoverAlbumRoutePath(projectName, albumSlug, source = 'global', tab = 'summary', keyword = '') {
   const sourcePrefix = source === 'user' ? '/user' : '';
   const base = `${APP_BASE}#/${encodeURIComponent(projectName)}/discover${sourcePrefix}/${encodeURIComponent(albumSlug)}`;
-  if (tab !== 'reviews') return base;
-  return `${base}/reviews${keyword.trim() ? `/${encodeURIComponent(keyword.trim())}` : ''}`;
+  if (tab === 'reviews') return `${base}/reviews${keyword.trim() ? `/${encodeURIComponent(keyword.trim())}` : ''}`;
+  if (tab === 'tracks') return `${base}/tracks`;
+  return base;
 }
 function discoverGenreStyleRoutePath(projectName, tag, source = 'global') {
   return discoverModeRoutePath(projectName, source, 'genre-style', tag);
@@ -1856,8 +1990,10 @@ function useHub(projectName) {
     if (!force) {
       const cached = readCache(projectName);
       if (cached) {
+        const corrections = await fetchCatalogCorrections();
+        const data = applyHubCatalogCorrections(cached.data, corrections);
         writeCurrentProjectName(projectName);
-        setState({ status: 'ready', data: cached.data, error: null, refreshError: null, fetchedAt: cached.fetchedAt, stale: cached.stale, refreshing: cached.stale });
+        setState({ status: 'ready', data, error: null, refreshError: null, fetchedAt: cached.fetchedAt, stale: cached.stale, refreshing: cached.stale });
         if (!cached.stale) return;
       } else {
         setState(s => ({ ...s, status: 'loading', error: null, refreshError: null }));
@@ -2158,6 +2294,49 @@ function parseAppleLookupResults(data) {
   };
 }
 
+function hasAppleTrackMappings(data) {
+  return !!(data?.tracks || []).some(track => track.appleTrackId || (track.trackViewUrl || '').includes('music.apple.com/'));
+}
+
+function mergeAppleTrackMetadata(stored, appleData) {
+  if (!stored || !appleData || !Array.isArray(stored.tracks) || !Array.isArray(appleData.tracks)) return stored;
+  const appleByPosition = new Map();
+  appleData.tracks.forEach((track) => {
+    appleByPosition.set(`${track.discNumber ?? 1}:${track.trackNumber ?? ''}`, track);
+  });
+  const tracks = stored.tracks.map((track) => {
+    if (track.appleTrackId) return track;
+    const apple = appleByPosition.get(`${track.discNumber ?? 1}:${track.trackNumber ?? ''}`);
+    if (!apple) return track;
+    return {
+      ...track,
+      appleTrackId: apple.appleTrackId,
+      appleAlbumId: apple.appleAlbumId || track.appleAlbumId,
+      trackViewUrl: apple.trackViewUrl || track.trackViewUrl,
+      artworkUrl: track.artworkUrl || apple.artworkUrl,
+    };
+  });
+  return {
+    ...stored,
+    album: {
+      ...(stored.album || {}),
+      appleAlbumId: stored.album?.appleAlbumId || appleData.album?.appleAlbumId || null,
+      copyright: stored.album?.copyright || appleData.album?.copyright || null,
+    },
+    tracks,
+  };
+}
+
+async function fetchCachedAppleTrackAlbum(appleMusicId, { force = false } = {}) {
+  if (!appleMusicId) return null;
+  const cacheKey = appleTracksCacheKey(appleMusicId);
+  const cached = force ? null : readJsonCache(cacheKey);
+  if (cached && cached.value != null && !isTrackMetadataEmpty(cached.value)) return cached.value;
+  const appleData = await fetchAppleTrackMetadata(appleMusicId).then(parseAppleLookupResults);
+  writeJsonCache(cacheKey, appleData);
+  return appleData;
+}
+
 const albumTrackRecordPromises = new Map();
 function fetchAlbumTrackRecord(spotifyAlbumId, { force = false } = {}) {
   if (!spotifyAlbumId) return Promise.resolve(null);
@@ -2243,7 +2422,7 @@ function isTrackMetadataEmpty(value) {
   return !value || !value.tracks || value.tracks.length === 0;
 }
 
-function useAlbumTrackMetadata(album) {
+function useAlbumTrackMetadata(album, preferredService = 'apple') {
   const [state, setState] = useState({ status: 'hidden', data: null, error: null, source: null });
   const [refreshNonce, setRefreshNonce] = useState(0);
   const spotifyId = album?.spotifyId || null;
@@ -2263,6 +2442,11 @@ function useAlbumTrackMetadata(album) {
       if (spotifyId) {
         const stored = parseStoredTrackAlbum(await fetchAlbumTrackRecord(spotifyId, { force }));
         if (stored && !isTrackMetadataEmpty(stored)) {
+          const storedAppleMusicId = appleMusicId || stored.album?.appleAlbumId || null;
+          if (preferredService === 'apple' && !hasAppleTrackMappings(stored) && storedAppleMusicId) {
+            const appleData = await fetchCachedAppleTrackAlbum(storedAppleMusicId, { force });
+            return { data: mergeAppleTrackMetadata(stored, appleData), source: 'kv+apple' };
+          }
           return { data: stored, source: 'kv' };
         }
       }
@@ -2271,14 +2455,7 @@ function useAlbumTrackMetadata(album) {
         return { data: null, source: null };
       }
 
-      const cacheKey = appleTracksCacheKey(appleMusicId);
-      const cached = force ? null : readJsonCache(cacheKey);
-      if (cached && cached.value != null && !isTrackMetadataEmpty(cached.value)) {
-        return { data: { ...cached.value, source: 'apple' }, source: 'apple' };
-      }
-
-      const appleData = await fetchAppleTrackMetadata(appleMusicId).then(parseAppleLookupResults);
-      writeJsonCache(cacheKey, appleData);
+      const appleData = await fetchCachedAppleTrackAlbum(appleMusicId, { force });
       return { data: { ...appleData, source: 'apple' }, source: 'apple' };
     })()
       .then(({ data, source }) => {
@@ -2291,7 +2468,7 @@ function useAlbumTrackMetadata(album) {
       });
 
     return () => { cancelled = true; };
-  }, [spotifyId, appleMusicId, refreshNonce]);
+  }, [spotifyId, appleMusicId, preferredService, refreshNonce]);
 
   return { ...state, refresh: () => setRefreshNonce(n => n + 1) };
 }
@@ -2498,7 +2675,9 @@ function GlobalReviewsPreview({ url, initialKeyword = null }) {
 
 function TracksPreview({ album, projectName }) {
   const favorites = useFavoriteTracks(projectName);
-  const state = useAlbumTrackMetadata(album);
+  const musicService = useMusicServicePreferenceContext();
+  const state = useAlbumTrackMetadata(album, musicService.preference);
+  const [activeEmbedTrackId, setActiveEmbedTrackId] = useState(null);
 
   useEffect(() => {
     if (!state.data) return;
@@ -2527,29 +2706,62 @@ function TracksPreview({ album, projectName }) {
         ` : html`
           <div class="table-scroll">
             <table class="tracks-table">
-              <thead><tr><th></th><th>#</th><th>Track</th><th>Length</th></tr></thead>
+              <thead><tr><th></th><th></th><th>#</th><th>Track</th><th>Length</th></tr></thead>
               <tbody>
                 ${state.data.tracks.map(track => {
                   const trackId = favoriteTrackId(track);
                   const favorited = trackId && favorites.isFavorite(trackId);
+                  const embed = trackEmbed(track, musicService.preference);
+                  const embedOpen = trackId && activeEmbedTrackId === trackId;
+                  const trackUrl = embed?.openUrl || track.trackViewUrl;
                   return html`
-                  <tr>
-                    <td>
-                      ${trackId && html`
-                        <button
-                          type="button"
-                          class=${`star-btn ${favorited ? 'active' : ''}`}
-                          aria-label=${favorited ? 'Unfavorite track' : 'Favorite track'}
-                          onClick=${() => favorites.toggle(track)}
-                        >${favorited ? '★' : '☆'}</button>
+                    <${Fragment}>
+                      <tr>
+                        <td>
+                          ${trackId && html`
+                            <button
+                              type="button"
+                              class=${`star-btn ${favorited ? 'active' : ''}`}
+                              aria-label=${favorited ? 'Unfavorite track' : 'Favorite track'}
+                              onClick=${() => favorites.toggle(track)}
+                            >${favorited ? '★' : '☆'}</button>
+                          `}
+                        </td>
+                        <td>
+                          ${embed && trackId && html`
+                            <button
+                              type="button"
+                              class=${`embed-btn ${embedOpen ? 'active' : ''}`}
+                              aria-label=${embedOpen ? 'Hide track player' : `Play preview with ${embed.service}`}
+                              title=${embedOpen ? 'Hide player' : `Play with ${embed.service}`}
+                              onClick=${() => setActiveEmbedTrackId(current => current === trackId ? null : trackId)}
+                            ><span class="icon-symbol">${embedOpen ? 'expand_less' : 'play_arrow'}</span></button>
+                          `}
+                        </td>
+                        <td>${track.discNumber > 1 ? `${track.discNumber}-${track.trackNumber}` : track.trackNumber}</td>
+                        <td class="truncate-cell" title=${track.title}>${trackUrl
+                          ? html`<a href=${trackUrl} target="_blank" rel="noopener" class="track-link">${track.title}</a>`
+                          : track.title}</td>
+                        <td>${formatDurationMs(track.durationMs)}</td>
+                      </tr>
+                      ${embedOpen && html`
+                        <tr class="track-embed-row">
+                          <td colspan="5">
+                            <div class="track-embed-label">
+                              <span>${embed.service}</span>
+                              <a href=${embed.openUrl} target="_blank" rel="noopener">Open track</a>
+                            </div>
+                            <iframe
+                              class="track-embed-frame"
+                              src=${embed.url}
+                              title=${`${track.title} on ${embed.service}`}
+                              loading="lazy"
+                              allow="autoplay *; clipboard-write *; encrypted-media *; fullscreen *; picture-in-picture *"
+                            ></iframe>
+                          </td>
+                        </tr>
                       `}
-                    </td>
-                    <td>${track.discNumber > 1 ? `${track.discNumber}-${track.trackNumber}` : track.trackNumber}</td>
-                    <td class="truncate-cell" title=${track.title}>${track.trackViewUrl
-                      ? html`<a href=${track.trackViewUrl} target="_blank" rel="noopener" class="track-link">${track.title}</a>`
-                      : track.title}</td>
-                    <td>${formatDurationMs(track.durationMs)}</td>
-                  </tr>
+                    <//>
                 `;
                 })}
               </tbody>
@@ -2800,7 +3012,7 @@ function localHourToUtcHour(localHour) {
 }
 
 // ---------- settings view ----------
-function SettingsView({ me, projectName, theme, diddy }) {
+function SettingsView({ me, projectName, theme, diddy, musicService }) {
   const pushSupported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
@@ -2910,6 +3122,19 @@ function SettingsView({ me, projectName, theme, diddy }) {
               onClick=${diddy.toggle}
               aria-pressed=${diddy.enabled}
             >${diddy.enabled ? 'On' : 'Off'}</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Music</div>
+        <div class="card">
+          <div class="settings-row">
+            <div class="settings-row-left">
+              <div class="settings-row-label">Preferred service</div>
+              <div class="settings-row-desc">Choose the player used when both services are available</div>
+            </div>
+            <${MusicServicePreferencePicker} musicService=${musicService} />
           </div>
         </div>
       </div>
@@ -3269,6 +3494,15 @@ function useDiscoverAlbum(albumSlug, source, hubData) {
 function DiscoverAlbumView({ albumSlug, projectName, source = 'global', hubData = null, initialTab = 'summary', reviewKeyword = '' }) {
   const [tab, setTab] = useState(initialTab);
   useEffect(() => { setTab(initialTab); }, [albumSlug, initialTab]);
+  const setDiscoverTab = (nextTab) => {
+    navigateSubTab(discoverAlbumRoutePath(
+      projectName,
+      albumSlug,
+      source,
+      nextTab,
+      nextTab === 'reviews' ? reviewKeyword : ''
+    ));
+  };
   const { album, scrapedContext, catalogStatus } = useDiscoverAlbum(albumSlug, source, hubData);
 
   if (catalogStatus === 'loading' && !album) return html`<${LoadingNote} label="Loading…" />`;
@@ -3297,7 +3531,7 @@ function DiscoverAlbumView({ albumSlug, projectName, source = 'global', hubData 
             <${SimilarAlbumsHelper} album=${album} projectName=${projectName} source=${source} />
           </div>
           <div class="today-secondary">
-            <${AlbumInfoTabs} album=${album} projectName=${projectName} tab=${tab} onTabChange=${setTab} summarySections=${['rating']} reviewKeyword=${reviewKeyword} />
+            <${AlbumInfoTabs} album=${album} projectName=${projectName} tab=${tab} onTabChange=${setDiscoverTab} summarySections=${['rating']} reviewKeyword=${reviewKeyword} />
           </div>
         </div>
       </div>
@@ -4759,6 +4993,7 @@ function App() {
   const currentProjectName = !projectName ? readCurrentProjectName() : '';
   const theme = useTheme();
   const diddy = useDiddySetting();
+  const musicService = useMusicServicePreference();
   useSwipeNavigation();
   const pageRef = useRef(null);
   const scrollPositions = useRef({});
@@ -4856,6 +5091,7 @@ function App() {
     : null;
 
   return html`
+    <${MusicServicePreferenceContext.Provider} value=${musicService}>
     <div class="app-shell">
       <${Splash} ready=${splashDone} refreshing=${splashRefreshing} />
       <${Nav} projectName=${projectName} tab=${navTab(tab === 'album' ? (subTab === 'group' ? 'group' : 'today') : tab)} backlogCount=${backlog.length} unreadCount=${notifications.notifications.length} theme=${theme} scrollToTop=${scrollToTop} />
@@ -4873,7 +5109,7 @@ function App() {
         </div>
       `}
       <main ref=${pageRef} class=${`page ${pullY > 0 ? 'is-pulling' : ''}`} style=${pullY > 0 ? { transform: `translateY(${pagePullY}px)` } : undefined}>
-        ${tab === 'settings' && html`<${SettingsView} me=${hub.data?.me ?? null} projectName=${projectName} theme=${theme} diddy=${diddy} />`}
+        ${tab === 'settings' && html`<${SettingsView} me=${hub.data?.me ?? null} projectName=${projectName} theme=${theme} diddy=${diddy} musicService=${musicService} />`}
         ${tab === 'discover' && !backlogAlbumId && html`<${ExploreView} projectName=${projectName} source=${discoverSource || 'global'} mode=${discoverMode || 'browse'} initialQuery=${discoverQuery || ''} />`}
         ${tab === 'discover' && backlogAlbumId && html`<${DiscoverAlbumView} albumSlug=${backlogAlbumId} projectName=${projectName} source=${discoverSource || 'global'} hubData=${hub.data} initialTab=${discoverAlbumTab || 'summary'} reviewKeyword=${discoverReviewKeyword || ''} />`}
         ${tab !== 'settings' && tab !== 'discover' && hub.status === 'loading' && html`<${Loading} />`}
@@ -4903,6 +5139,7 @@ function App() {
         </p>
       </main>
     </div>
+    <//>
   `;
 }
 

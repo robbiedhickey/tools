@@ -76,6 +76,19 @@ def build_corrections(stats: dict[str, Any], canonical: dict[str, dict[str, Any]
     return corrections
 
 
+def merge_existing_overrides(generated: dict[str, Any], existing: dict[str, Any] | None) -> dict[str, Any]:
+    if not existing:
+        return generated
+    merged = dict(generated)
+    for key, correction in existing.items():
+        preserved = {k: v for k, v in correction.items() if k not in {"spotifyId", "globalReviewsUrl"}}
+        if key in merged:
+            merged[key] = {**merged[key], **preserved}
+        elif preserved:
+            merged[key] = {**correction}
+    return merged
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--book-data", type=Path, default=BOOK_DATA)
@@ -87,11 +100,14 @@ def main() -> int:
 
     global_stats = read_json(args.global_stats) if args.global_stats else fetch_json(GLOBAL_STATS_URL)
     user_stats = read_json(args.user_stats) if args.user_stats else fetch_json(USER_STATS_URL)
+    existing = read_json(args.output) if args.output.exists() else {}
+    global_corrections = build_corrections(global_stats, canonical_by_name(args.book_data), "albums")
+    user_corrections = build_corrections(user_stats, canonical_by_name(args.user_data), "user-albums")
     data = {
         "version": 1,
         "generatedAt": utc_now(),
-        "global": build_corrections(global_stats, canonical_by_name(args.book_data), "albums"),
-        "user": build_corrections(user_stats, canonical_by_name(args.user_data), "user-albums"),
+        "global": merge_existing_overrides(global_corrections, existing.get("global")),
+        "user": merge_existing_overrides(user_corrections, existing.get("user")),
     }
     args.output.write_text(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(
