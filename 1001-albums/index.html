@@ -825,6 +825,14 @@
     width: 96px; height: 96px; object-fit: contain; display: block;
     margin: 0 auto 10px;
   }
+  .splash {
+    position: fixed; inset: 0; z-index: 9999;
+    background: var(--bg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px;
+  }
+  .splash-gif { width: 120px; height: 120px; object-fit: contain; }
+  .splash-label { font-size: 13px; color: var(--text-dim); }
   .ptr-indicator {
     position: fixed; top: calc(env(safe-area-inset-top) + 48px); left: 50%; z-index: 15;
     width: 40px; height: 40px; border-radius: 50%;
@@ -2504,6 +2512,16 @@ function LankyMascot({ className = '' }) {
 
 function LankyPartyMascot({ className = '' }) {
   return html`<img class=${`mascot ${className}`} src=${LANKY_LOADING_GIF_URL} alt="" aria-hidden="true" />`;
+}
+
+function Splash({ ready, refreshing }) {
+  if (ready) return null;
+  return html`
+    <div class="splash" role="status" aria-live="polite">
+      <img class="splash-gif" src=${LANKY_LOADING_GIF_URL} alt="" aria-hidden="true" />
+      <div class="splash-label">${refreshing ? 'Getting your latest albums…' : 'Loading your albums…'}</div>
+    </div>
+  `;
 }
 
 function ErrorCard({ error, projectName, onRetry }) {
@@ -4572,6 +4590,14 @@ function App() {
   const pullProgress = Math.min(pullY / PTR_THRESHOLD, 1);
   const pagePullY = pullY > 0 ? Math.min(pullY * 0.65, 68) : 0;
 
+  // Splash: show until hub has a final (non-refreshing) state for the first time.
+  // useState lazy initializer captures the synchronous initial hub state so that
+  // a fresh-cache load never shows the splash at all.
+  const hubSettled = (hub.status === 'ready' && !hub.refreshing) || hub.status === 'error';
+  const [splashDone, setSplashDone] = useState(() => hubSettled);
+  useEffect(() => { if (hubSettled) setSplashDone(true); }, [hubSettled]);
+  const splashRefreshing = !splashDone && hub.status === 'ready' && hub.refreshing;
+
   if (!projectName && currentProjectName) return null;
   if (!projectName) return html`<${NameEntry} theme=${theme} />`;
 
@@ -4589,6 +4615,7 @@ function App() {
 
   return html`
     <div class="app-shell">
+      <${Splash} ready=${splashDone} refreshing=${splashRefreshing} />
       <${Nav} projectName=${projectName} tab=${navTab(tab === 'album' ? (subTab === 'group' ? 'group' : 'today') : tab)} backlogCount=${backlog.length} unreadCount=${notifications.notifications.length} theme=${theme} scrollToTop=${scrollToTop} />
       <${RefreshErrorToast} error=${hub.refreshError} onDismiss=${hub.dismissRefreshError} />
       ${pullY > 0 && html`
