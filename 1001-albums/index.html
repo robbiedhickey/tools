@@ -2186,6 +2186,7 @@ function parseStoredTrackAlbum(record) {
       copyright: album.copyright || null,
       appleAlbumId: record.services?.appleMusic?.albumId || album.appleAlbumId || null,
       spotifyAlbumId: record.spotifyAlbumId || album.spotifyAlbumId || null,
+      wikipediaUrl: record.services?.wikipedia?.url || album.wikipediaUrl || null,
     } : null,
     tracks,
     source: 'kv',
@@ -2284,7 +2285,9 @@ function AlbumSummaryContext({ album, projectName = null, discoverSource = 'glob
   // 'compare' also needs the fetched context: when nobody in this group's data has an entry for
   // the album yet (e.g. today's freshly-revealed pick), comparison.globalRating is null and we
   // fall back to the scraped per-album global rating below instead of showing a blank stat.
-  const needsFetch = show('rating') || show('genres') || show('compare');
+  const needsRatingFetch = show('rating') && !(album.averageRating || album.votes || album.controversialScore);
+  const needsCompareFetch = show('compare') && comparison && comparison.globalRating == null;
+  const needsFetch = needsRatingFetch || show('genres') || needsCompareFetch;
   const cache = useCachedFetch(
     needsFetch && album.globalReviewsUrl ? globalAlbumPageCacheKey(album.globalReviewsUrl) : null,
     () => fetchGlobalAlbumPage(album.globalReviewsUrl),
@@ -3197,12 +3200,12 @@ function useDiscoverAlbum(albumSlug, source, hubData) {
   useEffect(() => { catalog.load(); }, [catalog.load]);
   const catalogAlbum = useMemo(() => catalog.albums.find(a => a.slug === albumSlug), [catalog.albums, albumSlug]);
 
-  const pageCache = useCachedFetch(
-    catalogAlbum?.globalReviewsUrl ? globalAlbumPageCacheKey(catalogAlbum.globalReviewsUrl) : null,
-    () => fetchGlobalAlbumPage(catalogAlbum.globalReviewsUrl),
-    { isEmpty: isGlobalAlbumPageEmpty }
+  const enrichmentCache = useCachedFetch(
+    catalogAlbum?.spotifyId ? `album-enrichment-record:v1:${catalogAlbum.spotifyId}` : null,
+    () => fetchAlbumTrackRecord(catalogAlbum.spotifyId),
+    { isEmpty: (value) => !value || !value.album }
   );
-  const scrapedContext = pageCache.value?.context ?? null;
+  const enrichmentAlbum = enrichmentCache.value?.album ?? null;
 
   const album = useMemo(() => {
     if (!catalogAlbum) return null;
@@ -3216,21 +3219,16 @@ function useDiscoverAlbum(albumSlug, source, hubData) {
         }
       }
     }
-    // Fill in fields the API doesn't provide but the scraped page has
-    if (scrapedContext) {
-      if (!base.wikipediaUrl && scrapedContext.wikipediaUrl) base.wikipediaUrl = scrapedContext.wikipediaUrl;
-      if (!base.appleMusicId) {
-        const amLink = scrapedContext.streamingLinks?.find(l => l.service === 'Apple Music');
-        if (amLink) {
-          const m = amLink.url.match(/music\.apple\.com\/(?:[a-z]{2}\/)?album\/(?:[^/]+\/)?(\d+)/);
-          if (m) base.appleMusicId = m[1];
-        }
-      }
+    if (!base.wikipediaUrl && enrichmentAlbum?.wikipediaUrl) {
+      base.wikipediaUrl = enrichmentAlbum.wikipediaUrl;
+    }
+    if (!base.appleMusicId && enrichmentAlbum?.appleAlbumId) {
+      base.appleMusicId = enrichmentAlbum.appleAlbumId;
     }
     return base;
-  }, [catalogAlbum, hubData, scrapedContext]);
+  }, [catalogAlbum, hubData, enrichmentAlbum]);
 
-  return { album, scrapedContext, catalogStatus: catalog.status };
+  return { album, scrapedContext: null, catalogStatus: catalog.status };
 }
 
 function DiscoverAlbumView({ albumSlug, projectName, source = 'global', hubData = null, initialTab = 'summary', reviewKeyword = '' }) {

@@ -11,6 +11,7 @@ lists and service mappings.
 - `1001-albums/pipeline/data/book-tracks-data.json`: canonical book-album harvest from `/albums`.
 - `1001-albums/pipeline/data/user-tracks-data.json`: user-submitted album harvest from `/user-albums`.
 - `1001-albums/pipeline/data/apple-track-map.json`: Spotify track ID to Apple Music track ID mapping.
+- `1001-albums/pipeline/data/wikipedia-map.json`: Spotify album ID to Wikipedia URL mapping.
 - `1001-albums/pipeline/data/tracks-kv-bulk.json`: Wrangler KV bulk-upload artifact.
 - `1001-albums/catalog-corrections.json`: small app-served map for stale IDs in upstream stats.
 
@@ -47,6 +48,22 @@ Build the local catalog correction map:
 ```sh
 npm run tracks:catalog-corrections
 ```
+
+Build the Wikipedia URL mapping. Upstream Album DTOs are preferred when supplied because those
+URLs are curated by 1001albumsgenerator:
+
+```sh
+npm run tracks:wikipedia-map -- --project hodorswit
+```
+
+Remaining gaps can be filled from Wikipedia search when you explicitly opt in:
+
+```sh
+npm run tracks:wikipedia-map -- --project hodorswit --search-missing
+```
+
+The Wikipedia search path is resumable. It writes both matches and misses after each album, uses
+`maxlag=5`, and backs off on `429` responses.
 
 Build the Apple Music track mapping from both harvests:
 
@@ -96,6 +113,7 @@ Expanded, that runs:
 npm run tracks:fetch:user
 npm run tracks:images
 npm run tracks:catalog-corrections
+npm run tracks:wikipedia-map
 npm run tracks:apple-map
 npm run tracks:kv:build
 npm run tracks:kv:validate
@@ -119,6 +137,7 @@ npm run tracks:fetch
 npm run tracks:fetch:user
 npm run tracks:images
 npm run tracks:catalog-corrections
+npm run tracks:wikipedia-map
 npm run tracks:apple-map
 npm run tracks:kv:build
 npm run tracks:kv:validate
@@ -160,3 +179,4 @@ The app fetches a single album enrichment payload from:
 
 The value is self-contained and compact: album metadata appears once, album-level service IDs live
 under `services`, and each track contains only track-level fields plus per-service IDs/URLs.
+Album-level service enrichments currently include Spotify, Apple Music, and Wikipedia when known.
