@@ -713,7 +713,7 @@
   .explore-input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
   .explore-suggestions {
     position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20;
-    max-height: 220px; overflow-y: auto;
+    max-height: 220px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
     background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
     box-shadow: 0 8px 20px rgba(31, 29, 26, 0.16);
   }
@@ -725,7 +725,7 @@
   .explore-suggestion:last-child { border-bottom: 0; }
   .explore-suggestion:hover, .explore-suggestion.active { background: var(--neutral-soft); }
   .explore-suggestion-count { color: var(--text-dim); font-size: 11px; flex-shrink: 0; }
-  .explore-results { overflow-y: auto; flex: 1; }
+  .explore-results { overflow-y: auto; flex: 1; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
   .explore-album-row {
     display: flex; gap: 10px; padding: 9px 12px; align-items: center;
     border-bottom: 1px solid var(--border); text-decoration: none; color: inherit;
@@ -733,7 +733,7 @@
   .explore-album-row:hover { background: var(--neutral-soft); text-decoration: none; }
   .explore-album-thumb {
     width: 44px; height: 44px; border-radius: 2px; object-fit: cover;
-    flex-shrink: 0; background: var(--neutral-soft);
+    flex-shrink: 0; background: var(--neutral-soft); -webkit-touch-callout: none;
   }
   .explore-album-info { min-width: 0; flex: 1; }
   .explore-album-name { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -893,7 +893,7 @@
 
 <script type="module">
 import { h, render, Fragment } from 'https://esm.sh/preact@10.23.1';
-import { useState, useEffect, useMemo, useCallback, useRef } from 'https://esm.sh/preact@10.23.1/hooks';
+import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'https://esm.sh/preact@10.23.1/hooks';
 import { createPortal } from 'https://esm.sh/preact@10.23.1/compat';
 import htm from 'https://esm.sh/htm@3.1.1';
 const html = htm.bind(h);
@@ -3425,7 +3425,7 @@ function ExploreView({ projectName, source = 'global', mode = 'browse', initialQ
   `;
 }
 
-function Nav({ projectName, tab, backlogCount, unreadCount, theme }) {
+function Nav({ projectName, tab, backlogCount, unreadCount, theme, scrollToTop }) {
   const topTabs = [
     { id: 'today', label: 'Today' },
     { id: 'backlog', label: `Backlog${backlogCount ? ` (${backlogCount})` : ''}` },
@@ -3450,11 +3450,11 @@ function Nav({ projectName, tab, backlogCount, unreadCount, theme }) {
     <${Fragment}>
       <header class="topbar">
         <div class="topbar-inner">
-          <a class="brand" href=${routePath(projectName, 'today')} onClick=${(e) => { e.preventDefault(); navigateTab(routePath(projectName, 'today')); }}><${LankyMascot} /><span class="brand-text">1001 Albums Kongsole</span><span class="brand-text-mobile">Kongsole</span></a>
+          <a class="brand" href=${routePath(projectName, 'today')} onClick=${(e) => { e.preventDefault(); if (navTab(tab) === 'today') { scrollToTop(); return; } navigateTab(routePath(projectName, 'today')); }}><${LankyMascot} /><span class="brand-text">1001 Albums Kongsole</span><span class="brand-text-mobile">Kongsole</span></a>
           <nav class="tabs" ref=${tabsRef}>
             ${topTabs.map((t, i) => html`
               ${i > 0 && html`<span class="tab-sep">|</span>`}
-              <a class=${`tab ${navTab(tab) === t.id ? 'active' : ''}`} href=${routePath(projectName, t.id)} onClick=${(e) => { e.preventDefault(); setVtDirection(tab, t.id); navigateTab(routePath(projectName, t.id)); }}>${t.label}</a>
+              <a class=${`tab ${navTab(tab) === t.id ? 'active' : ''}`} href=${routePath(projectName, t.id)} onClick=${(e) => { e.preventDefault(); if (navTab(tab) === t.id) { scrollToTop(); return; } setVtDirection(tab, t.id); navigateTab(routePath(projectName, t.id)); }}>${t.label}</a>
             `)}
           </nav>
           <div class="nav-actions">
@@ -3463,14 +3463,14 @@ function Nav({ projectName, tab, backlogCount, unreadCount, theme }) {
               type="button"
               aria-label="Explore albums"
               title="Explore albums"
-              onClick=${() => { setVtDirection(tab, 'discover'); navigateTab(routePath(projectName, 'discover')); }}
+              onClick=${() => { if (navTab(tab) === 'discover') { scrollToTop(); return; } setVtDirection(tab, 'discover'); navigateTab(routePath(projectName, 'discover')); }}
             >
               <span class="icon-symbol">search</span>
             </button>
             <a
               class=${`bell-link ${tab === 'activity' ? 'active' : ''}`}
               href=${routePath(projectName, 'activity')}
-              onClick=${(e) => { e.preventDefault(); setVtDirection(tab, 'activity'); navigateTab(routePath(projectName, 'activity')); }}
+              onClick=${(e) => { e.preventDefault(); if (tab === 'activity') { scrollToTop(); return; } setVtDirection(tab, 'activity'); navigateTab(routePath(projectName, 'activity')); }}
               aria-label=${`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}
               title="Recent activity"
             >
@@ -3479,7 +3479,7 @@ function Nav({ projectName, tab, backlogCount, unreadCount, theme }) {
             <a
               class=${`bell-link ${tab === 'settings' ? 'active' : ''}`}
               href=${routePath(projectName, 'settings')}
-              onClick=${(e) => { e.preventDefault(); setVtDirection(tab, 'settings'); navigateTab(routePath(projectName, 'settings')); }}
+              onClick=${(e) => { e.preventDefault(); if (tab === 'settings') { scrollToTop(); return; } setVtDirection(tab, 'settings'); navigateTab(routePath(projectName, 'settings')); }}
               aria-label="Settings"
               title="Settings"
             >
@@ -3498,7 +3498,7 @@ function Nav({ projectName, tab, backlogCount, unreadCount, theme }) {
             class=${`bottom-nav-item ${navTab(tab) === t.id ? 'active' : ''}`}
             style=${{ height: '58px', minHeight: '58px', maxHeight: '58px' }}
             href=${routePath(projectName, t.id)}
-            onClick=${(e) => { e.preventDefault(); haptic(6); setVtDirection(tab, t.id); navigateTab(routePath(projectName, t.id)); }}
+            onClick=${(e) => { e.preventDefault(); haptic(6); if (navTab(tab) === t.id) { scrollToTop(); return; } setVtDirection(tab, t.id); navigateTab(routePath(projectName, t.id)); }}
             aria-label=${t.badge ? `${t.label}, ${t.badge} items` : t.label}
             aria-current=${navTab(tab) === t.id ? 'page' : undefined}
           >
@@ -4501,9 +4501,19 @@ function App() {
   const diddy = useDiddySetting();
   useSwipeNavigation();
   const pageRef = useRef(null);
+  const scrollPositions = useRef({});
+  const prevNavRef = useRef({ tab, backlogAlbumId, albumId });
+
+  const scrollToTop = useCallback(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+  }, []);
+
 
   useEffect(() => {
     const onNav = () => {
+      // Save scroll for the view we're leaving before the transition resets window.scrollY.
+      // Covers all navigation paths: tab switches, drill-in/out, swipe, inline links.
+      if (!backlogAlbumId && !albumId) scrollPositions.current[tab] = window.scrollY;
       const newRoute = getRouteFromLocation();
       const isNavTransition = _pendingVt;
       const outAnim = _pendingVtOut;
@@ -4527,19 +4537,32 @@ function App() {
     return () => {
       window.removeEventListener('hashchange', onNav);
     };
-  }, []);
+  }, [tab, backlogAlbumId, albumId]);
 
   useEffect(() => {
     if (projectName || !currentProjectName) return;
     navigateTo(routePath(currentProjectName));
   }, [projectName, currentProjectName]);
 
-  // Hash-based navigation doesn't reset scroll position like a real page load does, so
-  // jumping between views (e.g. clicking a pair link from the bottom of Group) would
-  // otherwise leave you scrolled wherever the previous view left off.
-  useEffect(() => {
-    if (pageRef.current) pageRef.current.scrollTo({ top: 0, left: 0 });
-    window.scrollTo(0, 0);
+  // Manage scroll position across navigation like a native app:
+  // - Tab switch: restore saved scroll for that tab (smooth)
+  // - Drill into detail: instant reset (view transition animation covers it)
+  // - Back out of detail: restore saved scroll for the parent tab (smooth)
+  // - Filter/param change within a view: smooth reset to top
+  useLayoutEffect(() => {
+    const prev = prevNavRef.current;
+    const wasTopLevel = !prev.backlogAlbumId && !prev.albumId;
+    const isTopLevel = !backlogAlbumId && !albumId;
+    const isDrillOut = !wasTopLevel && isTopLevel;
+    const isTabSwitch = wasTopLevel && isTopLevel && prev.tab !== tab;
+
+    if (isTabSwitch || isDrillOut) {
+      window.scrollTo(0, scrollPositions.current[tab] ?? 0);
+    } else {
+      window.scrollTo(0, 0);
+    }
+
+    prevNavRef.current = { tab, backlogAlbumId, albumId };
   }, [tab, backlogAlbumId, albumId, discoverSource, discoverMode, discoverQuery, discoverAlbumTab, discoverReviewKeyword, pairA, pairB]);
 
   const hub = useHub(projectName);
@@ -4566,7 +4589,7 @@ function App() {
 
   return html`
     <div class="app-shell">
-      <${Nav} projectName=${projectName} tab=${navTab(tab === 'album' ? (subTab === 'group' ? 'group' : 'today') : tab)} backlogCount=${backlog.length} unreadCount=${notifications.notifications.length} theme=${theme} />
+      <${Nav} projectName=${projectName} tab=${navTab(tab === 'album' ? (subTab === 'group' ? 'group' : 'today') : tab)} backlogCount=${backlog.length} unreadCount=${notifications.notifications.length} theme=${theme} scrollToTop=${scrollToTop} />
       <${RefreshErrorToast} error=${hub.refreshError} onDismiss=${hub.dismissRefreshError} />
       ${pullY > 0 && html`
         <div class="ptr-indicator" style=${{
