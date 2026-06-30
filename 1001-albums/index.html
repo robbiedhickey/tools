@@ -1026,14 +1026,63 @@ async function apiGet(path) {
 const fetchProject = (name) => apiGet(`/projects/${encodeURIComponent(name)}`);
 const fetchGroup = (slug) => apiGet(`/groups/${encodeURIComponent(slug)}`);
 const fetchGroupAlbumReviews = (groupSlug, albumUuid) => apiGet(`/groups/${encodeURIComponent(groupSlug)}/albums/${encodeURIComponent(albumUuid)}`);
-const ALBUM_CATALOG_CACHE_VERSION = 'v2';
+const ALBUM_CATALOG_CACHE_VERSION = 'v3';
 const albumCatalogCacheKey = (source) => `album-catalog:${ALBUM_CATALOG_CACHE_VERSION}:${source}`;
+const catalogMatchKey = (album) => `${(album?.name || '').trim().toLowerCase()}::${(album?.artist || '').trim().toLowerCase()}`;
+function parseCanonicalAlbumRows(htmlText, source = 'global') {
+  const doc = new DOMParser().parseFromString(htmlText, 'text/html');
+  const rows = [];
+  const hrefPrefix = source === 'user' ? '/user-albums/' : '/albums/';
+  doc.querySelectorAll('tr[data-album][data-artist]').forEach((row) => {
+    const link = Array.from(row.querySelectorAll(`a[href^="${hrefPrefix}"]`))
+      .find(a => /^\/(?:user-albums|albums)\/[A-Za-z0-9]+/.test(a.getAttribute('href') || ''));
+    const href = link?.getAttribute('href') || '';
+    const match = href.match(/^\/(?:user-albums|albums)\/([A-Za-z0-9]+)/);
+    if (!match) return;
+    rows.push({
+      name: row.getAttribute('data-album') || '',
+      artist: row.getAttribute('data-artist') || '',
+      spotifyId: match[1],
+      href,
+    });
+  });
+  return rows;
+}
+async function fetchCanonicalAlbumRows(source = 'global') {
+  const path = source === 'user' ? '/user-albums' : '/albums';
+  const res = await fetch(`${SITE_BASE}${path}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return parseCanonicalAlbumRows(await res.text(), source);
+}
+async function canonicalizeAlbumCatalog(albums, source = 'global') {
+  const canonicalRows = await fetchCanonicalAlbumRows(source);
+  const byName = new Map(canonicalRows.map(row => [catalogMatchKey(row), row]));
+  return albums.map((album) => {
+    const canonical = byName.get(catalogMatchKey(album));
+    if (!canonical || canonical.spotifyId === album.spotifyId) return album;
+    const slug = album.slug || canonical.href.split('/').filter(Boolean).slice(2).join('/');
+    return {
+      ...album,
+      originalSpotifyId: album.spotifyId,
+      spotifyId: canonical.spotifyId,
+      globalReviewsUrl: slug
+        ? `${SITE_BASE}${canonical.href.replace(/\/$/, '')}/${encodeURIComponent(slug)}`
+        : `${SITE_BASE}${canonical.href}`,
+    };
+  });
+}
 async function fetchAlbumCatalog(source = 'global') {
   const endpoint = source === 'user' ? '/user-albums/stats' : '/albums/stats';
   const res = await fetch(`${API_BASE}${endpoint}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
-  return data.albums || [];
+  const albums = data.albums || [];
+  try {
+    return await canonicalizeAlbumCatalog(albums, source);
+  } catch (err) {
+    console.warn('Could not canonicalize album catalog', err);
+    return albums;
+  }
 }
 async function searchAlbumsByWord(phrase) {
   const res = await fetch(`${SITE_BASE}/api/stats/albums-by-word`, {
@@ -3290,7 +3339,10 @@ function ExploreView({ projectName, source = 'global', mode = 'browse', initialQ
 
   const catalogBySpotifyId = useMemo(() => {
     const map = {};
-    for (const a of catalog.albums) if (a.spotifyId) map[a.spotifyId] = a;
+    for (const a of catalog.albums) {
+      if (a.spotifyId) map[a.spotifyId] = a;
+      if (a.originalSpotifyId) map[a.originalSpotifyId] = a;
+    }
     return map;
   }, [catalog.albums]);
 
