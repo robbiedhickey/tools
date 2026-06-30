@@ -3968,6 +3968,7 @@ const GROUP_ALBUMS_VISIBLE_DEFAULT = 10;
 function GroupView({ group, members, projectName }) {
   const [sortBy, setSortBy] = useState('date');
   const [showAllAlbums, setShowAllAlbums] = useState(false);
+  const [albumQuery, setAlbumQuery] = useState('');
   const albumTable = useMemo(() => deriveGroupAlbumTable(members), [members]);
   const alignment = useMemo(() => deriveAlignment(members), [members]);
   const thumbBySpotifyId = useAlbumThumbs();
@@ -3977,7 +3978,24 @@ function GroupView({ group, members, projectName }) {
     else if (sortBy === 'date') rows.sort((a, b) => new Date(b.earliestAt) - new Date(a.earliestAt));
     return rows;
   }, [albumTable, sortBy]);
-  const visibleAlbums = showAllAlbums ? sortedAlbums : sortedAlbums.slice(0, GROUP_ALBUMS_VISIBLE_DEFAULT);
+  const albumSearchTerm = albumQuery.trim().toLowerCase();
+  const filteredAlbums = useMemo(() => {
+    if (!albumSearchTerm) return sortedAlbums;
+    return sortedAlbums.filter((row) => {
+      const album = row.album || {};
+      const haystack = [
+        album.name,
+        album.artist,
+        album.releaseDate,
+        ...(album.genres || []),
+        ...(album.styles || []),
+      ].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(albumSearchTerm);
+    });
+  }, [sortedAlbums, albumSearchTerm]);
+  const visibleAlbums = albumSearchTerm || showAllAlbums
+    ? filteredAlbums
+    : filteredAlbums.slice(0, GROUP_ALBUMS_VISIBLE_DEFAULT);
 
   if (!group) return html`<div class="card"><p class="muted">This project isn't part of a group.</p></div>`;
 
@@ -4039,7 +4057,14 @@ function GroupView({ group, members, projectName }) {
       </div>
 
       <div class="card te-panel">
-        <h2>All Rated Albums (${sortedAlbums.length})</h2>
+        <h2>All Rated Albums (${albumSearchTerm ? `${filteredAlbums.length}/${sortedAlbums.length}` : sortedAlbums.length})</h2>
+        <input
+          type="search"
+          placeholder="Filter by album, artist, genre, or year…"
+          value=${albumQuery}
+          onInput=${(e) => { setAlbumQuery(e.target.value); setShowAllAlbums(false); }}
+          style=${{ width: '100%', padding: '7px 10px', marginBottom: '10px', border: '1px solid var(--border)', borderRadius: '6px', font: 'inherit', fontSize: '13px', background: 'var(--bg)', color: 'var(--text)', boxSizing: 'border-box' }}
+        />
         <div class="sort-controls">
           <button class=${sortBy === 'date' ? 'active' : ''} onClick=${() => { setSortBy('date'); setShowAllAlbums(false); }}>Date</button>
           <button class=${sortBy === 'rating' ? 'active' : ''} onClick=${() => { setSortBy('rating'); setShowAllAlbums(false); }}>Rating</button>
@@ -4068,8 +4093,11 @@ function GroupView({ group, members, projectName }) {
             `;
           })}
         </div>
-        ${sortedAlbums.length > GROUP_ALBUMS_VISIBLE_DEFAULT && html`
-          <a class="show-all-link" href="#" onClick=${(e) => { e.preventDefault(); setShowAllAlbums(!showAllAlbums); }}>${showAllAlbums ? 'Show fewer' : `Show all ${sortedAlbums.length} →`}</a>
+        ${albumSearchTerm && filteredAlbums.length === 0 && html`
+          <p class="muted" style=${{ padding: '8px 0 0' }}>No rated albums match "${albumQuery}".</p>
+        `}
+        ${!albumSearchTerm && filteredAlbums.length > GROUP_ALBUMS_VISIBLE_DEFAULT && html`
+          <a class="show-all-link" href="#" onClick=${(e) => { e.preventDefault(); setShowAllAlbums(!showAllAlbums); }}>${showAllAlbums ? 'Show fewer' : `Show all ${filteredAlbums.length} →`}</a>
         `}
       </div>
 
