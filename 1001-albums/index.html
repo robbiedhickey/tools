@@ -915,6 +915,7 @@ const SITE_BASE = 'https://1001albumsgenerator.com';
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const ROUTE_PREFIX = '1001-albums';
 const APP_BASE = `/${ROUTE_PREFIX}/`;
+const TRACK_ALBUM_API_BASE = `${APP_BASE}api/albums`;
 const LANKY_GIF_URL = 'https://media.tenor.com/lEKATqfPUrgAAAAi/lanky-kong-funny.gif';
 const LANKY_LOADING_GIF_URL = 'https://media.tenor.com/dk8ZbQriTFoAAAAi/video-games-me-at-a-party.gif';
 // VAPID public key — generate with: npx web-push generate-vapid-keys
@@ -1434,6 +1435,10 @@ function writeAlbumCatalog(source, albums) {
 }
 
 // ---------- favorite tracks (backed by functions/1001-albums/api/favorites/, see _lib/favorites.js) ----------
+function favoriteTrackId(track) {
+  return track?.appleTrackId || track?.spotifyTrackId || null;
+}
+
 function useFavoriteTracks(projectName) {
   const [favorites, setFavorites] = useState({});
   const [errorMessage, setErrorMessage] = useState('');
@@ -1451,23 +1456,25 @@ function useFavoriteTracks(projectName) {
   // (restoring the prior map) if it fails so the star never lies about what's actually saved.
   const toggle = useCallback((track) => {
     if (!projectName) return;
+    const trackId = favoriteTrackId(track);
+    if (!trackId) return;
     setFavorites((prev) => {
       const next = { ...prev };
-      const wasFavorited = !!next[track.appleTrackId];
+      const wasFavorited = !!next[trackId];
       if (wasFavorited) {
-        delete next[track.appleTrackId];
-        deleteFavoriteTrack(projectName, track.appleTrackId).catch((err) => {
+        delete next[trackId];
+        deleteFavoriteTrack(projectName, trackId).catch((err) => {
           setErrorMessage(err.message);
-          setFavorites((current) => ({ ...current, [track.appleTrackId]: prev[track.appleTrackId] }));
+          setFavorites((current) => ({ ...current, [trackId]: prev[trackId] }));
         });
       } else {
         const entry = { ...track, favoritedAt: Date.now() };
-        next[track.appleTrackId] = entry;
-        putFavoriteTrack(projectName, track.appleTrackId, entry).catch((err) => {
+        next[trackId] = entry;
+        putFavoriteTrack(projectName, trackId, entry).catch((err) => {
           setErrorMessage(err.message);
           setFavorites((current) => {
             const reverted = { ...current };
-            delete reverted[track.appleTrackId];
+            delete reverted[trackId];
             return reverted;
           });
         });
@@ -1481,14 +1488,16 @@ function useFavoriteTracks(projectName) {
   // with an incomplete snapshot forever, since having *a* title doesn't mean it has every field.
   const sync = useCallback((track) => {
     if (!projectName) return;
+    const trackId = favoriteTrackId(track);
+    if (!trackId) return;
     setFavorites((prev) => {
-      const existing = prev[track.appleTrackId];
+      const existing = prev[trackId];
       if (!existing) return prev;
       const merged = { ...track, favoritedAt: existing.favoritedAt || Date.now() };
       const unchanged = Object.keys(merged).every((key) => existing[key] === merged[key]);
       if (unchanged) return prev;
-      putFavoriteTrack(projectName, track.appleTrackId, merged).catch((err) => setErrorMessage(err.message));
-      return { ...prev, [track.appleTrackId]: merged };
+      putFavoriteTrack(projectName, trackId, merged).catch((err) => setErrorMessage(err.message));
+      return { ...prev, [trackId]: merged };
     });
   }, [projectName]);
   const list = useMemo(
@@ -2093,6 +2102,72 @@ function parseAppleLookupResults(data) {
   };
 }
 
+const albumTrackRecordPromises = new Map();
+function fetchAlbumTrackRecord(spotifyAlbumId, { force = false } = {}) {
+  if (!spotifyAlbumId) return Promise.resolve(null);
+  if (force) albumTrackRecordPromises.delete(spotifyAlbumId);
+  if (!albumTrackRecordPromises.has(spotifyAlbumId)) {
+    const request = fetch(`${TRACK_ALBUM_API_BASE}/${encodeURIComponent(spotifyAlbumId)}`, force ? { cache: 'reload' } : undefined)
+      .then((res) => {
+        if (res.status === 404) return null;
+        if (!res.ok) throw new Error(`Track data lookup failed (${res.status})`);
+        return res.json();
+      })
+      .catch((err) => {
+        albumTrackRecordPromises.delete(spotifyAlbumId);
+        throw err;
+      });
+    albumTrackRecordPromises.set(spotifyAlbumId, request);
+  }
+  return albumTrackRecordPromises.get(spotifyAlbumId);
+}
+
+function normalizeStoredTrack(track, album, record) {
+  const spotify = track.services?.spotify || {};
+  const apple = track.services?.appleMusic || {};
+  return {
+    discNumber: track.discNumber ?? 1,
+    trackNumber: track.trackNumber ?? null,
+    title: track.title || '',
+    durationMs: track.durationMs ?? null,
+    artistName: track.artist ?? track.artistName ?? album?.artist ?? album?.artistName ?? null,
+    albumName: track.albumName ?? album?.name ?? album?.albumName ?? null,
+    appleTrackId: apple.trackId ?? track.appleTrackId ?? null,
+    appleAlbumId: record?.services?.appleMusic?.albumId ?? track.appleAlbumId ?? album?.appleAlbumId ?? null,
+    spotifyTrackId: spotify.trackId ?? track.spotifyTrackId ?? null,
+    spotifyAlbumId: record?.spotifyAlbumId ?? album?.spotifyAlbumId ?? null,
+    trackViewUrl: apple.url || track.trackViewUrl || spotify.url || (spotify.trackId ? `https://open.spotify.com/track/${spotify.trackId}` : null),
+    artworkUrl: track.artworkUrl || null,
+    explicit: typeof track.explicit === 'boolean' ? track.explicit : null,
+    streamable: typeof track.streamable === 'boolean' ? track.streamable : null,
+  };
+}
+
+function parseStoredTrackAlbum(record) {
+  if (!record || !Array.isArray(record.tracks)) return null;
+  const album = record.album || null;
+  const tracks = record.tracks
+    .map(track => normalizeStoredTrack(track, album, record))
+    .sort((a, b) =>
+      (a.discNumber ?? 1) - (b.discNumber ?? 1) ||
+      (a.trackNumber ?? 0) - (b.trackNumber ?? 0)
+    );
+  return {
+    album: album ? {
+      albumName: album.name || album.albumName || null,
+      artistName: album.artist || album.artistName || null,
+      releaseDate: album.releaseDate || null,
+      trackCount: album.trackCount ?? tracks.length,
+      totalRuntimeMs: album.totalRuntimeMs ?? (tracks.reduce((sum, track) => sum + (track.durationMs || 0), 0) || null),
+      copyright: album.copyright || null,
+      appleAlbumId: record.services?.appleMusic?.albumId || album.appleAlbumId || null,
+      spotifyAlbumId: record.spotifyAlbumId || album.spotifyAlbumId || null,
+    } : null,
+    tracks,
+    source: 'kv',
+  };
+}
+
 // Apple's iTunes Lookup API reflects the request's Origin in Access-Control-Allow-Origin
 // correctly, but Akamai (its CDN) caches the response keyed only by URL — no `Vary: Origin` — for
 // 24h. So whichever origin first requests a given lookup URL gets its Origin baked into the
@@ -2105,6 +2180,63 @@ async function fetchAppleTrackMetadata(appleMusicId) {
     throw new Error(`Apple track lookup failed (${res.status})`);
   }
   return res.json();
+}
+
+function isTrackMetadataEmpty(value) {
+  return !value || !value.tracks || value.tracks.length === 0;
+}
+
+function useAlbumTrackMetadata(album) {
+  const [state, setState] = useState({ status: 'hidden', data: null, error: null, source: null });
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const spotifyId = album?.spotifyId || null;
+  const appleMusicId = album?.appleMusicId || null;
+
+  useEffect(() => {
+    if (!spotifyId && !appleMusicId) {
+      setState({ status: 'hidden', data: null, error: null, source: null });
+      return;
+    }
+
+    let cancelled = false;
+    const force = refreshNonce > 0;
+    setState({ status: 'loading', data: null, error: null, source: null });
+
+    (async () => {
+      if (spotifyId) {
+        const stored = parseStoredTrackAlbum(await fetchAlbumTrackRecord(spotifyId, { force }));
+        if (stored && !isTrackMetadataEmpty(stored)) {
+          return { data: stored, source: 'kv' };
+        }
+      }
+
+      if (!appleMusicId) {
+        return { data: null, source: null };
+      }
+
+      const cacheKey = appleTracksCacheKey(appleMusicId);
+      const cached = force ? null : readJsonCache(cacheKey);
+      if (cached && cached.value != null && !isTrackMetadataEmpty(cached.value)) {
+        return { data: { ...cached.value, source: 'apple' }, source: 'apple' };
+      }
+
+      const appleData = await fetchAppleTrackMetadata(appleMusicId).then(parseAppleLookupResults);
+      writeJsonCache(cacheKey, appleData);
+      return { data: { ...appleData, source: 'apple' }, source: 'apple' };
+    })()
+      .then(({ data, source }) => {
+        if (cancelled) return;
+        if (data) setState({ status: 'ready', data, error: null, source });
+        else setState({ status: 'hidden', data: null, error: null, source: null });
+      })
+      .catch((error) => {
+        if (!cancelled) setState({ status: 'error', data: null, error, source: null });
+      });
+
+    return () => { cancelled = true; };
+  }, [spotifyId, appleMusicId, refreshNonce]);
+
+  return { ...state, refresh: () => setRefreshNonce(n => n + 1) };
 }
 
 function discoveryLinks(album) {
@@ -2305,32 +2437,20 @@ function GlobalReviewsPreview({ url, initialKeyword = null }) {
   `;
 }
 
-// A cached *empty* track list almost certainly means a previous fetch was bad (a CORS/CDN
-// hiccup, a transient rate limit) rather than the album genuinely having zero tracks — don't
-// let that get stuck forever the way the global-reviews cache used to.
-function isAppleTracksEmpty(value) {
-  return !value.tracks || value.tracks.length === 0;
-}
-
 function TracksPreview({ album, projectName }) {
   const favorites = useFavoriteTracks(projectName);
-  const cache = useCachedFetch(
-    album.appleMusicId ? appleTracksCacheKey(album.appleMusicId) : null,
-    () => fetchAppleTrackMetadata(album.appleMusicId).then(parseAppleLookupResults),
-    { isEmpty: isAppleTracksEmpty }
-  );
-  const state = { status: cache.status, data: cache.value };
+  const state = useAlbumTrackMetadata(album);
 
   useEffect(() => {
     if (!state.data) return;
-    state.data.tracks.forEach((track) => { if (track.appleTrackId) favorites.sync(track); });
+    state.data.tracks.forEach((track) => { if (favoriteTrackId(track)) favorites.sync(track); });
   }, [state.data]);
 
   return html`
     <div>
       ${favorites.errorMessage && html`<p class="muted">${favorites.errorMessage}</p>`}
-      ${state.status === 'hidden' && html`<p class="muted">No Apple Music ID is available for this album.</p>`}
-      ${state.status === 'error' && html`<p class="muted">Couldn't load track metadata. <a href="#" onClick=${(e) => { e.preventDefault(); cache.refresh(); }}>Refresh</a></p>`}
+      ${state.status === 'hidden' && html`<p class="muted">No track metadata is available for this album.</p>`}
+      ${state.status === 'error' && html`<p class="muted">Couldn't load track metadata. <a href="#" onClick=${(e) => { e.preventDefault(); state.refresh(); }}>Refresh</a></p>`}
       ${state.status === 'ready' && state.data && html`
         ${state.data.album && html`
           <div class="context-grid" style=${{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
@@ -2339,23 +2459,24 @@ function TracksPreview({ album, projectName }) {
           </div>
           ${state.data.album.copyright && html`<p class="label-caption" title=${state.data.album.copyright}>${state.data.album.copyright}</p>`}
           ${state.data.album.trackCount != null && state.data.album.trackCount !== state.data.tracks.length && html`
-            <p class="muted">Apple returned ${state.data.tracks.length} track rows for an album marked as ${state.data.album.trackCount} tracks.</p>
+            <p class="muted">Track data returned ${state.data.tracks.length} rows for an album marked as ${state.data.album.trackCount} tracks.</p>
           `}
         `}
-        <p class="muted"><a href="#" onClick=${(e) => { e.preventDefault(); cache.refresh(); }}>Refresh</a></p>
+        <p class="muted"><a href="#" onClick=${(e) => { e.preventDefault(); state.refresh(); }}>Refresh</a></p>
         ${state.data.tracks.length === 0 ? html`
-          <p class="muted">No track rows were returned. <a href="#" onClick=${(e) => { e.preventDefault(); cache.refresh(); }}>Refresh</a></p>
+          <p class="muted">No track rows were returned. <a href="#" onClick=${(e) => { e.preventDefault(); state.refresh(); }}>Refresh</a></p>
         ` : html`
           <div class="table-scroll">
             <table class="tracks-table">
               <thead><tr><th></th><th>#</th><th>Track</th><th>Length</th></tr></thead>
               <tbody>
                 ${state.data.tracks.map(track => {
-                  const favorited = track.appleTrackId && favorites.isFavorite(track.appleTrackId);
+                  const trackId = favoriteTrackId(track);
+                  const favorited = trackId && favorites.isFavorite(trackId);
                   return html`
                   <tr>
                     <td>
-                      ${track.appleTrackId && html`
+                      ${trackId && html`
                         <button
                           type="button"
                           class=${`star-btn ${favorited ? 'active' : ''}`}
@@ -4255,8 +4376,8 @@ function FavoriteTracksSection({ projectName }) {
             <div class="data-card-main">
               <div class="data-card-title">
                 ${track.trackViewUrl
-                  ? html`<a href=${track.trackViewUrl} target="_blank" rel="noopener" class="track-link" title="Open in Apple Music">${track.title || `Unknown track (${track.appleTrackId})`}</a>`
-                  : (track.title || `Unknown track (${track.appleTrackId})`)}
+                  ? html`<a href=${track.trackViewUrl} target="_blank" rel="noopener" class="track-link" title="Open track">${track.title || `Unknown track (${favoriteTrackId(track) || 'unknown id'})`}</a>`
+                  : (track.title || `Unknown track (${favoriteTrackId(track) || 'unknown id'})`)}
               </div>
               <div class="data-card-sub">${track.artistName || '—'} · ${track.albumName || '—'}</div>
             </div>
