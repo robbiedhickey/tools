@@ -486,7 +486,13 @@ export function FavoriteTracksSection({ projectName }) {
   const filtered = q
     ? favorites.list.filter(t => (t.title || '').toLowerCase().includes(q) || (t.artistName || '').toLowerCase().includes(q) || (t.albumName || '').toLowerCase().includes(q))
     : favorites.list;
-  const visible = showAll ? filtered : filtered.slice(0, FAVORITE_TRACKS_VISIBLE_DEFAULT);
+  let visible = showAll ? filtered : filtered.slice(0, FAVORITE_TRACKS_VISIBLE_DEFAULT);
+  // Pin the actively-playing track into view even if a search/limit would otherwise exclude it —
+  // filtering it out unmounts its iframe and kills playback out from under the user.
+  if (activeEmbedTrackId && !visible.some(t => favoriteTrackId(t) === activeEmbedTrackId)) {
+    const activeTrack = favorites.list.find(t => favoriteTrackId(t) === activeEmbedTrackId);
+    if (activeTrack) visible = [activeTrack, ...visible];
+  }
 
   if (favorites.list.length === 0) {
     return html`
