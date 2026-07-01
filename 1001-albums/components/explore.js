@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'preact/hooks'
 import { createPortal } from 'preact/compat';
 import htm from 'htm';
 import { ALBUM_CATALOG_TTL_MS, DIDDY_GIF_URL } from '../lib/constants.js';
-import { readAlbumCatalog, writeAlbumCatalog, useCachedFetch } from '../lib/cache.js';
+import { readAlbumCatalog, writeAlbumCatalog } from '../lib/cache.js';
 import { fetchAlbumCatalog, fetchAlbumTrackRecord, searchAlbumsByWord } from '../lib/api.js';
 import { formatCacheAge } from '../lib/format.js';
 import { useRecommendations } from '../lib/hub.js';
@@ -265,12 +265,23 @@ export function useDiscoverAlbum(albumSlug, source, hubData) {
   useEffect(() => { catalog.load(); }, [catalog.load]);
   const catalogAlbum = useMemo(() => catalog.albums.find(a => a.slug === albumSlug), [catalog.albums, albumSlug]);
 
-  const enrichmentCache = useCachedFetch(
-    catalogAlbum?.spotifyId ? `album-enrichment-record:v1:${catalogAlbum.spotifyId}` : null,
-    () => fetchAlbumTrackRecord(catalogAlbum.spotifyId),
-    { isEmpty: (value) => !value || !value.album }
-  );
-  const enrichmentAlbum = enrichmentCache.value?.album ?? null;
+  // fetchAlbumTrackRecord already dedupes/caches per spotifyId for the life of the page (see its
+  // own Map in lib/api.js), and the KV it reads from is our own — same-origin, fast, not the kind
+  // of external/rate-limited fetch useCachedFetch's localStorage-forever caching exists to
+  // insulate against (compare useAlbumTrackMetadata in components/album.js, which fetches the
+  // same record with no localStorage layer either). The KV enrichment record's wikipedia/
+  // apple-music IDs live under `services`, not `album` — see parseStoredTrackAlbum, which reads
+  // the same shape correctly.
+  const [enrichmentServices, setEnrichmentServices] = useState(null);
+  useEffect(() => {
+    setEnrichmentServices(null);
+    if (!catalogAlbum?.spotifyId) return;
+    let cancelled = false;
+    fetchAlbumTrackRecord(catalogAlbum.spotifyId)
+      .then((record) => { if (!cancelled) setEnrichmentServices(record?.services ?? null); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [catalogAlbum?.spotifyId]);
 
   const album = useMemo(() => {
     if (!catalogAlbum) return null;
@@ -284,14 +295,14 @@ export function useDiscoverAlbum(albumSlug, source, hubData) {
         }
       }
     }
-    if (!base.wikipediaUrl && enrichmentAlbum?.wikipediaUrl) {
-      base.wikipediaUrl = enrichmentAlbum.wikipediaUrl;
+    if (!base.wikipediaUrl && enrichmentServices?.wikipedia?.url) {
+      base.wikipediaUrl = enrichmentServices.wikipedia.url;
     }
-    if (!base.appleMusicId && enrichmentAlbum?.appleAlbumId) {
-      base.appleMusicId = enrichmentAlbum.appleAlbumId;
+    if (!base.appleMusicId && enrichmentServices?.appleMusic?.albumId) {
+      base.appleMusicId = enrichmentServices.appleMusic.albumId;
     }
     return base;
-  }, [catalogAlbum, hubData, enrichmentAlbum]);
+  }, [catalogAlbum, hubData, enrichmentServices]);
 
   return { album, scrapedContext: null, catalogStatus: catalog.status };
 }
