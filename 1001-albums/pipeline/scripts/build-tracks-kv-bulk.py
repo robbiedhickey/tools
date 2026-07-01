@@ -30,6 +30,7 @@ DEFAULT_INPUTS = [
 ]
 DEFAULT_APPLE_MAP = Path("1001-albums/pipeline/data/apple-track-map.json")
 DEFAULT_WIKIPEDIA_MAP = Path("1001-albums/pipeline/data/wikipedia-map.json")
+DEFAULT_APPLE_ALBUM_OVERRIDES = Path("1001-albums/pipeline/data/apple-album-overrides.json")
 DEFAULT_OUTPUT = Path("1001-albums/pipeline/data/tracks-kv-bulk.json")
 DEFAULT_PREFIX = "1001-albums:album"
 
@@ -78,6 +79,20 @@ def load_wikipedia_map(path: Path | None) -> dict[str, Any]:
     return albums
 
 
+def load_apple_album_overrides(path: Path | None) -> dict[str, str]:
+    if not path or not path.exists():
+        return {}
+    data = read_json(path)
+    overrides: dict[str, str] = {}
+    for spotify_id, override in (data.get("albums") or {}).items():
+        if not isinstance(override, dict):
+            continue
+        apple_id = override.get("appleMusicId")
+        if apple_id:
+            overrides[spotify_id] = str(apple_id)
+    return overrides
+
+
 def service_obj(**values: Any) -> dict[str, Any] | None:
     value = {key: item for key, item in values.items() if item is not None}
     return value or None
@@ -108,9 +123,14 @@ def album_summary(spotify_id: str, album: dict[str, Any], tracks: list[dict[str,
     }
 
 
-def album_services(spotify_id: str, record: dict[str, Any], wikipedia_record: dict[str, Any] | None) -> dict[str, Any]:
+def album_services(
+    spotify_id: str,
+    record: dict[str, Any],
+    wikipedia_record: dict[str, Any] | None,
+    apple_album_overrides: dict[str, str],
+) -> dict[str, Any]:
     services: dict[str, Any] = {"spotify": {"albumId": spotify_id}}
-    apple_album_id = ((record.get("services") or {}).get("appleMusic") or {}).get("albumId")
+    apple_album_id = apple_album_overrides.get(spotify_id) or ((record.get("services") or {}).get("appleMusic") or {}).get("albumId")
     if apple_album_id:
         services["appleMusic"] = {"albumId": str(apple_album_id)}
     wikipedia_url = (wikipedia_record or {}).get("url")
@@ -163,6 +183,7 @@ def build_album_record(
     record: dict[str, Any],
     apple_map_record: dict[str, Any] | None,
     wikipedia_record: dict[str, Any] | None,
+    apple_album_overrides: dict[str, str],
     generated_at: str | None,
     prepared_at: str,
 ) -> dict[str, Any]:
@@ -182,7 +203,7 @@ def build_album_record(
         "source": "1001albumsgenerator.com",
         "spotifyAlbumId": spotify_id,
         "album": album_summary(spotify_id, source_album, source_tracks),
-        "services": album_services(spotify_id, record, wikipedia_record),
+        "services": album_services(spotify_id, record, wikipedia_record, apple_album_overrides),
         "tracks": tracks,
     }
 
@@ -202,7 +223,13 @@ def build_album_record(
     return value
 
 
-def build_bulk(datasets: list[dict[str, Any]], apple_map: dict[str, Any], wikipedia_map: dict[str, Any], prefix: str) -> list[dict[str, str]]:
+def build_bulk(
+    datasets: list[dict[str, Any]],
+    apple_map: dict[str, Any],
+    wikipedia_map: dict[str, Any],
+    apple_album_overrides: dict[str, str],
+    prefix: str,
+) -> list[dict[str, str]]:
     prepared_at = utc_now()
     merged_albums: dict[str, tuple[dict[str, Any], str | None]] = {}
 
@@ -223,6 +250,7 @@ def build_bulk(datasets: list[dict[str, Any]], apple_map: dict[str, Any], wikipe
             record=record,
             apple_map_record=apple_map.get(spotify_id),
             wikipedia_record=wikipedia_map.get(spotify_id),
+            apple_album_overrides=apple_album_overrides,
             generated_at=generated_at,
             prepared_at=prepared_at,
         )
@@ -235,6 +263,7 @@ def main() -> int:
     parser.add_argument("--input", type=Path, action="append", dest="inputs", help="Track-data JSON input. May be passed more than once.")
     parser.add_argument("--apple-map", type=Path, default=DEFAULT_APPLE_MAP)
     parser.add_argument("--wikipedia-map", type=Path, default=DEFAULT_WIKIPEDIA_MAP)
+    parser.add_argument("--apple-album-overrides", type=Path, default=DEFAULT_APPLE_ALBUM_OVERRIDES)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--prefix", default=DEFAULT_PREFIX)
     args = parser.parse_args()
@@ -243,7 +272,8 @@ def main() -> int:
     datasets = [load_track_data(path) for path in input_paths]
     apple_map = load_apple_map(args.apple_map)
     wikipedia_map = load_wikipedia_map(args.wikipedia_map)
-    rows = build_bulk(datasets, apple_map, wikipedia_map, args.prefix.rstrip(":"))
+    apple_album_overrides = load_apple_album_overrides(args.apple_album_overrides)
+    rows = build_bulk(datasets, apple_map, wikipedia_map, apple_album_overrides, args.prefix.rstrip(":"))
     with args.output.open("w", encoding="utf-8") as f:
         json.dump(rows, f, ensure_ascii=False, indent=2)
         f.write("\n")

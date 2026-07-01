@@ -10,6 +10,7 @@
     "tracks:catalog-corrections": "uv run 1001-albums/pipeline/scripts/build-catalog-corrections.py",
     "tracks:wikipedia-map": "uv run 1001-albums/pipeline/scripts/build-wikipedia-map.py",
     "tracks:apple-map": "uv run 1001-albums/pipeline/scripts/build-apple-track-map.py 1001-albums/pipeline/data/book-tracks-data.json 1001-albums/pipeline/data/user-tracks-data.json --output 1001-albums/pipeline/data/apple-track-map.json",
+    "tracks:apple-repair": "uv run 1001-albums/pipeline/scripts/repair-apple-album-overrides.py",
     "tracks:kv:build": "uv run 1001-albums/pipeline/scripts/build-tracks-kv-bulk.py",
     "tracks:kv:validate": "uv run --with jsonschema 1001-albums/pipeline/scripts/validate-kv-bulk.py",
     "tracks:kv:put:local": "npx wrangler kv bulk put 1001-albums/pipeline/data/tracks-kv-bulk.json --binding TOOLS_KV --local",

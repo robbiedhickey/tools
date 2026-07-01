@@ -24,6 +24,7 @@ from typing import Any
 
 
 DEFAULT_OUTPUT = Path("1001-albums/pipeline/data/apple-track-map.json")
+DEFAULT_APPLE_ALBUM_OVERRIDES = Path("1001-albums/pipeline/data/apple-album-overrides.json")
 USER_AGENT = "tools.robbiehickey.com apple-track mapper"
 
 
@@ -134,6 +135,20 @@ def load_existing(path: Path) -> dict[str, Any]:
     return read_json_retry(path)
 
 
+def load_apple_album_overrides(path: Path | None) -> dict[str, str]:
+    if not path or not path.exists():
+        return {}
+    data = read_json_retry(path)
+    overrides: dict[str, str] = {}
+    for spotify_id, override in (data.get("albums") or {}).items():
+        if not isinstance(override, dict):
+            continue
+        apple_id = override.get("appleMusicId")
+        if apple_id:
+            overrides[spotify_id] = str(apple_id)
+    return overrides
+
+
 def iter_album_records(paths: list[Path]) -> list[tuple[str, dict[str, Any], str]]:
     records = []
     for path in paths:
@@ -150,6 +165,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("inputs", nargs="+", type=Path)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--apple-album-overrides", type=Path, default=DEFAULT_APPLE_ALBUM_OVERRIDES)
     parser.add_argument("--delay", type=float, default=0.25)
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
@@ -157,11 +173,13 @@ def main() -> int:
     output = load_existing(args.output)
     output["version"] = 1
     output.setdefault("albums", {})
+    apple_album_overrides = load_apple_album_overrides(args.apple_album_overrides)
 
     records = iter_album_records(args.inputs)
     for index, (spotify_id, record, source_path) in enumerate(records, start=1):
         album = record.get("album") or {}
-        apple_id = ((record.get("services") or {}).get("appleMusic") or {}).get("albumId")
+        source_apple_id = ((record.get("services") or {}).get("appleMusic") or {}).get("albumId")
+        apple_id = apple_album_overrides.get(spotify_id) or source_apple_id
         tracks = [track for track in record.get("tracks") or [] if spotify_track_id(track)]
         existing = output["albums"].get(spotify_id)
         if not args.force and existing and existing.get("mappedCount", 0) >= len(tracks):
@@ -190,6 +208,7 @@ def main() -> int:
             output["albums"][spotify_id] = {
                 "spotifyAlbumId": spotify_id,
                 "appleAlbumId": apple_id,
+                "sourceAppleAlbumId": source_apple_id,
                 "sourcePath": source_path,
                 "mappedAt": utc_now(),
                 "trackCount": len(tracks),
