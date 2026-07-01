@@ -1,4 +1,4 @@
-import { h } from 'preact';
+import { h, Fragment } from 'preact';
 import { useState, useMemo } from 'preact/hooks';
 import htm from 'htm';
 import { SITE_BASE, APP_BASE, GROUP_ALBUMS_VISIBLE_DEFAULT, FAVORITE_TRACKS_VISIBLE_DEFAULT } from '../lib/constants.js';
@@ -13,6 +13,8 @@ import {
 import { navigateForward, navigateBack, navigateTo, routePath, memberRoutePath, pairRoutePath } from '../lib/routing.js';
 import { SiteModalLink, LankyMascot, LoadingNote } from './common.js';
 import { useAlbumThumbs } from './explore.js';
+import { trackEmbed } from './player.js';
+import { useMusicService, useEmbeddablePlayers } from '../lib/settings.js';
 
 const html = htm.bind(h);
 
@@ -475,8 +477,11 @@ export function MeView({ me, projectName }) {
 
 export function FavoriteTracksSection({ projectName }) {
   const favorites = useFavoriteTracks(projectName);
+  const musicService = useMusicService();
+  const players = useEmbeddablePlayers();
   const [showAll, setShowAll] = useState(false);
   const [query, setQuery] = useState('');
+  const [activeEmbedTrackId, setActiveEmbedTrackId] = useState(null);
   const q = query.trim().toLowerCase();
   const filtered = q
     ? favorites.list.filter(t => (t.title || '').toLowerCase().includes(q) || (t.artistName || '').toLowerCase().includes(q) || (t.albumName || '').toLowerCase().includes(q))
@@ -505,26 +510,57 @@ export function FavoriteTracksSection({ projectName }) {
         style=${{ width: '100%', padding: '7px 10px', marginBottom: '10px', border: '1px solid var(--border)', borderRadius: '6px', font: 'inherit', fontSize: '13px', background: 'var(--bg)', color: 'var(--text)', boxSizing: 'border-box' }}
       />
       <div class="data-card-list">
-        ${visible.map(track => html`
-          <div class="data-card">
-            <button type="button" class="star-btn active" aria-label="Unfavorite track" onClick=${() => favorites.toggle(track)}>★</button>
-            ${track.artworkUrl
-              ? html`<img src=${track.artworkUrl} alt="" width="44" height="44" loading="lazy" style=${{ borderRadius: '4px', display: 'block', flexShrink: 0, objectFit: 'cover' }} />`
-              : html`<div class="explore-album-thumb"></div>`
-            }
-            <div class="data-card-main">
-              <div class="data-card-title">
-                ${track.trackViewUrl
-                  ? html`<a href=${track.trackViewUrl} target="_blank" rel="noopener" class="track-link" title="Open track">${track.title || `Unknown track (${favoriteTrackId(track) || 'unknown id'})`}</a>`
-                  : (track.title || `Unknown track (${favoriteTrackId(track) || 'unknown id'})`)}
+        ${visible.map(track => {
+          const trackId = favoriteTrackId(track);
+          const embed = players.enabled ? trackEmbed(track, musicService.preference) : null;
+          const embedOpen = trackId && activeEmbedTrackId === trackId;
+          return html`
+            <${Fragment}>
+              <div class="data-card">
+                <button type="button" class="star-btn active" aria-label="Unfavorite track" onClick=${() => favorites.toggle(track)}>★</button>
+                ${embed && trackId && html`
+                  <button
+                    type="button"
+                    class=${`embed-btn ${embedOpen ? 'active' : ''}`}
+                    aria-label=${embedOpen ? 'Hide track player' : `Play preview with ${embed.service}`}
+                    title=${embedOpen ? 'Hide player' : `Play with ${embed.service}`}
+                    onClick=${() => setActiveEmbedTrackId(current => current === trackId ? null : trackId)}
+                  ><span class="icon-symbol">${embedOpen ? 'expand_less' : 'play_arrow'}</span></button>
+                `}
+                ${track.artworkUrl
+                  ? html`<img src=${track.artworkUrl} alt="" width="44" height="44" loading="lazy" style=${{ borderRadius: '4px', display: 'block', flexShrink: 0, objectFit: 'cover' }} />`
+                  : html`<div class="explore-album-thumb"></div>`
+                }
+                <div class="data-card-main">
+                  <div class="data-card-title">
+                    ${track.trackViewUrl
+                      ? html`<a href=${track.trackViewUrl} target="_blank" rel="noopener" class="track-link" title="Open track">${track.title || `Unknown track (${favoriteTrackId(track) || 'unknown id'})`}</a>`
+                      : (track.title || `Unknown track (${favoriteTrackId(track) || 'unknown id'})`)}
+                  </div>
+                  <div class="data-card-sub">${track.artistName || '—'} · ${track.albumName || '—'}</div>
+                </div>
+                <div class="data-card-aside">
+                  <span class="muted">${formatDurationMs(track.durationMs)}</span>
+                </div>
               </div>
-              <div class="data-card-sub">${track.artistName || '—'} · ${track.albumName || '—'}</div>
-            </div>
-            <div class="data-card-aside">
-              <span class="muted">${formatDurationMs(track.durationMs)}</span>
-            </div>
-          </div>
-        `)}
+              ${embedOpen && html`
+                <div style=${{ padding: '0 8px 4px' }}>
+                  <div class="track-embed-label">
+                    <span>${embed.service}</span>
+                    <a href=${embed.openUrl} target="_blank" rel="noopener">Open track</a>
+                  </div>
+                  <iframe
+                    class="track-embed-frame"
+                    src=${embed.url}
+                    title=${`${track.title} on ${embed.service}`}
+                    loading="lazy"
+                    allow="autoplay *; clipboard-write *; encrypted-media *; fullscreen *; picture-in-picture *"
+                  ></iframe>
+                </div>
+              `}
+            <//>
+          `;
+        })}
       </div>
       ${filtered.length > FAVORITE_TRACKS_VISIBLE_DEFAULT && html`
         <a class="show-all-link" href="#" onClick=${(e) => { e.preventDefault(); setShowAll(!showAll); }}>${showAll ? 'Show fewer' : `Show all ${filtered.length} →`}</a>

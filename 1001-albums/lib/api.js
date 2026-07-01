@@ -79,10 +79,13 @@ export function formatApiErrorMessage(res, body, bodyText) {
   return `Request failed (${res.status})`;
 }
 
-// A banned/rate-limited response from this site omits CORS headers entirely (confirmed live
-// 2026-06-23: a normal 403 has `Access-Control-Allow-Origin: *`, a banned one has no CORS
-// headers at all) — so from a browser, fetch() rejects with an opaque TypeError before any
-// status code is readable. This is the only signal available in that case.
+// A banned/rate-limited response from 1001albumsgenerator.com omits CORS headers entirely
+// (confirmed live 2026-06-23: a normal 403 has `Access-Control-Allow-Origin: *`, a banned one has
+// no CORS headers at all) — so from a browser, fetch() rejects with an opaque TypeError before
+// any status code is readable. This is the only signal available in that case. Use this only for
+// fetches that hit SITE_BASE directly (saveListeningNote, saveRating, markAllNotificationsRead) —
+// everything else goes through our own Pages Functions, where a TypeError means our own origin was
+// unreachable, not that the upstream API rate-limited us (see describeOwnFetchFailure).
 export function describeFetchFailure(err) {
   if (!(err instanceof TypeError)) return err.message;
   return navigator.onLine === false
@@ -90,12 +93,23 @@ export function describeFetchFailure(err) {
     : 'The request was blocked before the response could be read. You may be rate limited or temporarily blocked; try again in a little while.';
 }
 
+// For fetches that hit our own origin (Pages Functions backed by KV, e.g. the upstream/
+// global-album-page proxies and the favorites API) — these always return a normal Response, even
+// when the thing they proxy to is itself rate-limited, so a raw TypeError here just means our own
+// origin didn't respond (offline, edge hiccup, etc.), never "blocked by the API".
+export function describeOwnFetchFailure(err) {
+  if (!(err instanceof TypeError)) return err.message;
+  return navigator.onLine === false
+    ? 'Network is offline. Try again once you have a connection.'
+    : "Couldn't reach the server. Try again in a little while.";
+}
+
 // Shared formatter for errors thrown by the scraped-page fetchers below: 'lookup failed' is an
 // internal sentinel for "got a response, just not an ok/useful one" with no better message to
 // show, so it's hidden in favor of each caller's own generic fallback text.
 export function formatCacheErrorMessage(err) {
   if (!err) return '';
-  return err.message === 'lookup failed' ? '' : describeFetchFailure(err);
+  return err.message === 'lookup failed' ? '' : describeOwnFetchFailure(err);
 }
 
 // Every 1001albumsgenerator.com/api/v1 GET goes through our own upstream proxy (see
@@ -111,7 +125,7 @@ export async function apiGet(path, { force = false } = {}) {
   try {
     res = await fetch(url);
   } catch (err) {
-    throw new ApiError(describeFetchFailure(err), 0, { cause: err });
+    throw new ApiError(describeOwnFetchFailure(err), 0, { cause: err });
   }
   const bodyText = await res.text();
   let body = null;
@@ -205,7 +219,7 @@ export async function fetchFavorites(projectName) {
   try {
     res = await fetch(`${APP_BASE}api/favorites/${encodeURIComponent(projectName)}`);
   } catch (err) {
-    throw new Error(describeFetchFailure(err));
+    throw new Error(describeOwnFetchFailure(err));
   }
   if (!res.ok) throw new Error('Failed to load favorites.');
   try {
@@ -226,7 +240,7 @@ export async function putFavoriteTrack(projectName, trackId, entry) {
       body: JSON.stringify(entry),
     });
   } catch (err) {
-    throw new Error(describeFetchFailure(err));
+    throw new Error(describeOwnFetchFailure(err));
   }
   if (!res.ok) {
     const body = await res.json().catch(() => null);
@@ -238,7 +252,7 @@ export async function deleteFavoriteTrack(projectName, trackId) {
   try {
     res = await fetch(`${APP_BASE}api/favorites/${encodeURIComponent(projectName)}/${encodeURIComponent(trackId)}`, { method: 'DELETE' });
   } catch (err) {
-    throw new Error(describeFetchFailure(err));
+    throw new Error(describeOwnFetchFailure(err));
   }
   if (!res.ok) {
     const body = await res.json().catch(() => null);
