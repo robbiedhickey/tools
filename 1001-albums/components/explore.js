@@ -550,9 +550,9 @@ export function ExploreView({ projectName, source = 'global', mode = 'browse', i
           ${cacheAge && html`<div class="explore-cache-note">${source === 'user' ? 'User albums' : 'Global catalog'} cached ${cacheAge}</div>`}
         </div>
         <div class="explore-results" role="list">
-          ${catalog.status === 'loading' && html`<${LoadingNote} label="Loading album catalog…" />`}
-          ${catalog.status === 'error' && html`<p class="muted" style=${{ padding: '16px' }}>Failed to load. <button class="link-chip" type="button" onClick=${() => catalog.load(true)}>Retry</button></p>`}
-          ${catalog.status === 'ready' && html`
+          ${catalog.status === 'loading' && !catalog.albums.length && html`<${LoadingNote} label="Loading album catalog…" />`}
+          ${catalog.status === 'error' && !catalog.albums.length && html`<p class="muted" style=${{ padding: '16px' }}>Failed to load. <button class="link-chip" type="button" onClick=${() => catalog.load(true)}>Retry</button></p>`}
+          ${catalog.albums.length > 0 && html`
             ${!query.trim() && html`<p class="explore-hint">Showing ${browseAlbums.length} most-voted ${source === 'user' ? 'user albums' : 'albums'} — search to filter all 1001</p>`}
             ${query.trim() && !browseAlbums.length && html`<p class="muted" style=${{ padding: '16px' }}>No albums match "${query}"</p>`}
             ${browseAlbums.map(album => html`<${ExploreAlbumRow} key=${album.spotifyId || album.slug} album=${album} onClick=${handleAlbumClick} />`)}
