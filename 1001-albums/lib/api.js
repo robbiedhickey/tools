@@ -1,4 +1,4 @@
-import { API_BASE, SITE_BASE, APP_BASE, TRACK_ALBUM_API_BASE, ALBUM_CATALOG_CACHE_VERSION } from './constants.js';
+import { SITE_BASE, APP_BASE, TRACK_ALBUM_API_BASE, ALBUM_CATALOG_CACHE_VERSION } from './constants.js';
 import { applyCatalogCorrections, correctHubProject } from './cache.js';
 import { parseGlobalReviews, parseGlobalAlbumContext } from './format.js';
 
@@ -98,10 +98,18 @@ export function formatCacheErrorMessage(err) {
   return err.message === 'lookup failed' ? '' : describeFetchFailure(err);
 }
 
-export async function apiGet(path) {
+// Every 1001albumsgenerator.com/api/v1 GET goes through our own upstream proxy (see
+// functions/1001-albums/api/upstream/[[path]].js) instead of hitting the origin directly — it's
+// a KV-backed stale-while-revalidate cache shared across every browser, so N users no longer
+// means N independent origin fetches. `force` (manual "Refresh") bypasses that cache and always
+// fetches live.
+const UPSTREAM_PROXY_BASE = `${APP_BASE}api/upstream`;
+
+export async function apiGet(path, { force = false } = {}) {
+  const url = `${UPSTREAM_PROXY_BASE}${path}${force ? '?refresh=1' : ''}`;
   let res;
   try {
-    res = await fetch(`${API_BASE}${path}`);
+    res = await fetch(url);
   } catch (err) {
     throw new ApiError(describeFetchFailure(err), 0, { cause: err });
   }
@@ -116,8 +124,8 @@ export async function apiGet(path) {
   return body;
 }
 
-export const fetchProject = (name) => apiGet(`/projects/${encodeURIComponent(name)}`);
-export const fetchGroup = (slug) => apiGet(`/groups/${encodeURIComponent(slug)}`);
+export const fetchProject = (name, opts) => apiGet(`/projects/${encodeURIComponent(name)}`, opts);
+export const fetchGroup = (slug, opts) => apiGet(`/groups/${encodeURIComponent(slug)}`, opts);
 export const fetchGroupAlbumReviews = (groupSlug, albumUuid) => apiGet(`/groups/${encodeURIComponent(groupSlug)}/albums/${encodeURIComponent(albumUuid)}`);
 let catalogCorrectionsPromise = null;
 export async function fetchCatalogCorrections() {
@@ -130,10 +138,8 @@ export async function fetchCatalogCorrections() {
 }
 export async function fetchAlbumCatalog(source = 'global') {
   const endpoint = source === 'user' ? '/user-albums/stats' : '/albums/stats';
-  const res = await fetch(`${API_BASE}${endpoint}`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  const albums = data.albums || [];
+  const data = await apiGet(endpoint);
+  const albums = (data && data.albums) || [];
   const corrections = await fetchCatalogCorrections();
   return applyCatalogCorrections(albums, source, corrections);
 }
@@ -264,18 +270,18 @@ export async function markAllNotificationsRead(projectName) {
 // not one per member) — enough for Today/Backlog/Me. The per-member fan-out that used to happen
 // here on every load now happens lazily in loadGroupMembers, only when a view that actually needs
 // every member's full history (Group/Activity/Pair/Member) is visited.
-export async function loadMe(projectName) {
+export async function loadMe(projectName, { force = false } = {}) {
   const corrections = await fetchCatalogCorrections();
-  const me = correctHubProject(await fetchProject(projectName), corrections);
-  const group = me.group && me.group.slug ? await fetchGroup(me.group.slug) : null;
+  const me = correctHubProject(await fetchProject(projectName, { force }), corrections);
+  const group = me.group && me.group.slug ? await fetchGroup(me.group.slug, { force }) : null;
   return { me, group };
 }
 
-export async function loadGroupMembers(group, projectName) {
+export async function loadGroupMembers(group, projectName, { force = false } = {}) {
   const corrections = await fetchCatalogCorrections();
   const memberNames = group.members.map(m => m.name);
   const results = await Promise.all(memberNames.map(name =>
-    fetchProject(name).catch(err => ({ __error: err, __name: name }))
+    fetchProject(name, { force }).catch(err => ({ __error: err, __name: name }))
   ));
   const members = {};
   memberNames.forEach((name, i) => { members[name] = correctHubProject(results[i], corrections); });
@@ -284,14 +290,21 @@ export async function loadGroupMembers(group, projectName) {
 
 // One fetch of the scraped global-reviews page serves both AlbumSummaryContext (genres/rating)
 // and GlobalReviewsPreview (reviews/distribution/keywords) via the shared global-album-page
-// cache — see useCachedFetch and globalAlbumPageCacheKey.
-export function fetchGlobalAlbumPage(url) {
-  return fetch(url)
-    // This page has no CORS headers, so a rate-limit block and a normal CORS block both surface
-    // as an opaque network error with no readable status — only catchable when the browser
-    // actually let us read a response (e.g. the page started sending CORS headers, or this
-    // particular failure mode wasn't CORS-opaque).
-    .then((r) => { if (!r.ok) throw new Error(isRateLimitStatus(r.status) ? describeRateLimit(r) : 'lookup failed'); return r.text(); })
+// cache — see useCachedFetch and globalAlbumPageCacheKey. Goes through our own
+// api/global-album-page proxy (KV-cached, 24h) rather than fetching 1001albumsgenerator.com
+// directly — same-origin means a ban/rate-limit now comes back as a normal readable Response
+// instead of the opaque CORS failure this used to hit. `force` is threaded from useCachedFetch's
+// refresh() (see the forceNextFetchRef in lib/cache.js) so manual Refresh bypasses the shared
+// proxy cache too, not just the local one.
+export function fetchGlobalAlbumPage(url, force = false) {
+  const path = new URL(url).pathname;
+  return fetch(`${APP_BASE}api/global-album-page${path}${force ? '?refresh=1' : ''}`)
+    .then((r) => {
+      if (r.ok) return r.text();
+      return r.json().catch(() => null).then((body) => {
+        throw new Error(isRateLimitStatus(r.status) ? describeRateLimit(r) : ((body && body.message) || 'lookup failed'));
+      });
+    })
     .then((text) => ({ reviews: parseGlobalReviews(text, 100), context: parseGlobalAlbumContext(text) }));
 }
 

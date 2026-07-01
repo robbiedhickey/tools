@@ -1,5 +1,4 @@
 // ---------- constants ----------
-export const API_BASE = 'https://1001albumsgenerator.com/api/v1';
 export const SITE_BASE = 'https://1001albumsgenerator.com';
 // Ratings/reviews on the real site happen at most a few times a day per person, so a long TTL
 // doesn't mean stale data in practice — it just means fewer silent background refetches. Manual

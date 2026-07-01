@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'preact/hooks';
-import { SITE_BASE } from './constants.js';
+import { APP_BASE } from './constants.js';
 import {
   readCache, writeCache, writeCurrentProjectName, correctHubProject,
   readGroupMembersCache, writeGroupMembersCache,
@@ -236,7 +236,7 @@ export function useHub(projectName) {
       setState(s => ({ ...s, refreshing: true, refreshError: null }));
     }
     try {
-      const data = await loadMe(projectName);
+      const data = await loadMe(projectName, { force });
       writeCache(projectName, data);
       writeCurrentProjectName((data.me && data.me.name) || projectName);
       setState({ status: 'ready', data, error: null, refreshError: null, fetchedAt: Date.now(), stale: false, refreshing: false });
@@ -279,7 +279,7 @@ export function useGroupMembers(projectName, group, enabled) {
       setState(s => ({ ...s, refreshing: true }));
     }
     try {
-      const members = await loadGroupMembers(group, projectName);
+      const members = await loadGroupMembers(group, projectName, { force });
       writeGroupMembersCache(slug, members);
       setState({ status: 'ready', members, error: null, fetchedAt: Date.now(), stale: false, refreshing: false });
     } catch (err) {
@@ -293,8 +293,11 @@ export function useGroupMembers(projectName, group, enabled) {
 }
 
 // The site's own notification bell is backed by /api/notifications/:projectName, a separate,
-// undocumented (and CORS-open) endpoint from the v1 API. Loading this hook uses `read=false`
-// (a safe GET) so viewing the tab never marks anything as read on the real site.
+// undocumented endpoint from the v1 API. Loading this hook uses `read=false` (a safe GET) so
+// viewing the tab never marks anything as read on the real site. Goes through our own
+// api/notifications passthrough (see functions/1001-albums/api/notifications/[projectName].js)
+// rather than SITE_BASE directly — no caching (this is per-user live state, nothing to share
+// across browsers), just same-origin so a ban/rate-limit comes back readable instead of opaque.
 export function useNotifications(projectName) {
   const [state, setState] = useState({ status: 'idle', notifications: [], errorMessage: '', markingRead: false, markReadMessage: '' });
 
@@ -302,7 +305,7 @@ export function useNotifications(projectName) {
     if (!projectName) return;
     let cancelled = false;
     setState({ status: 'loading', notifications: [], errorMessage: '', markingRead: false, markReadMessage: '' });
-    fetch(`${SITE_BASE}/api/notifications/${encodeURIComponent(projectName)}?read=false`)
+    fetch(`${APP_BASE}api/notifications/${encodeURIComponent(projectName)}?read=false`)
       .then((r) => { if (!r.ok) throw new Error(isRateLimitStatus(r.status) ? describeRateLimit(r) : 'lookup failed'); return r.json(); })
       .then((data) => { if (!cancelled) setState({ status: 'ready', notifications: data.notifications || [], errorMessage: '', markingRead: false, markReadMessage: '' }); })
       .catch((e) => { if (!cancelled) setState({ status: 'error', notifications: [], errorMessage: e.message === 'lookup failed' ? '' : describeFetchFailure(e), markingRead: false, markReadMessage: '' }); });

@@ -149,7 +149,7 @@ export function AlbumSummaryContext({ album, projectName = null, discoverSource 
   const needsFetch = needsRatingFetch || show('genres') || needsCompareFetch;
   const cache = useCachedFetch(
     needsFetch && album.globalReviewsUrl ? globalAlbumPageCacheKey(album.globalReviewsUrl) : null,
-    () => fetchGlobalAlbumPage(album.globalReviewsUrl),
+    (force) => fetchGlobalAlbumPage(album.globalReviewsUrl, force),
     { isEmpty: isGlobalAlbumPageEmpty }
   );
   const state = { status: cache.status, context: cache.value ? cache.value.context : null, errorMessage: formatCacheErrorMessage(cache.error) };
@@ -212,7 +212,7 @@ export function AlbumSummaryContext({ album, projectName = null, discoverSource 
 
 
 export function GlobalReviewsPreview({ url, initialKeyword = null }) {
-  const cache = useCachedFetch(url ? globalAlbumPageCacheKey(url) : null, () => fetchGlobalAlbumPage(url), { isEmpty: isGlobalAlbumPageEmpty });
+  const cache = useCachedFetch(url ? globalAlbumPageCacheKey(url) : null, (force) => fetchGlobalAlbumPage(url, force), { isEmpty: isGlobalAlbumPageEmpty });
   const state = {
     status: cache.status,
     reviews: cache.value ? cache.value.reviews : [],

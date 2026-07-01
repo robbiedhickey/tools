@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import { CURRENT_PROJECT_KEY, CACHE_TTL_MS, ALBUM_CATALOG_CACHE_VERSION } from './constants.js';
 
 export const albumCatalogCacheKey = (source) => `album-catalog:${ALBUM_CATALOG_CACHE_VERSION}:${source}`;
@@ -174,6 +174,11 @@ export function useCachedFetch(cacheKey, fetcher, { isEmpty } = {}) {
     return { status: 'loading', value: null, error: null };
   });
   const [refreshNonce, setRefreshNonce] = useState(0);
+  // Set by refresh() immediately before bumping refreshNonce, and consumed (reset to false) the
+  // very next time the effect below runs — which is guaranteed to be the run refresh() caused,
+  // since that's the only thing that changes refreshNonce. This scopes "force" to exactly that
+  // one fetch: a later cacheKey change (e.g. navigating to a different album) won't inherit it.
+  const forceNextFetchRef = useRef(false);
 
   useEffect(() => {
     if (!cacheKey) {
@@ -181,13 +186,15 @@ export function useCachedFetch(cacheKey, fetcher, { isEmpty } = {}) {
       return;
     }
     let cancelled = false;
+    const force = forceNextFetchRef.current;
+    forceNextFetchRef.current = false;
     const cached = refreshNonce === 0 ? readJsonCache(cacheKey) : null;
     if (cached && cached.value != null && !(isEmpty && isEmpty(cached.value))) {
       setState({ status: 'ready', value: cached.value, error: null });
       return;
     }
     setState(s => s.status === 'loading' ? s : { status: 'loading', value: null, error: null });
-    fetchDeduped(cacheKey, fetcher)
+    fetchDeduped(cacheKey, () => fetcher(force))
       .then((value) => {
         writeJsonCache(cacheKey, value);
         if (!cancelled) setState({ status: 'ready', value, error: null });
@@ -205,5 +212,8 @@ export function useCachedFetch(cacheKey, fetcher, { isEmpty } = {}) {
     setState({ status: 'ready', value, error: null });
   }), [cacheKey]);
 
-  return { ...state, refresh: () => setRefreshNonce(n => n + 1) };
+  return {
+    ...state,
+    refresh: () => { forceNextFetchRef.current = true; setRefreshNonce(n => n + 1); },
+  };
 }
