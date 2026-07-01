@@ -8,6 +8,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" sizes="32x32" href="favicon-32.png">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="1001 Albums">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -897,7 +898,7 @@
   .spotify-api-frame, .spotify-api-frame iframe { width: 100%; height: 352px; border: 0; display: block; }
   .app-shell.has-player .page { padding-bottom: 470px; }
   @media (max-width: 620px) {
-    .player-dock { bottom: calc(74px + env(safe-area-inset-bottom)); width: 100%; border-radius: 8px 8px 0 0; border-left: 0; border-right: 0; }
+    .player-dock { bottom: 74px; width: 100%; border-radius: 8px 8px 0 0; border-left: 0; border-right: 0; }
     .player-dock.minimized { width: 100%; }
     .player-dock-head { grid-template-columns: 38px minmax(0, 1fr) auto; padding: 7px 9px; }
     .player-dock-art { width: 38px; height: 38px; }
@@ -1021,6 +1022,7 @@ const CACHE_TTL_MS = 10 * 60 * 1000;
 const ROUTE_PREFIX = '1001-albums';
 const APP_BASE = `/${ROUTE_PREFIX}/`;
 const TRACK_ALBUM_API_BASE = `${APP_BASE}api/albums`;
+const SETTINGS_API_BASE = `${APP_BASE}api/settings`;
 const LANKY_GIF_URL = 'https://media.tenor.com/lEKATqfPUrgAAAAi/lanky-kong-funny.gif';
 const LANKY_LOADING_GIF_URL = 'https://media.tenor.com/dk8ZbQriTFoAAAAi/video-games-me-at-a-party.gif';
 // VAPID public key — generate with: npx web-push generate-vapid-keys
@@ -1061,6 +1063,20 @@ function formatRetryAfter(seconds) {
   return hours === 1 ? 'about 1 hour' : `about ${hours} hours`;
 }
 
+function parseRateLimitWaitFromText(text) {
+  if (!text || typeof text !== 'string') return null;
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  const match = normalized.match(/\b(?:try again|retry)\s+in\s+(\d+)\s*(second|seconds|minute|minutes|hour|hours)\b/i)
+    || normalized.match(/\b(\d+)\s*(second|seconds|minute|minutes|hour|hours)\b/i);
+  if (!match) return null;
+  const amount = Number(match[1]);
+  if (!Number.isFinite(amount)) return null;
+  const unit = match[2].toLowerCase();
+  if (unit.startsWith('second')) return formatRetryAfter(amount);
+  if (unit.startsWith('minute')) return amount === 1 ? '1 minute' : `${amount} minutes`;
+  return amount === 1 ? '1 hour' : `${amount} hours`;
+}
+
 // Every 403 observed from 1001albumsgenerator.com across this project's research has been the
 // same IP-ban response (confirmed live 2026-06-23: "Your IP has been temporarily banned...").
 // Nothing in the API ever documents 403 for any other reason, so treating any 403 as a rate
@@ -1080,9 +1096,15 @@ function describeRateLimit(res) {
 }
 
 function formatApiErrorMessage(res, body, bodyText) {
-  if (isRateLimitStatus(res.status)) return describeRateLimit(res);
-
   const message = body && typeof body.message === 'string' ? body.message.trim() : '';
+  if (isRateLimitStatus(res.status)) {
+    const wait = parseRateLimitWaitFromText(message || bodyText);
+    const prefix = res.status === 403 ? 'Your IP has been temporarily blocked by the API.' : 'The API rate limit has been hit.';
+    if (wait) return `${prefix} Try again in ${wait}.`;
+    if (message) return message;
+    return describeRateLimit(res);
+  }
+
   if (message) return message;
   if (bodyText) {
     const trimmed = bodyText.trim();
@@ -1555,10 +1577,6 @@ const cacheKey = (name) => `hub:${name}`;
 // share one cache entry — that also means a Summary-tab visit and a Reviews-tab visit reuse the
 // same fetch instead of each independently hitting the network.
 const globalAlbumPageCacheKey = (url) => `global-album-page:v3:${url}`;
-// Bump this version segment whenever parseAppleLookupResults's output shape changes, so stale
-// cached entries (missing newly-added fields) get invalidated instead of silently served forever.
-const APPLE_TRACKS_CACHE_VERSION = 'v2';
-const appleTracksCacheKey = (id) => `apple-tracks:${APPLE_TRACKS_CACHE_VERSION}:${id}`;
 const ALBUM_CATALOG_TTL_MS = 6 * 60 * 60 * 1000;
 function readCurrentProjectName() {
   try { return localStorage.getItem(CURRENT_PROJECT_KEY) || ''; } catch (e) { return ''; }
@@ -1612,25 +1630,217 @@ function favoriteTrackId(track) {
 
 const MUSIC_SERVICE_PREFERENCE_KEY = '1001-albums:setting:music-service';
 const MUSIC_SERVICE_PREFERENCES = new Set(['apple', 'spotify']);
-const MusicServicePreferenceContext = createContext({ preference: 'apple', setPreference: () => {} });
+const EMBEDDABLE_PLAYERS_ENABLED_KEY = '1001-albums:setting:embeddable-players';
+const SETTINGS_CACHE_KEY = '1001-albums:settings';
+const THEME_KEY = 'theme';
+const DIDDY_ENABLED_KEY = '1001-albums:setting:diddy';
+const SettingsContext = createContext(null);
+const DEFAULT_SETTINGS = {
+  schemaVersion: 1,
+  appearance: { theme: 'system' },
+  music: {
+    preferredService: 'spotify',
+    embeddablePlayers: true,
+    recommendations: true,
+  },
+};
 
-function readMusicServicePreference() {
-  try {
-    const value = localStorage.getItem(MUSIC_SERVICE_PREFERENCE_KEY);
-    return MUSIC_SERVICE_PREFERENCES.has(value) ? value : 'apple';
-  } catch {
-    return 'apple';
-  }
+function isPlainObject(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
-function useMusicServicePreference() {
-  const [preference, setStoredPreference] = useState(readMusicServicePreference);
-  const setPreference = (next) => {
-    if (!MUSIC_SERVICE_PREFERENCES.has(next)) return;
-    try { localStorage.setItem(MUSIC_SERVICE_PREFERENCE_KEY, next); } catch (e) {}
-    setStoredPreference(next);
+function mergeSettings(base, patch) {
+  const result = { ...base };
+  Object.entries(patch || {}).forEach(([key, value]) => {
+    if (key === 'updatedAt') return;
+    if (isPlainObject(value) && isPlainObject(result[key])) {
+      result[key] = mergeSettings(result[key], value);
+    } else if (value !== undefined) {
+      result[key] = value;
+    }
+  });
+  return result;
+}
+
+function normalizeSettings(value) {
+  const settings = mergeSettings(DEFAULT_SETTINGS, value || {});
+  if (!MUSIC_SERVICE_PREFERENCES.has(settings.music.preferredService)) settings.music.preferredService = 'spotify';
+  if (!['system', 'light', 'dark'].includes(settings.appearance.theme)) settings.appearance.theme = 'system';
+  settings.music.embeddablePlayers = settings.music.embeddablePlayers !== false;
+  settings.music.recommendations = settings.music.recommendations !== false;
+  settings.schemaVersion = 1;
+  return settings;
+}
+
+function settingsCacheKey(projectName) {
+  return projectName ? `${SETTINGS_CACHE_KEY}:${projectName}` : `${SETTINGS_CACHE_KEY}:local`;
+}
+
+function readLegacySettings() {
+  const settings = {};
+  try {
+    const theme = localStorage.getItem(THEME_KEY);
+    if (theme === 'light' || theme === 'dark') settings.appearance = { theme };
+  } catch (e) {}
+  try {
+    const preferredService = localStorage.getItem(MUSIC_SERVICE_PREFERENCE_KEY);
+    if (MUSIC_SERVICE_PREFERENCES.has(preferredService)) settings.music = { ...(settings.music || {}), preferredService };
+  } catch (e) {}
+  try {
+    const players = localStorage.getItem(EMBEDDABLE_PLAYERS_ENABLED_KEY);
+    if (players != null) settings.music = { ...(settings.music || {}), embeddablePlayers: players !== 'false' };
+  } catch (e) {}
+  try {
+    const recommendations = localStorage.getItem(DIDDY_ENABLED_KEY);
+    if (recommendations != null) settings.music = { ...(settings.music || {}), recommendations: recommendations !== 'false' };
+  } catch (e) {}
+  return settings;
+}
+
+function readLocalSettings(projectName = null) {
+  try {
+    const raw = localStorage.getItem(settingsCacheKey(projectName));
+    if (raw) return normalizeSettings(JSON.parse(raw));
+  } catch (e) {}
+  return normalizeSettings(readLegacySettings());
+}
+
+function writeLocalSettings(projectName, settings) {
+  const normalized = normalizeSettings(settings);
+  try { localStorage.setItem(settingsCacheKey(projectName), JSON.stringify(normalized)); } catch (e) {}
+  try { localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(normalized)); } catch (e) {}
+  return normalized;
+}
+
+async function fetchSettings(projectName) {
+  const res = await fetch(`${SETTINGS_API_BASE}/${encodeURIComponent(projectName)}`);
+  if (!res.ok) throw new Error(`Settings failed (${res.status})`);
+  const body = await res.json();
+  return {
+    exists: !!body.exists,
+    settings: normalizeSettings(body.settings),
   };
-  return { preference, setPreference };
+}
+
+async function patchSettings(projectName, patch) {
+  const res = await fetch(`${SETTINGS_API_BASE}/${encodeURIComponent(projectName)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error(`Settings failed (${res.status})`);
+  const body = await res.json();
+  return normalizeSettings(body.settings);
+}
+
+function resolvedTheme(theme) {
+  if (theme === 'light' || theme === 'dark') return theme;
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function useSettings(projectName = null) {
+  const [settings, setSettings] = useState(() => readLocalSettings(projectName));
+  const [syncError, setSyncError] = useState('');
+
+  useEffect(() => {
+    const local = readLocalSettings(projectName);
+    setSettings(local);
+    if (!projectName) return;
+    let cancelled = false;
+    fetchSettings(projectName)
+      .then((remote) => {
+        if (cancelled) return;
+        const next = remote.exists ? remote.settings : local;
+        setSettings(next);
+        writeLocalSettings(projectName, next);
+        setSyncError('');
+      })
+      .catch((err) => { if (!cancelled) setSyncError(err.message || 'Settings sync failed'); });
+    return () => { cancelled = true; };
+  }, [projectName]);
+
+  const update = useCallback((patch) => {
+    setSettings((current) => {
+      const next = writeLocalSettings(projectName, mergeSettings(current, patch));
+      if (projectName) {
+        patchSettings(projectName, patch)
+          .then((remote) => {
+            setSettings(remote);
+            writeLocalSettings(projectName, remote);
+            setSyncError('');
+          })
+          .catch((err) => setSyncError(err.message || 'Settings sync failed'));
+      }
+      return next;
+    });
+  }, [projectName]);
+
+  const theme = {
+    theme: resolvedTheme(settings.appearance.theme),
+    preference: settings.appearance.theme,
+    setTheme: (next) => update({ appearance: { theme: next } }),
+    toggle: () => update({ appearance: { theme: resolvedTheme(settings.appearance.theme) === 'dark' ? 'light' : 'dark' } }),
+  };
+  const musicService = {
+    preference: settings.music.preferredService,
+    setPreference: (next) => {
+      if (MUSIC_SERVICE_PREFERENCES.has(next)) update({ music: { preferredService: next } });
+    },
+  };
+  const players = {
+    enabled: settings.music.embeddablePlayers !== false,
+    toggle: () => update({ music: { embeddablePlayers: settings.music.embeddablePlayers === false } }),
+  };
+  const diddy = {
+    enabled: settings.music.recommendations !== false,
+    toggle: () => update({ music: { recommendations: settings.music.recommendations === false } }),
+  };
+
+  return { settings, update, theme, musicService, players, diddy, syncError };
+}
+
+function useApplyTheme(theme) {
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme.theme;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', theme.theme === 'dark' ? '#171512' : '#f6f5f3');
+  }, [theme.theme]);
+}
+
+function useSettingsContext() {
+  return useContext(SettingsContext);
+}
+
+function useMusicService() {
+  return useSettingsContext()?.musicService || { preference: 'spotify', setPreference: () => {} };
+}
+
+function useEmbeddablePlayers() {
+  return useSettingsContext()?.players || { enabled: true, toggle: () => {} };
+}
+
+function useRecommendations() {
+  return useSettingsContext()?.diddy || { enabled: true, toggle: () => {} };
+}
+
+function MusicServicePreferencePicker({ musicService }) {
+  if (!musicService) return null;
+  return html`
+    <div class="theme-picker" role="group" aria-label="Music service">
+      <button
+        type="button"
+        class=${`theme-option ${musicService.preference === 'apple' ? 'active' : ''}`}
+        onClick=${() => musicService.setPreference('apple')}
+        aria-pressed=${musicService.preference === 'apple'}
+      ><span class="icon-symbol">music_note</span> Apple</button>
+      <button
+        type="button"
+        class=${`theme-option ${musicService.preference === 'spotify' ? 'active' : ''}`}
+        onClick=${() => musicService.setPreference('spotify')}
+        aria-pressed=${musicService.preference === 'spotify'}
+      ><span class="icon-symbol">graphic_eq</span> Spotify</button>
+    </div>
+  `;
 }
 
 function appleMusicEmbedUrl(track) {
@@ -1664,7 +1874,7 @@ function spotifyAlbumEmbedUrl(album) {
   return album?.spotifyId ? `https://open.spotify.com/embed/album/${encodeURIComponent(album.spotifyId)}` : null;
 }
 
-function albumEmbed(album, preferredService = 'apple') {
+function albumEmbed(album, preferredService = 'spotify') {
   const appleUrl = appleMusicAlbumEmbedUrl(album);
   const spotifyUrl = spotifyAlbumEmbedUrl(album);
   const embeds = {
@@ -1716,7 +1926,7 @@ function loadSpotifyIframeApi() {
   return spotifyIframeApiPromise;
 }
 
-function trackEmbed(track, preferredService = 'apple') {
+function trackEmbed(track, preferredService = 'spotify') {
   const appleUrl = appleMusicEmbedUrl(track);
   const spotifyUrl = spotifyEmbedUrl(track);
   const embeds = {
@@ -1726,29 +1936,6 @@ function trackEmbed(track, preferredService = 'apple') {
   return embeds[preferredService] || embeds.apple || embeds.spotify || null;
 }
 
-function useMusicServicePreferenceContext() {
-  return useContext(MusicServicePreferenceContext);
-}
-
-function MusicServicePreferencePicker({ musicService }) {
-  if (!musicService) return null;
-  return html`
-    <div class="theme-picker" role="group" aria-label="Music service">
-      <button
-        type="button"
-        class=${`theme-option ${musicService.preference === 'apple' ? 'active' : ''}`}
-        onClick=${() => musicService.setPreference('apple')}
-        aria-pressed=${musicService.preference === 'apple'}
-      ><span class="icon-symbol">music_note</span> Apple</button>
-      <button
-        type="button"
-        class=${`theme-option ${musicService.preference === 'spotify' ? 'active' : ''}`}
-        onClick=${() => musicService.setPreference('spotify')}
-        aria-pressed=${musicService.preference === 'spotify'}
-      ><span class="icon-symbol">graphic_eq</span> Spotify</button>
-    </div>
-  `;
-}
 
 const AlbumPlayerContext = createContext({
   player: null,
@@ -1794,8 +1981,10 @@ function AlbumPlayerProvider({ musicService, children }) {
 }
 
 function AlbumPlayButton({ album, service = null, label = 'Play album' }) {
-  const musicService = useMusicServicePreferenceContext();
+  const musicService = useMusicService();
+  const players = useEmbeddablePlayers();
   const player = useAlbumPlayer();
+  if (!players.enabled) return null;
   const embed = albumEmbed(album, service || musicService.preference);
   return html`
     <button
@@ -2157,47 +2346,6 @@ function navigateSubTab(path) {
 }
 function navigateBack(path) {
   navigateTab(path, { out: 'vt-slide-back-out', in: 'vt-slide-back-in' });
-}
-
-// ---------- hook ----------
-const THEME_KEY = 'theme';
-function readStoredTheme() {
-  try { return localStorage.getItem(THEME_KEY) || ''; } catch (e) { return ''; }
-}
-function writeStoredTheme(theme) {
-  try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
-}
-function useTheme() {
-  const [theme, setTheme] = useState(() => {
-    const stored = readStoredTheme();
-    if (stored === 'light' || stored === 'dark') return stored;
-    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  });
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', theme === 'dark' ? '#171512' : '#f6f5f3');
-  }, [theme]);
-
-  const toggle = () => setTheme((t) => {
-    const next = t === 'dark' ? 'light' : 'dark';
-    writeStoredTheme(next);
-    return next;
-  });
-
-  return { theme, toggle };
-}
-
-const DIDDY_ENABLED_KEY = '1001-albums:setting:diddy';
-function useDiddySetting() {
-  const [enabled, setEnabled] = useState(() => localStorage.getItem(DIDDY_ENABLED_KEY) !== 'false');
-  const toggle = () => setEnabled(v => {
-    const next = !v;
-    localStorage.setItem(DIDDY_ENABLED_KEY, String(next));
-    return next;
-  });
-  return { enabled, toggle };
 }
 
 // Multiple components can call useCachedFetch with the same cacheKey (e.g. the Summary tab's
@@ -2571,85 +2719,6 @@ function formatDurationMs(ms) {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
-function parseAppleLookupResults(data) {
-  const album = (data.results || []).find(row => row.wrapperType === 'collection') || null;
-  const tracks = (data.results || [])
-    .filter(row => row.wrapperType === 'track' && row.kind === 'song')
-    .sort((a, b) =>
-      (a.discNumber ?? 1) - (b.discNumber ?? 1) ||
-      (a.trackNumber ?? 0) - (b.trackNumber ?? 0)
-    )
-    .map(track => ({
-      discNumber: track.discNumber ?? 1,
-      trackNumber: track.trackNumber ?? null,
-      title: track.trackName || '',
-      durationMs: track.trackTimeMillis ?? null,
-      artistName: track.artistName ?? null,
-      albumName: track.collectionName ?? null,
-      appleTrackId: track.trackId != null ? String(track.trackId) : null,
-      appleAlbumId: track.collectionId != null ? String(track.collectionId) : null,
-      trackViewUrl: track.trackViewUrl || null,
-      artworkUrl: track.artworkUrl100 || null,
-      explicit: track.trackExplicitness === 'explicit' ? true : track.trackExplicitness === 'notExplicit' ? false : null,
-      streamable: typeof track.isStreamable === 'boolean' ? track.isStreamable : null,
-    }));
-  return {
-    album: album ? {
-      albumName: album.collectionName || null,
-      artistName: album.artistName || null,
-      releaseDate: album.releaseDate || null,
-      trackCount: album.trackCount ?? null,
-      totalRuntimeMs: tracks.reduce((sum, track) => sum + (track.durationMs || 0), 0) || null,
-      copyright: album.copyright || null,
-      appleAlbumId: album.collectionId != null ? String(album.collectionId) : null,
-    } : null,
-    tracks,
-  };
-}
-
-function hasAppleTrackMappings(data) {
-  return !!(data?.tracks || []).some(track => track.appleTrackId || (track.trackViewUrl || '').includes('music.apple.com/'));
-}
-
-function mergeAppleTrackMetadata(stored, appleData) {
-  if (!stored || !appleData || !Array.isArray(stored.tracks) || !Array.isArray(appleData.tracks)) return stored;
-  const appleByPosition = new Map();
-  appleData.tracks.forEach((track) => {
-    appleByPosition.set(`${track.discNumber ?? 1}:${track.trackNumber ?? ''}`, track);
-  });
-  const tracks = stored.tracks.map((track) => {
-    if (track.appleTrackId) return track;
-    const apple = appleByPosition.get(`${track.discNumber ?? 1}:${track.trackNumber ?? ''}`);
-    if (!apple) return track;
-    return {
-      ...track,
-      appleTrackId: apple.appleTrackId,
-      appleAlbumId: apple.appleAlbumId || track.appleAlbumId,
-      trackViewUrl: apple.trackViewUrl || track.trackViewUrl,
-      artworkUrl: track.artworkUrl || apple.artworkUrl,
-    };
-  });
-  return {
-    ...stored,
-    album: {
-      ...(stored.album || {}),
-      appleAlbumId: stored.album?.appleAlbumId || appleData.album?.appleAlbumId || null,
-      copyright: stored.album?.copyright || appleData.album?.copyright || null,
-    },
-    tracks,
-  };
-}
-
-async function fetchCachedAppleTrackAlbum(appleMusicId, { force = false } = {}) {
-  if (!appleMusicId) return null;
-  const cacheKey = appleTracksCacheKey(appleMusicId);
-  const cached = force ? null : readJsonCache(cacheKey);
-  if (cached && cached.value != null && !isTrackMetadataEmpty(cached.value)) return cached.value;
-  const appleData = await fetchAppleTrackMetadata(appleMusicId).then(parseAppleLookupResults);
-  writeJsonCache(cacheKey, appleData);
-  return appleData;
-}
-
 const albumTrackRecordPromises = new Map();
 function fetchAlbumTrackRecord(spotifyAlbumId, { force = false } = {}) {
   if (!spotifyAlbumId) return Promise.resolve(null);
@@ -2717,32 +2786,17 @@ function parseStoredTrackAlbum(record) {
   };
 }
 
-// Apple's iTunes Lookup API reflects the request's Origin in Access-Control-Allow-Origin
-// correctly, but Akamai (its CDN) caches the response keyed only by URL — no `Vary: Origin` — for
-// 24h. So whichever origin first requests a given lookup URL gets its Origin baked into the
-// cached response, and every other origin requesting that same URL gets served that stale,
-// mismatched CORS header and is blocked by the browser. Appending the calling origin to the
-// query string gives each origin its own cache entry, so the cached CORS header always matches.
-async function fetchAppleTrackMetadata(appleMusicId) {
-  const res = await fetch(`https://itunes.apple.com/lookup?id=${encodeURIComponent(appleMusicId)}&entity=song&country=US&media=music&_origin=${encodeURIComponent(location.origin)}`);
-  if (!res.ok) {
-    throw new Error(`Apple track lookup failed (${res.status})`);
-  }
-  return res.json();
-}
-
 function isTrackMetadataEmpty(value) {
   return !value || !value.tracks || value.tracks.length === 0;
 }
 
-function useAlbumTrackMetadata(album, preferredService = 'apple') {
+function useAlbumTrackMetadata(album) {
   const [state, setState] = useState({ status: 'hidden', data: null, error: null, source: null });
   const [refreshNonce, setRefreshNonce] = useState(0);
   const spotifyId = album?.spotifyId || null;
-  const appleMusicId = album?.appleMusicId || null;
 
   useEffect(() => {
-    if (!spotifyId && !appleMusicId) {
+    if (!spotifyId) {
       setState({ status: 'hidden', data: null, error: null, source: null });
       return;
     }
@@ -2755,21 +2809,10 @@ function useAlbumTrackMetadata(album, preferredService = 'apple') {
       if (spotifyId) {
         const stored = parseStoredTrackAlbum(await fetchAlbumTrackRecord(spotifyId, { force }));
         if (stored && !isTrackMetadataEmpty(stored)) {
-          const storedAppleMusicId = appleMusicId || stored.album?.appleAlbumId || null;
-          if (preferredService === 'apple' && !hasAppleTrackMappings(stored) && storedAppleMusicId) {
-            const appleData = await fetchCachedAppleTrackAlbum(storedAppleMusicId, { force });
-            return { data: mergeAppleTrackMetadata(stored, appleData), source: 'kv+apple' };
-          }
           return { data: stored, source: 'kv' };
         }
       }
-
-      if (!appleMusicId) {
-        return { data: null, source: null };
-      }
-
-      const appleData = await fetchCachedAppleTrackAlbum(appleMusicId, { force });
-      return { data: { ...appleData, source: 'apple' }, source: 'apple' };
+      return { data: null, source: null };
     })()
       .then(({ data, source }) => {
         if (cancelled) return;
@@ -2781,7 +2824,7 @@ function useAlbumTrackMetadata(album, preferredService = 'apple') {
       });
 
     return () => { cancelled = true; };
-  }, [spotifyId, appleMusicId, preferredService, refreshNonce]);
+  }, [spotifyId, refreshNonce]);
 
   return { ...state, refresh: () => setRefreshNonce(n => n + 1) };
 }
@@ -2988,8 +3031,9 @@ function GlobalReviewsPreview({ url, initialKeyword = null }) {
 
 function TracksPreview({ album, projectName }) {
   const favorites = useFavoriteTracks(projectName);
-  const musicService = useMusicServicePreferenceContext();
-  const state = useAlbumTrackMetadata(album, musicService.preference);
+  const musicService = useMusicService();
+  const players = useEmbeddablePlayers();
+  const state = useAlbumTrackMetadata(album);
   const [activeEmbedTrackId, setActiveEmbedTrackId] = useState(null);
 
   useEffect(() => {
@@ -3024,7 +3068,7 @@ function TracksPreview({ album, projectName }) {
                 ${state.data.tracks.map(track => {
                   const trackId = favoriteTrackId(track);
                   const favorited = trackId && favorites.isFavorite(trackId);
-                  const embed = trackEmbed(track, musicService.preference);
+                  const embed = players.enabled ? trackEmbed(track, musicService.preference) : null;
                   const embedOpen = trackId && activeEmbedTrackId === trackId;
                   const trackUrl = embed?.openUrl || track.trackViewUrl;
                   return html`
@@ -3086,27 +3130,33 @@ function TracksPreview({ album, projectName }) {
   `;
 }
 
-function GroupReviewsPreview({ groupSlug, album }) {
-  const [state, setState] = useState({ status: 'loading', reviews: [] });
+function GroupReviewsPreview({ groupSlug, album, initialReviews = null }) {
+  const [state, setState] = useState(() => initialReviews
+    ? { status: 'ready', reviews: initialReviews, errorMessage: '' }
+    : { status: 'loading', reviews: [], errorMessage: '' });
 
   useEffect(() => {
+    if (initialReviews) {
+      setState({ status: 'ready', reviews: initialReviews, errorMessage: '' });
+      return;
+    }
     if (!groupSlug || !album || !album.uuid) return;
     let cancelled = false;
-    setState({ status: 'loading', reviews: [] });
+    setState({ status: 'loading', reviews: [], errorMessage: '' });
     fetchGroupAlbumReviews(groupSlug, album.uuid)
       .then((data) => {
         const reviews = (data.reviews || []).filter(r => r.rating != null || r.review);
-        if (!cancelled) setState({ status: 'ready', reviews });
+        if (!cancelled) setState({ status: 'ready', reviews, errorMessage: '' });
       })
-      .catch(() => {
-        if (!cancelled) setState({ status: 'error', reviews: [] });
+      .catch((error) => {
+        if (!cancelled) setState({ status: 'error', reviews: [], errorMessage: error.message || "Couldn't load group reviews." });
       });
     return () => { cancelled = true; };
-  }, [groupSlug, album && album.uuid]);
+  }, [groupSlug, album && album.uuid, initialReviews]);
 
   return html`
     <div>
-      ${state.status === 'error' && html`<p class="muted">Couldn't load group reviews.</p>`}
+      ${state.status === 'error' && html`<p class="muted">${state.errorMessage}</p>`}
       ${state.status === 'ready' && html`
         ${state.reviews.length === 0 ? html`
           <p class="muted">No one in the group has rated this album yet.</p>
@@ -3130,7 +3180,7 @@ function GroupReviewsPreview({ groupSlug, album }) {
   `;
 }
 
-function AlbumInfoTabs({ album, projectName = null, groupSlug = null, comparison = null, tab = 'summary', onTabChange, summarySections = null, reviewKeyword = '' }) {
+function AlbumInfoTabs({ album, projectName = null, groupSlug = null, comparison = null, tab = 'summary', onTabChange, summarySections = null, reviewKeyword = '', groupReviews = null }) {
   const hasGroupReviews = !!(groupSlug && album && album.uuid);
 
   return html`
@@ -3151,7 +3201,7 @@ function AlbumInfoTabs({ album, projectName = null, groupSlug = null, comparison
       `}
       ${tab === 'tracks' && html`<${TracksPreview} album=${album} projectName=${projectName} />`}
       ${tab === 'reviews' && album.globalReviewsUrl && html`<${GlobalReviewsPreview} url=${album.globalReviewsUrl} initialKeyword=${reviewKeyword} />`}
-      ${tab === 'group' && hasGroupReviews && html`<${GroupReviewsPreview} groupSlug=${groupSlug} album=${album} />`}
+      ${tab === 'group' && hasGroupReviews && html`<${GroupReviewsPreview} groupSlug=${groupSlug} album=${album} initialReviews=${groupReviews} />`}
     </div>
   `;
 }
@@ -3325,7 +3375,7 @@ function localHourToUtcHour(localHour) {
 }
 
 // ---------- settings view ----------
-function SettingsView({ me, projectName, theme, diddy, musicService }) {
+function SettingsView({ me, projectName, theme, diddy, musicService, players }) {
   const pushSupported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
@@ -3421,6 +3471,31 @@ function SettingsView({ me, projectName, theme, diddy, musicService }) {
               ><span class="icon-symbol">dark_mode</span> Dark</button>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Music</div>
+        <div class="card">
+          <div class="settings-row">
+            <div class="settings-row-left">
+              <div class="settings-row-label">Preferred service</div>
+              <div class="settings-row-desc">Choose the player used when both services are available</div>
+            </div>
+            <${MusicServicePreferencePicker} musicService=${musicService} />
+          </div>
+          <div class="settings-row">
+            <div class="settings-row-left">
+              <div class="settings-row-label">Embeddable players</div>
+              <div class="settings-row-desc">Show Apple and Spotify players inside the app</div>
+            </div>
+            <button
+              type="button"
+              class=${`toggle-btn ${players.enabled ? 'on' : ''}`}
+              onClick=${players.toggle}
+              aria-pressed=${players.enabled}
+            >${players.enabled ? 'On' : 'Off'}</button>
+          </div>
           <div class="settings-row">
             <div class="settings-row-left">
               <div class="settings-row-label">
@@ -3435,19 +3510,6 @@ function SettingsView({ me, projectName, theme, diddy, musicService }) {
               onClick=${diddy.toggle}
               aria-pressed=${diddy.enabled}
             >${diddy.enabled ? 'On' : 'Off'}</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="settings-section">
-        <div class="settings-section-title">Music</div>
-        <div class="card">
-          <div class="settings-row">
-            <div class="settings-row-left">
-              <div class="settings-row-label">Preferred service</div>
-              <div class="settings-row-desc">Choose the player used when both services are available</div>
-            </div>
-            <${MusicServicePreferencePicker} musicService=${musicService} />
           </div>
         </div>
       </div>
@@ -3684,7 +3746,7 @@ function findSimilarTagSet(album, catalogAlbums, genreStyleIndex, minResults = 5
 const DIDDY_GIF_URL = '/1001-albums/diddy.gif';
 
 function SimilarAlbumsHelper({ album, projectName, source = 'global' }) {
-  const { enabled: diddyEnabled } = useDiddySetting();
+  const { enabled: diddyEnabled } = useRecommendations();
   const albumPlayer = useAlbumPlayer();
   const catalog = useAlbumCatalog(source);
   useEffect(() => { catalog.load(); }, [catalog.load]);
@@ -4369,7 +4431,7 @@ function RatingEditor({ projectName, albumUuid, generatedAlbumId, initialNotes, 
 // the left, the info tabs (wiki summary, How We Compare, discovery links) plus a caller-supplied
 // action (listening note editor, rating editor, ...) on the right. Used by both Today and the
 // Backlog album view so the two stay visually consistent as one gets tweaked.
-function AlbumSpotlight({ album, projectName, groupSlug = null, comparison = null, tab, onTabChange, action = null }) {
+function AlbumSpotlight({ album, projectName, groupSlug = null, comparison = null, tab, onTabChange, action = null, groupReviews = null }) {
   return html`
     <div class="today-layout">
       <div class="today-primary">
@@ -4385,7 +4447,7 @@ function AlbumSpotlight({ album, projectName, groupSlug = null, comparison = nul
         <${AlbumSummaryContext} album=${album} projectName=${projectName} sections=${['genres', 'discovery']} />
       </div>
       <div class="today-secondary">
-        <${AlbumInfoTabs} album=${album} projectName=${projectName} groupSlug=${groupSlug} tab=${tab} onTabChange=${onTabChange} comparison=${comparison} summarySections=${['compare']} />
+        <${AlbumInfoTabs} album=${album} projectName=${projectName} groupSlug=${groupSlug} tab=${tab} onTabChange=${onTabChange} comparison=${comparison} summarySections=${['compare']} groupReviews=${groupReviews} />
         ${action}
       </div>
     </div>
@@ -4472,6 +4534,15 @@ function AlbumDetailView({ projectName, albumRecord, groupSlug, comparison, subT
   const album = albumRecord.album;
   const tab = subTab || 'summary';
   const setTab = (t) => navigateSubTab(routePath(projectName, 'album', album.uuid, t === 'summary' ? null : t));
+  const groupReviews = useMemo(() =>
+    albumRecord.occurrences
+      .map(({ member, entry }) => ({
+        projectName: member,
+        rating: 'rating' in entry ? entry.rating : null,
+        review: entry.review || '',
+      }))
+      .filter(review => review.rating != null || review.review),
+  [albumRecord]);
   return html`
     <div>
       <div class="banner te-banner">
@@ -4487,6 +4558,7 @@ function AlbumDetailView({ projectName, albumRecord, groupSlug, comparison, subT
           comparison=${comparison}
           tab=${tab}
           onTabChange=${setTab}
+          groupReviews=${groupReviews}
         />
       </div>
     </div>
@@ -5303,13 +5375,14 @@ function usePullToRefresh(onRefresh, enabled, scrollRef) {
   return pullY;
 }
 
-function App({ musicService }) {
+function App() {
   const [route, setRoute] = useState(getRouteFromLocation());
   const { projectName, tab, backlogAlbumId, albumId, subTab, discoverSource, discoverMode, discoverQuery, discoverAlbumTab, discoverReviewKeyword, pairA, pairB, memberName } = route;
   const currentProjectName = !projectName ? readCurrentProjectName() : '';
-  const theme = useTheme();
-  const diddy = useDiddySetting();
+  const userSettings = useSettings(projectName || currentProjectName || null);
+  const { theme, diddy, musicService, players } = userSettings;
   const albumPlayer = useAlbumPlayer();
+  useApplyTheme(theme);
   useSwipeNavigation();
   const pageRef = useRef(null);
   const scrollPositions = useRef({});
@@ -5391,6 +5464,10 @@ function App({ musicService }) {
   useEffect(() => { if (hubSettled) setSplashDone(true); }, [hubSettled]);
   const splashRefreshing = !splashDone && hub.status === 'ready' && hub.refreshing;
 
+  useEffect(() => {
+    if (!players.enabled && albumPlayer.player) albumPlayer.closePlayer();
+  }, [players.enabled, albumPlayer.player]);
+
   if (!projectName && currentProjectName) return null;
   if (!projectName) return html`<${NameEntry} theme=${theme} />`;
 
@@ -5407,7 +5484,7 @@ function App({ musicService }) {
     : null;
 
   return html`
-    <${MusicServicePreferenceContext.Provider} value=${musicService}>
+    <${SettingsContext.Provider} value=${userSettings}>
     <div class=${`app-shell ${albumPlayer.player ? 'has-player' : ''}`}>
       <${Splash} ready=${splashDone} refreshing=${splashRefreshing} />
       <${Nav} projectName=${projectName} tab=${navTab(tab === 'album' ? (subTab === 'group' ? 'group' : 'today') : tab)} backlogCount=${backlog.length} unreadCount=${notifications.notifications.length} theme=${theme} scrollToTop=${scrollToTop} />
@@ -5425,7 +5502,7 @@ function App({ musicService }) {
         </div>
       `}
       <main ref=${pageRef} class=${`page ${pullY > 0 ? 'is-pulling' : ''}`} style=${pullY > 0 ? { transform: `translateY(${pagePullY}px)` } : undefined}>
-        ${tab === 'settings' && html`<${SettingsView} me=${hub.data?.me ?? null} projectName=${projectName} theme=${theme} diddy=${diddy} musicService=${musicService} />`}
+        ${tab === 'settings' && html`<${SettingsView} me=${hub.data?.me ?? null} projectName=${projectName} theme=${theme} diddy=${diddy} musicService=${musicService} players=${players} />`}
         ${tab === 'discover' && !backlogAlbumId && html`<${ExploreView} projectName=${projectName} source=${discoverSource || 'global'} mode=${discoverMode || 'browse'} initialQuery=${discoverQuery || ''} />`}
         ${tab === 'discover' && backlogAlbumId && html`<${DiscoverAlbumView} albumSlug=${backlogAlbumId} projectName=${projectName} source=${discoverSource || 'global'} hubData=${hub.data} initialTab=${discoverAlbumTab || 'summary'} reviewKeyword=${discoverReviewKeyword || ''} />`}
         ${tab !== 'settings' && tab !== 'discover' && hub.status === 'loading' && html`<${Loading} />`}
@@ -5461,13 +5538,13 @@ function App({ musicService }) {
 }
 
 function AppRoot() {
-  const musicService = useMusicServicePreference();
+  const localSettings = useSettings(null);
   return html`
-      <${MusicServicePreferenceContext.Provider} value=${musicService}>
-      <${AlbumPlayerProvider} musicService=${musicService}>
-        <${App} musicService=${musicService} />
+      <${SettingsContext.Provider} value=${localSettings}>
+        <${AlbumPlayerProvider} musicService=${localSettings.musicService}>
+          <${App} />
+        <//>
       <//>
-    <//>
   `;
 }
 
