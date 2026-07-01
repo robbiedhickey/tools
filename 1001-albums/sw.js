@@ -13,7 +13,12 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// Stale-while-revalidate for same-origin static assets (HTML/JS/CSS/images/manifest).
+// Network-first for HTML navigations: the document's importmap must never lag behind
+// the JS modules it resolves for (e.g. a stale cached index.html missing a bare
+// specifier that a freshly-fetched component already imports). Falls back to cache
+// only when offline.
+//
+// Stale-while-revalidate for other same-origin static assets (JS/CSS/images/manifest).
 // Never touches cross-origin requests (esm.sh, the 1001albumsgenerator.com API) or
 // same-origin API routes under /1001-albums/api/ — those carry live, per-user data.
 self.addEventListener('fetch', (e) => {
@@ -22,6 +27,21 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith(API_PREFIX)) return;
+
+  if (req.mode === 'navigate' || req.destination === 'document') {
+    e.respondWith(
+      caches.open(STATIC_CACHE).then(async (cache) => {
+        try {
+          const res = await fetch(req);
+          if (res && res.ok) cache.put(req, res.clone());
+          return res;
+        } catch {
+          return cache.match(req);
+        }
+      })
+    );
+    return;
+  }
 
   e.respondWith(
     caches.open(STATIC_CACHE).then(async (cache) => {
