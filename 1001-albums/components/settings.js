@@ -4,6 +4,7 @@ import htm from 'htm';
 import { APP_BASE, DIDDY_GIF_URL } from '../lib/constants.js';
 import { navigateToProject } from '../lib/routing.js';
 import { loadPushPrefs, subscribePush, unsubscribePush, localHourToUtcHour } from '../lib/push.js';
+import { showToast } from '../lib/toast.js';
 import { LankyMascot } from './common.js';
 import { MusicServicePreferencePicker } from './player.js';
 
@@ -82,13 +83,18 @@ export function SettingsView({ me, projectName, theme, diddy, musicService, play
         const sub = await reg.pushManager.getSubscription();
         if (sub) {
           const j = sub.toJSON();
-          await fetch(`${APP_BASE}api/push/${encodeURIComponent(projectName)}`, {
+          const res = await fetch(`${APP_BASE}api/push/${encodeURIComponent(projectName)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ endpoint: j.endpoint, keys: j.keys, notifyAtUtc: utcHour, prefs: prefs.prefs ?? { new_album: true }, currentAlbumUuid: null }),
           });
+          if (!res.ok) throw new Error(`Couldn't save the notification time (${res.status})`);
         }
-      } catch { /* non-blocking */ }
+      } catch (err) {
+        // Non-blocking (the picker keeps the chosen hour so retrying is just re-selecting), but
+        // not silent — otherwise notifications keep firing at the old time with no explanation.
+        showToast({ title: 'Notification time not saved', message: err.message });
+      }
       setPrefs((p) => ({ ...p, notifyAtUtc: utcHour }));
     }
   };

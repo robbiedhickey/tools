@@ -213,10 +213,10 @@ export function useRecommendations() {
 // handled by the separate useGroupMembers hook below, fetched only when one of those is visited.
 export function useHub(projectName) {
   const [state, setState] = useState(() => {
-    if (!projectName) return { status: 'loading', data: null, error: null, refreshError: null, fetchedAt: null, stale: false, refreshing: false };
+    if (!projectName) return { status: 'loading', data: null, error: null, refreshError: null, fetchedAt: null, dataFetchedAt: null, stale: false, refreshing: false };
     const cached = readCache(projectName);
-    if (cached) return { status: 'ready', data: cached.data, error: null, refreshError: null, fetchedAt: cached.fetchedAt, stale: cached.stale, refreshing: cached.stale };
-    return { status: 'loading', data: null, error: null, refreshError: null, fetchedAt: null, stale: false, refreshing: false };
+    if (cached) return { status: 'ready', data: cached.data, error: null, refreshError: null, fetchedAt: cached.fetchedAt, dataFetchedAt: cached.dataFetchedAt ?? null, stale: cached.stale, refreshing: cached.stale };
+    return { status: 'loading', data: null, error: null, refreshError: null, fetchedAt: null, dataFetchedAt: null, stale: false, refreshing: false };
   });
 
   const load = useCallback(async (force) => {
@@ -227,7 +227,7 @@ export function useHub(projectName) {
         const corrections = await fetchCatalogCorrections();
         const data = { ...cached.data, me: correctHubProject(cached.data.me, corrections) };
         writeCurrentProjectName(projectName);
-        setState({ status: 'ready', data, error: null, refreshError: null, fetchedAt: cached.fetchedAt, stale: cached.stale, refreshing: cached.stale });
+        setState({ status: 'ready', data, error: null, refreshError: null, fetchedAt: cached.fetchedAt, dataFetchedAt: cached.dataFetchedAt ?? null, stale: cached.stale, refreshing: cached.stale });
         if (!cached.stale) return;
       } else {
         setState(s => ({ ...s, status: 'loading', error: null, refreshError: null }));
@@ -236,12 +236,12 @@ export function useHub(projectName) {
       setState(s => ({ ...s, refreshing: true, refreshError: null }));
     }
     try {
-      const data = await loadMe(projectName, { force });
-      writeCache(projectName, data);
+      const { dataFetchedAt, ...data } = await loadMe(projectName, { force });
+      writeCache(projectName, data, dataFetchedAt);
       writeCurrentProjectName((data.me && data.me.name) || projectName);
-      setState({ status: 'ready', data, error: null, refreshError: null, fetchedAt: Date.now(), stale: false, refreshing: false });
+      setState({ status: 'ready', data, error: null, refreshError: null, fetchedAt: Date.now(), dataFetchedAt, stale: false, refreshing: false });
     } catch (err) {
-      setState(s => (s.data ? { ...s, refreshError: err, refreshing: false } : { status: 'error', data: null, error: err, refreshError: null, fetchedAt: null, stale: false, refreshing: false }));
+      setState(s => (s.data ? { ...s, refreshError: err, refreshing: false } : { status: 'error', data: null, error: err, refreshError: null, fetchedAt: null, dataFetchedAt: null, stale: false, refreshing: false }));
     }
   }, [projectName]);
 
@@ -254,15 +254,16 @@ export function useHub(projectName) {
 // unconditionally on every load. `enabled` gates the actual network fetch (and the effect that
 // triggers it) so it only fires while a view that needs it (Group/Activity/Pair/Member) is
 // mounted; the cached result is shared across all four so switching between them doesn't
-// refetch. Same 6h TTL as the hub cache, plus a manual `refresh()` for an on-demand update.
+// refetch. Same TTL as the hub cache (CACHE_TTL_MS), plus a manual `refresh()` for an on-demand
+// update.
 export function useGroupMembers(projectName, group, enabled) {
   const slug = group ? group.slug : null;
   const [state, setState] = useState(() => {
-    if (!slug) return { status: 'idle', members: null, error: null, fetchedAt: null, stale: false, refreshing: false };
+    if (!slug) return { status: 'idle', members: null, error: null, fetchedAt: null, dataFetchedAt: null, stale: false, refreshing: false };
     const cached = readGroupMembersCache(slug);
     return cached
-      ? { status: 'ready', members: cached.members, error: null, fetchedAt: cached.fetchedAt, stale: cached.stale, refreshing: false }
-      : { status: 'idle', members: null, error: null, fetchedAt: null, stale: false, refreshing: false };
+      ? { status: 'ready', members: cached.members, error: null, fetchedAt: cached.fetchedAt, dataFetchedAt: cached.dataFetchedAt ?? null, stale: cached.stale, refreshing: false }
+      : { status: 'idle', members: null, error: null, fetchedAt: null, dataFetchedAt: null, stale: false, refreshing: false };
   });
 
   const load = useCallback(async (force) => {
@@ -270,7 +271,7 @@ export function useGroupMembers(projectName, group, enabled) {
     if (!force) {
       const cached = readGroupMembersCache(slug);
       if (cached) {
-        setState({ status: 'ready', members: cached.members, error: null, fetchedAt: cached.fetchedAt, stale: cached.stale, refreshing: cached.stale });
+        setState({ status: 'ready', members: cached.members, error: null, fetchedAt: cached.fetchedAt, dataFetchedAt: cached.dataFetchedAt ?? null, stale: cached.stale, refreshing: cached.stale });
         if (!cached.stale) return;
       } else {
         setState(s => ({ ...s, status: 'loading' }));
@@ -279,11 +280,11 @@ export function useGroupMembers(projectName, group, enabled) {
       setState(s => ({ ...s, refreshing: true }));
     }
     try {
-      const members = await loadGroupMembers(group, projectName, { force });
-      writeGroupMembersCache(slug, members);
-      setState({ status: 'ready', members, error: null, fetchedAt: Date.now(), stale: false, refreshing: false });
+      const { members, dataFetchedAt } = await loadGroupMembers(group, projectName, { force });
+      writeGroupMembersCache(slug, members, dataFetchedAt);
+      setState({ status: 'ready', members, error: null, fetchedAt: Date.now(), dataFetchedAt, stale: false, refreshing: false });
     } catch (err) {
-      setState(s => (s.members ? { ...s, refreshing: false } : { status: 'error', members: null, error: err, fetchedAt: null, stale: false, refreshing: false }));
+      setState(s => (s.members ? { ...s, refreshing: false } : { status: 'error', members: null, error: err, fetchedAt: null, dataFetchedAt: null, stale: false, refreshing: false }));
     }
   }, [slug, projectName]);
 

@@ -9,8 +9,10 @@ export async function onRequestGet({ params, request, env, waitUntil }) {
   const path = '/' + segments.map(encodeURIComponent).join('/');
   const force = new URL(request.url).searchParams.get('refresh') === '1';
   try {
-    const { data, stale } = await proxyApi(env, waitUntil, path, { force });
-    return Response.json(data, { headers: { 'X-Cache-Status': stale ? 'stale' : 'fresh' } });
+    const { data, stale, fetchedAt } = await proxyApi(env, waitUntil, path, { force });
+    return Response.json(data, {
+      headers: { 'X-Cache-Status': stale ? 'stale' : 'fresh', 'X-Fetched-At': String(fetchedAt) },
+    });
   } catch (err) {
     return Response.json(
       { message: err.message },

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'preact/hooks';
 import htm from 'htm';
 import { STREAMING_ICONS, PRIMARY_STREAMING_SERVICES, LANKY_GIF_URL, LANKY_LOADING_GIF_URL } from '../lib/constants.js';
 import { streamingLinks, modalFrameUrl } from '../lib/format.js';
+import { subscribeToasts, dismissToast } from '../lib/toast.js';
 
 const html = htm.bind(h);
 
@@ -119,6 +120,39 @@ export function ErrorCard({ error, projectName, onRetry }) {
     <div class="card">
       <p>${error && error.status === 404 ? `Couldn't find a project named "${projectName}". Check the spelling?` : `Something went wrong: ${error && error.message}`}</p>
       <button class="pill-btn" onClick=${onRetry}>Try again</button>
+    </div>
+  `;
+}
+
+// Renders the showToast (lib/toast.js) stack. Auto-dismisses each toast after a few seconds —
+// these are fire-and-forget failure notices for background writes, not blocking errors — but
+// keeps the same manual × as RefreshErrorToast for anyone reading slower than the timer.
+// Rendered once in app.js; the .toast-stack wrapper exists because .toast's own CSS is
+// fixed-position for the single RefreshErrorToast, which can't stack.
+const TOAST_DISMISS_MS = 6000;
+function Toast({ toast }) {
+  useEffect(() => {
+    const timer = setTimeout(() => dismissToast(toast.id), TOAST_DISMISS_MS);
+    return () => clearTimeout(timer);
+  }, [toast.id]);
+  return html`
+    <div class="toast" role="status" aria-live="polite">
+      <div>
+        <div class="toast-title">${toast.title}</div>
+        <div class="toast-body">${toast.message}</div>
+      </div>
+      <button class="toast-close" type="button" aria-label="Dismiss notification" onClick=${() => dismissToast(toast.id)}>×</button>
+    </div>
+  `;
+}
+
+export function Toasts() {
+  const [toasts, setToasts] = useState([]);
+  useEffect(() => subscribeToasts(setToasts), []);
+  if (!toasts.length) return null;
+  return html`
+    <div class="toast-stack">
+      ${toasts.map((toast) => html`<${Toast} key=${toast.id} toast=${toast} />`)}
     </div>
   `;
 }

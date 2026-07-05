@@ -5,6 +5,7 @@ import {
   MUSIC_SERVICE_PREFERENCE_KEY, EMBEDDABLE_PLAYERS_ENABLED_KEY, DIDDY_ENABLED_KEY,
   SETTINGS_API_BASE,
 } from './constants.js';
+import { showToast } from './toast.js';
 
 export const SettingsContext = createContext(null);
 
@@ -132,7 +133,13 @@ export function useSettings(projectName = null) {
             writeLocalSettings(projectName, remote);
             setSyncError('');
           })
-          .catch((err) => setSyncError(err.message || 'Settings sync failed'));
+          // The local write above already succeeded, so the UI reflects the change — without a
+          // toast, a failed remote save is invisible until the setting silently reverts on
+          // another device (nothing renders syncError today).
+          .catch((err) => {
+            setSyncError(err.message || 'Settings sync failed');
+            showToast({ title: 'Settings not saved', message: err.message || 'Settings sync failed' });
+          });
       }
       return next;
     });

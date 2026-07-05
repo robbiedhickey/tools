@@ -67,16 +67,32 @@ export function writeCurrentProjectName(name) {
 export function clearCurrentProjectName() {
   try { localStorage.removeItem(CURRENT_PROJECT_KEY); } catch (e) {}
 }
+// `fetchedAt` is when this client last checked (drives the TTL staleness below); `dataFetchedAt`
+// is when the data actually left the upstream origin per the KV proxy's X-Fetched-At (drives the
+// "Updated <time>" label). Never mix them: judging staleness by dataFetchedAt would make the
+// client refetch forever whenever the proxy's shared copy is a normal 15–30 min old.
 export function readCache(name) {
   try {
     const raw = localStorage.getItem(cacheKey(name));
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    return { ...parsed, stale: Date.now() - parsed.fetchedAt > CACHE_TTL_MS };
+    // Beyond the TTL, also go stale once the next daily album is due: albums flip ~24h after the
+    // previous one was generated, so a check from before that flip can't have seen the new album
+    // no matter how recent it was. This only triggers a cheap background refresh against the KV
+    // proxy — and for groups paused on weekends (no new album coming), it just re-checks each
+    // mount until one appears, which the proxy's fresh window makes near-free.
+    let flipDue = false;
+    const history = parsed.data?.me?.history;
+    if (Array.isArray(history) && history.length) {
+      const maxGeneratedAt = Math.max(...history.map((e) => Date.parse(e.generatedAt) || 0));
+      const nextExpectedAt = maxGeneratedAt + 24 * 60 * 60 * 1000 + 5 * 60 * 1000;
+      flipDue = Date.now() >= nextExpectedAt && parsed.fetchedAt < nextExpectedAt;
+    }
+    return { ...parsed, stale: flipDue || Date.now() - parsed.fetchedAt > CACHE_TTL_MS };
   } catch (e) { return null; }
 }
-export function writeCache(name, data) {
-  try { localStorage.setItem(cacheKey(name), JSON.stringify({ fetchedAt: Date.now(), data })); } catch (e) {}
+export function writeCache(name, data, dataFetchedAt = null) {
+  try { localStorage.setItem(cacheKey(name), JSON.stringify({ fetchedAt: Date.now(), dataFetchedAt, data })); } catch (e) {}
 }
 // Cached separately from the hub's own `me`/`group` (see useHub) so that visiting Group/Activity/
 // Pair/Member — the only views that need every member's full history — doesn't force a refetch of
@@ -90,13 +106,14 @@ export function readGroupMembersCache(slug) {
     return { ...parsed, stale: Date.now() - parsed.fetchedAt > CACHE_TTL_MS };
   } catch (e) { return null; }
 }
-export function writeGroupMembersCache(slug, members) {
-  try { localStorage.setItem(groupMembersCacheKey(slug), JSON.stringify({ fetchedAt: Date.now(), members })); } catch (e) {}
+export function writeGroupMembersCache(slug, members, dataFetchedAt = null) {
+  try { localStorage.setItem(groupMembersCacheKey(slug), JSON.stringify({ fetchedAt: Date.now(), dataFetchedAt, members })); } catch (e) {}
 }
 // Generic localStorage cache for any external/scraped lookup, used via useCachedFetch below.
-// Unlike readCache/writeCache (the hub's own cache, which has a TTL and a "stale" flag the UI
-// surfaces explicitly), these have no TTL — they cache "forever" but useCachedFetch's isEmpty
-// check distrusts an empty/bad result instead of serving it back indefinitely.
+// Unlike readCache/writeCache (the hub's own cache, whose "stale" flag the UI surfaces
+// explicitly), staleness here is invisible to the UI: useCachedFetch serves whatever's cached and
+// only quietly revalidates past its soft TTL (see there). The isEmpty check distrusts an
+// empty/bad result instead of serving it back indefinitely.
 export function readJsonCache(key) {
   try {
     const raw = localStorage.getItem(key);
@@ -158,13 +175,20 @@ export function fetchDeduped(cacheKey, fetcher) {
   return promise;
 }
 
-// Centralizes the "fetch once, cache forever in localStorage, but distrust an empty/bad cached
-// result and allow a manual refresh" pattern used by every scraped/external lookup in this app
-// (global reviews+context, Apple track metadata). Without the isEmpty distrust check, a single
-// bad fetch (a transient rate limit, a CORS/CDN hiccup) gets cached and served back forever with
-// no way to recover short of clearing localStorage by hand — see the Tracks-tab bug this fixed.
+// Centralizes the "fetch once, cache in localStorage, but distrust an empty/bad cached result
+// and allow a manual refresh" pattern used by every scraped/external lookup in this app (global
+// reviews+context, Apple track metadata). Without the isEmpty distrust check, a single bad fetch
+// (a transient rate limit, a CORS/CDN hiccup) gets cached and served back forever with no way to
+// recover short of clearing localStorage by hand — see the Tracks-tab bug this fixed.
 // cacheKey of null/'' means there's nothing to fetch (e.g. no Apple Music ID) → status 'hidden'.
-export function useCachedFetch(cacheKey, fetcher, { isEmpty } = {}) {
+//
+// ttlMs is a *soft* TTL: a cached value past it is still served immediately (status 'ready' —
+// this data drifts slowly, showing week-old genres beats a spinner), but one background
+// revalidation fires per mount. Success updates the cache and every mounted instance via the
+// pub/sub above; failure is silent, since there's already data on screen and the manual refresh
+// path still exists. Entries written before fetchedAt was stored count as expired-but-servable,
+// so the old "cached forever" entries self-heal instead of never revalidating.
+export function useCachedFetch(cacheKey, fetcher, { isEmpty, ttlMs = 7 * 24 * 60 * 60 * 1000 } = {}) {
   const [state, setState] = useState(() => {
     if (!cacheKey) return { status: 'hidden', value: null, error: null };
     const cached = readJsonCache(cacheKey);
@@ -191,6 +215,16 @@ export function useCachedFetch(cacheKey, fetcher, { isEmpty } = {}) {
     const cached = refreshNonce === 0 ? readJsonCache(cacheKey) : null;
     if (cached && cached.value != null && !(isEmpty && isEmpty(cached.value))) {
       setState({ status: 'ready', value: cached.value, error: null });
+      if (typeof cached.fetchedAt === 'number' && Date.now() - cached.fetchedAt <= ttlMs) return;
+      // Past the soft TTL (or from before fetchedAt existed): revalidate behind the data already
+      // showing. Not force — the KV proxy's own freshness window is the right ceiling here.
+      fetchDeduped(cacheKey, () => fetcher(false))
+        .then((value) => {
+          writeJsonCache(cacheKey, value);
+          if (!cancelled) setState({ status: 'ready', value, error: null });
+          broadcastCacheKeyUpdate(cacheKey, value);
+        })
+        .catch(() => { /* still showing cached data — nothing to surface */ });
       return;
     }
     setState(s => s.status === 'loading' ? s : { status: 'loading', value: null, error: null });

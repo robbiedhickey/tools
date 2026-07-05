@@ -119,7 +119,11 @@ export function formatCacheErrorMessage(err) {
 // fetches live.
 const UPSTREAM_PROXY_BASE = `${APP_BASE}api/upstream`;
 
-export async function apiGet(path, { force = false } = {}) {
+// The proxy stamps X-Fetched-At (epoch ms) with when the data actually left the upstream origin —
+// which can be up to the proxy's fresh window older than "now". Callers that show an "Updated
+// <time>" label need that true age (see loadMe's dataFetchedAt), not the time of this request;
+// everything else uses the plain apiGet wrapper and ignores it.
+export async function apiGetWithMeta(path, { force = false } = {}) {
   const url = `${UPSTREAM_PROXY_BASE}${path}${force ? '?refresh=1' : ''}`;
   let res;
   try {
@@ -135,11 +139,15 @@ export async function apiGet(path, { force = false } = {}) {
   if (!res.ok) {
     throw new ApiError(formatApiErrorMessage(res, body, bodyText), res.status, { body, bodyText });
   }
+  const fetchedAtHeader = Number(res.headers.get('x-fetched-at'));
+  return { body, fetchedAt: Number.isFinite(fetchedAtHeader) && fetchedAtHeader > 0 ? fetchedAtHeader : null };
+}
+
+export async function apiGet(path, opts) {
+  const { body } = await apiGetWithMeta(path, opts);
   return body;
 }
 
-export const fetchProject = (name, opts) => apiGet(`/projects/${encodeURIComponent(name)}`, opts);
-export const fetchGroup = (slug, opts) => apiGet(`/groups/${encodeURIComponent(slug)}`, opts);
 export const fetchGroupAlbumReviews = (groupSlug, albumUuid) => apiGet(`/groups/${encodeURIComponent(groupSlug)}/albums/${encodeURIComponent(albumUuid)}`);
 let catalogCorrectionsPromise = null;
 export async function fetchCatalogCorrections() {
@@ -280,26 +288,43 @@ export async function markAllNotificationsRead(projectName) {
   }
   return body;
 }
+// A load composed of several proxied fetches is only as current as its OLDEST piece — labeling it
+// with the newest (or with "now") would claim freshness the stalest half doesn't have.
+function oldestFetchedAt(values) {
+  const known = values.filter((v) => typeof v === 'number');
+  return known.length ? Math.min(...known) : null;
+}
+
 // Loads just your own project plus the group's own aggregate stats (one cheap /groups/:slug call,
 // not one per member) — enough for Today/Backlog/Me. The per-member fan-out that used to happen
 // here on every load now happens lazily in loadGroupMembers, only when a view that actually needs
-// every member's full history (Group/Activity/Pair/Member) is visited.
+// every member's full history (Group/Activity/Pair/Member) is visited. dataFetchedAt is when the
+// data actually left the upstream origin (per the proxy's X-Fetched-At), which the "Updated
+// <time>" label uses instead of pretending this request's timestamp is the data's age.
 export async function loadMe(projectName, { force = false } = {}) {
   const corrections = await fetchCatalogCorrections();
-  const me = correctHubProject(await fetchProject(projectName, { force }), corrections);
-  const group = me.group && me.group.slug ? await fetchGroup(me.group.slug, { force }) : null;
-  return { me, group };
+  const meRes = await apiGetWithMeta(`/projects/${encodeURIComponent(projectName)}`, { force });
+  const me = correctHubProject(meRes.body, corrections);
+  const groupRes = me.group && me.group.slug
+    ? await apiGetWithMeta(`/groups/${encodeURIComponent(me.group.slug)}`, { force })
+    : null;
+  return {
+    me,
+    group: groupRes ? groupRes.body : null,
+    dataFetchedAt: oldestFetchedAt([meRes.fetchedAt, groupRes && groupRes.fetchedAt]),
+  };
 }
 
 export async function loadGroupMembers(group, projectName, { force = false } = {}) {
   const corrections = await fetchCatalogCorrections();
   const memberNames = group.members.map(m => m.name);
   const results = await Promise.all(memberNames.map(name =>
-    fetchProject(name, { force }).catch(err => ({ __error: err, __name: name }))
+    apiGetWithMeta(`/projects/${encodeURIComponent(name)}`, { force })
+      .catch(err => ({ body: { __error: err, __name: name }, fetchedAt: null }))
   ));
   const members = {};
-  memberNames.forEach((name, i) => { members[name] = correctHubProject(results[i], corrections); });
-  return members;
+  memberNames.forEach((name, i) => { members[name] = correctHubProject(results[i].body, corrections); });
+  return { members, dataFetchedAt: oldestFetchedAt(results.map(r => r.fetchedAt)) };
 }
 
 // One fetch of the scraped global-reviews page serves both AlbumSummaryContext (genres/rating)

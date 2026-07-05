@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'preact/hooks';
 import { fetchFavorites, putFavoriteTrack, deleteFavoriteTrack } from './api.js';
+import { showToast } from './toast.js';
 
 // ---------- favorite tracks (backed by functions/1001-albums/api/favorites/, see _lib/favorites.js) ----------
 export function favoriteTrackId(track) {
@@ -21,6 +22,8 @@ export function useFavoriteTracks(projectName) {
 
   // Optimistic: flip local state immediately, fire the API call in the background, and roll back
   // (restoring the prior map) if it fails so the star never lies about what's actually saved.
+  // Failure also raises a toast — the inline errorMessage <p> sits inside whatever track list
+  // triggered it, which is easy to scroll past right as the star silently un-flips.
   const toggle = useCallback((track) => {
     if (!projectName) return;
     const trackId = favoriteTrackId(track);
@@ -32,6 +35,7 @@ export function useFavoriteTracks(projectName) {
         delete next[trackId];
         deleteFavoriteTrack(projectName, trackId).catch((err) => {
           setErrorMessage(err.message);
+          showToast({ title: 'Favorite not saved', message: err.message });
           setFavorites((current) => ({ ...current, [trackId]: prev[trackId] }));
         });
       } else {
@@ -39,6 +43,7 @@ export function useFavoriteTracks(projectName) {
         next[trackId] = entry;
         putFavoriteTrack(projectName, trackId, entry).catch((err) => {
           setErrorMessage(err.message);
+          showToast({ title: 'Favorite not saved', message: err.message });
           setFavorites((current) => {
             const reverted = { ...current };
             delete reverted[trackId];
@@ -63,7 +68,10 @@ export function useFavoriteTracks(projectName) {
       const merged = { ...track, favoritedAt: existing.favoritedAt || Date.now() };
       const unchanged = Object.keys(merged).every((key) => existing[key] === merged[key]);
       if (unchanged) return prev;
-      putFavoriteTrack(projectName, trackId, merged).catch((err) => setErrorMessage(err.message));
+      putFavoriteTrack(projectName, trackId, merged).catch((err) => {
+        setErrorMessage(err.message);
+        showToast({ title: 'Favorite not updated', message: err.message });
+      });
       return { ...prev, [trackId]: merged };
     });
   }, [projectName]);

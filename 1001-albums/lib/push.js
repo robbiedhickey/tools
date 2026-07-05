@@ -23,7 +23,9 @@ export async function subscribePush(projectName, notifyAtUtc, currentAlbumUuid) 
     applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
   });
   const j = sub.toJSON();
-  await fetch(`${APP_BASE}api/push/${encodeURIComponent(projectName)}`, {
+  // Without the ok check, a failed KV save resolves like a success — the toggle would show
+  // subscribed while the push worker has no subscription to deliver to.
+  const res = await fetch(`${APP_BASE}api/push/${encodeURIComponent(projectName)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -34,13 +36,15 @@ export async function subscribePush(projectName, notifyAtUtc, currentAlbumUuid) 
       currentAlbumUuid,
     }),
   });
+  if (!res.ok) throw new Error(`Couldn't save the subscription (${res.status})`);
 }
 
 export async function unsubscribePush(projectName) {
   const reg = await navigator.serviceWorker.ready;
   const sub = await reg.pushManager.getSubscription();
   if (sub) await sub.unsubscribe();
-  await fetch(`${APP_BASE}api/push/${encodeURIComponent(projectName)}`, { method: 'DELETE' });
+  const res = await fetch(`${APP_BASE}api/push/${encodeURIComponent(projectName)}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`Couldn't remove the subscription (${res.status})`);
 }
 
 export function localHourToUtcHour(localHour) {

@@ -9,7 +9,7 @@ import {
   useHub, useGroupMembers, useNotifications, deriveBacklog, findAlbumInHub, computeAlbumComparison,
   backlogEntryId,
 } from './lib/hub.js';
-import { Splash, RefreshErrorToast, Loading, ErrorCard, LankyPartyMascot, LoadingNote } from './components/common.js';
+import { Splash, RefreshErrorToast, Toasts, Loading, ErrorCard, LankyPartyMascot, LoadingNote } from './components/common.js';
 import { useAlbumPlayer, AlbumPlayerProvider, AlbumPlayerDock } from './components/player.js';
 import { ExploreView, DiscoverAlbumView } from './components/explore.js';
 import { TodayView, BacklogAlbumView, BacklogView, AlbumDetailView } from './components/views-album.js';
@@ -145,6 +145,7 @@ function App() {
       <${Splash} ready=${splashDone} refreshing=${splashRefreshing} />
       <${Nav} projectName=${projectName} tab=${navTab(tab === 'album' ? (subTab === 'group' ? 'group' : 'today') : tab)} backlogCount=${backlog.length} unreadCount=${notifications.notifications.length} theme=${theme} scrollToTop=${scrollToTop} />
       <${RefreshErrorToast} error=${hub.refreshError} onDismiss=${hub.dismissRefreshError} />
+      <${Toasts} />
       ${pullY > 0 && html`
         <div class="ptr-indicator" style=${{
           transform: `translate(-50%, ${pullProgress * 52 - 52 + pagePullY * 0.2}px)`,
@@ -167,7 +168,7 @@ function App() {
           <div class="status-row">
             ${hub.refreshing
               ? html`<span><${LankyPartyMascot} />Refreshing…</span>`
-              : html`<span>${hub.stale ? 'Showing cached data' : `Updated ${new Date(hub.fetchedAt).toLocaleTimeString()}`}</span>`}
+              : html`<span>${hub.stale ? 'Showing cached data' : `Updated ${new Date(hub.dataFetchedAt || hub.fetchedAt).toLocaleTimeString()}`}</span>`}
             <a href="#" onClick=${(e) => { e.preventDefault(); hub.refresh(); }}>Refresh</a>
           </div>
           ${tab === 'today' && html`<${TodayView} projectName=${projectName} me=${hub.data.me} backlog=${backlog} subTab=${subTab} comparison=${comparison} />`}
@@ -182,7 +183,7 @@ function App() {
             <div class="status-row">
               ${groupMembers.refreshing
                 ? html`<span><${LankyPartyMascot} />Refreshing…</span>`
-                : html`<span>${groupMembers.stale ? 'Showing cached group data' : `Group data updated ${new Date(groupMembers.fetchedAt).toLocaleTimeString()}`}</span>`}
+                : html`<span>${groupMembers.stale ? 'Showing cached group data' : `Group data updated ${new Date(groupMembers.dataFetchedAt || groupMembers.fetchedAt).toLocaleTimeString()}`}</span>`}
               <a href="#" onClick=${(e) => { e.preventDefault(); groupMembers.refresh(); }}>Refresh</a>
             </div>
             ${tab === 'group' && html`<${GroupView} group=${hub.data.group} members=${members} projectName=${projectName} />`}

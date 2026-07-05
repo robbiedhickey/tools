@@ -1,9 +1,15 @@
 // ---------- constants ----------
 export const SITE_BASE = 'https://1001albumsgenerator.com';
-// Ratings/reviews on the real site happen at most a few times a day per person, so a long TTL
-// doesn't mean stale data in practice — it just means fewer silent background refetches. Manual
-// "Refresh" links (hub, group roster, catalog) always bypass this for an on-demand update.
-export const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+// This used to be 6h, back when every stale hit here meant a live fetch to the real upstream API.
+// Now that fetch goes through the KV proxy (see functions/1001-albums/_lib/upstream.js), which
+// keeps its own 30-min shared-fresh window and blocking revalidation, so the upstream site sees
+// at most one fetch per path per 30 min no matter how often clients recheck here. That means this
+// TTL can be short — the client rechecks often at near-zero upstream cost — so the daily album
+// shows up within ~15 min of opening the app instead of possibly waiting the old 6h+ window.
+// Manual "Refresh" links (hub, group roster, catalog) always bypass this for an on-demand update.
+// Also doubles as the TTL for the group-members cache (readGroupMembersCache in lib/cache.js) —
+// intentional, since that's bounded by the same upstream fan-out concern.
+export const CACHE_TTL_MS = 15 * 60 * 1000;
 export const ROUTE_PREFIX = '1001-albums';
 export const APP_BASE = `/${ROUTE_PREFIX}/`;
 export const TRACK_ALBUM_API_BASE = `${APP_BASE}api/albums`;
