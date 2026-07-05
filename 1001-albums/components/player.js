@@ -2,6 +2,7 @@ import { h, createContext } from 'preact';
 import { useState, useEffect, useContext, useCallback, useMemo, useRef } from 'preact/hooks';
 import htm from 'htm';
 import { useMusicService, useEmbeddablePlayers } from '../lib/settings.js';
+import { onImgLoad, imgLoadRef } from '../lib/format.js';
 
 const html = htm.bind(h);
 
@@ -241,7 +242,7 @@ export function AlbumPlayerDock() {
     <section class=${`player-dock ${player.expanded ? '' : 'minimized'}`} aria-label="Album player">
       <div class="player-dock-head">
         ${art
-          ? html`<img class="player-dock-art" src=${art} alt="" loading="lazy" decoding="async" />`
+          ? html`<img class="player-dock-art" src=${art} alt="" loading="lazy" decoding="async" ref=${imgLoadRef} onLoad=${onImgLoad} />`
           : html`<div class="player-dock-art" />`}
         <div style=${{ minWidth: 0 }}>
           <div class="player-dock-title">${album.name}</div>

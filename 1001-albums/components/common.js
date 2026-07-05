@@ -1,9 +1,10 @@
 import { h, Fragment } from 'preact';
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import htm from 'htm';
 import { STREAMING_ICONS, PRIMARY_STREAMING_SERVICES, LANKY_GIF_URL, LANKY_LOADING_GIF_URL } from '../lib/constants.js';
 import { streamingLinks, modalFrameUrl } from '../lib/format.js';
 import { subscribeToasts, dismissToast } from '../lib/toast.js';
+import { haptic } from '../lib/routing.js';
 
 const html = htm.bind(h);
 
@@ -36,24 +37,123 @@ export function StreamingLinks({ album, extraLinks = [] }) {
   `;
 }
 
+// A native-feeling sheet on mobile: slides up on open, can be dragged down from the header to
+// dismiss, and slides/fades back out before the caller's onClose actually unmounts it. Desktop
+// gets a quick fade+scale instead. All of this is driven by CSS animations/keyframes in
+// index.html (.modal-backdrop/.modal + .closing/.interactive) — this component just toggles the
+// classes and inline drag transform, and waits for the animation/transition to finish before
+// calling the real onClose.
+const DRAG_DISMISS_RATIO = 0.25; // fraction of sheet height that counts as "dragged far enough"
+const FLICK_VELOCITY = 0.6; // px/ms — a fast downward flick dismisses even if short
+const CLOSE_FALLBACK_MS = 340; // unmount even if animationend/transitionend never fires
+
+function prefersReducedMotion() {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
 export function SiteModal({ url, title, onClose }) {
+  const [closing, setClosing] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [snapping, setSnapping] = useState(false);
+  const [dragY, setDragY] = useState(0);
+  const modalRef = useRef(null);
+  const closedRef = useRef(false);
+  const dragRef = useRef({ startY: 0, startTime: 0, lastY: 0, lastTime: 0 });
+
+  const finishClose = () => {
+    if (closedRef.current) return;
+    closedRef.current = true;
+    onClose();
+  };
+
+  const requestClose = () => {
+    if (closing) return;
+    setClosing(true);
+    const el = modalRef.current;
+    const timer = setTimeout(finishClose, CLOSE_FALLBACK_MS);
+    const done = () => { clearTimeout(timer); finishClose(); };
+    if (el) el.addEventListener('animationend', done, { once: true });
+    else finishClose();
+  };
+
   useEffect(() => {
     const onKey = (event) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') requestClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [closing]);
+
+  const onHeaderTouchStart = (e) => {
+    if (closing || dragging || prefersReducedMotion() || window.innerWidth > 760) return;
+    if (e.touches.length !== 1) return;
+    const t = e.touches[0];
+    dragRef.current = { startY: t.clientY, startTime: performance.now(), lastY: t.clientY, lastTime: performance.now() };
+    setSnapping(false);
+    setDragging(true);
+  };
+  const onHeaderTouchMove = (e) => {
+    if (!dragging || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    const dy = t.clientY - dragRef.current.startY;
+    if (dy <= 0) { setDragY(0); return; }
+    if (e.cancelable) e.preventDefault();
+    dragRef.current.lastY = t.clientY;
+    dragRef.current.lastTime = performance.now();
+    setDragY(dy);
+  };
+  const onHeaderTouchEnd = () => {
+    if (!dragging) return;
+    const el = modalRef.current;
+    const sheetHeight = el ? el.getBoundingClientRect().height : window.innerHeight;
+    const dt = Math.max(1, dragRef.current.lastTime - dragRef.current.startTime);
+    const velocity = (dragRef.current.lastY - dragRef.current.startY) / dt;
+    const shouldDismiss = dragY > sheetHeight * DRAG_DISMISS_RATIO || velocity > FLICK_VELOCITY;
+    setDragging(false);
+    if (shouldDismiss) {
+      haptic(10);
+      setSnapping(true);
+      setClosing(true);
+      setDragY(sheetHeight);
+      const timer = setTimeout(finishClose, CLOSE_FALLBACK_MS);
+      const done = () => { clearTimeout(timer); finishClose(); };
+      if (el) el.addEventListener('transitionend', done, { once: true });
+      else finishClose();
+    } else {
+      setSnapping(true);
+      setDragY(0);
+      const done = () => setSnapping(false);
+      if (el) el.addEventListener('transitionend', done, { once: true });
+      setTimeout(done, CLOSE_FALLBACK_MS);
+    }
+  };
+
   const frameUrl = modalFrameUrl(url);
+  const dragStyle = (dragging || snapping)
+    ? { transform: `translateY(${dragY}px)`, transition: dragging ? 'none' : 'transform 240ms cubic-bezier(0.32, 0.72, 0, 1)' }
+    : undefined;
 
   return html`
-    <div class="modal-backdrop" role="presentation" onClick=${onClose}>
-      <div class="modal" role="dialog" aria-modal="true" aria-label=${title} onClick=${(event) => event.stopPropagation()}>
-        <div class="modal-header">
+    <div class=${`modal-backdrop ${closing ? 'closing' : ''}`} role="presentation" onClick=${requestClose}>
+      <div
+        ref=${modalRef}
+        class=${`modal ${closing ? 'closing' : ''} ${(dragging || snapping) ? 'interactive' : ''}`}
+        style=${dragStyle}
+        role="dialog" aria-modal="true" aria-label=${title}
+        onClick=${(event) => event.stopPropagation()}
+      >
+        <div
+          class="modal-header"
+          onTouchStart=${onHeaderTouchStart}
+          onTouchMove=${onHeaderTouchMove}
+          onTouchEnd=${onHeaderTouchEnd}
+          onTouchCancel=${onHeaderTouchEnd}
+        >
+          <div class="modal-drag-handle" aria-hidden="true"></div>
           <div class="modal-title">${title}</div>
           <div class="modal-actions">
             <a class="link-chip" href=${url} target="_blank" rel="noopener">Open in new tab</a>
-            <button class="modal-close" type="button" aria-label="Close" onClick=${onClose}>×</button>
+            <button class="modal-close" type="button" aria-label="Close" onClick=${requestClose}>×</button>
           </div>
         </div>
         <div class="modal-frame-wrap">

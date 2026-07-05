@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
 <title>1001 Albums Kongsole</title>
 <meta name="description" content="Unofficial companion app for 1001albumsgenerator.com — rate albums, compare with your group, and browse global reviews.">
 <link rel="manifest" href="manifest.json">
@@ -111,6 +111,14 @@
   button { font-family: inherit; touch-action: manipulation; }
   a { touch-action: manipulation; }
   .rate-optional-notes { border: 1px solid var(--border); border-radius: 8px; }
+  .filter-input {
+    width: 100%; padding: 7px 10px; margin-bottom: 10px; border: 1px solid var(--border);
+    border-radius: 6px; font: inherit; font-size: 16px; background: var(--bg); color: var(--text);
+    box-sizing: border-box;
+  }
+  @media (hover: hover) and (min-width: 761px) {
+    .filter-input { font-size: 13px; }
+  }
 
   .topbar {
     position: sticky; top: 0; z-index: 20;
@@ -327,7 +335,16 @@
   @media (max-width: 760px) { .today-layout { grid-template-columns: 1fr; gap: 8px; } }
   .today-secondary { min-width: 0; }
   .today-secondary .album-panel { margin-top: 0; }
-  .album-art { width: 100%; border-radius: var(--radius); display: block; -webkit-touch-callout: none; }
+  .album-art { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: var(--radius); display: block; -webkit-touch-callout: none; }
+  img.album-art, img.explore-album-thumb, img.player-dock-art {
+    opacity: 0; transition: opacity 200ms ease-out;
+  }
+  img.album-art.img-loaded, img.explore-album-thumb.img-loaded, img.player-dock-art.img-loaded {
+    opacity: 1;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    img.album-art, img.explore-album-thumb, img.player-dock-art { transition: none; }
+  }
   .album-title { font-size: 22px; font-weight: 700; margin: 0 0 2px; }
   .album-artist { font-size: 16px; color: var(--text-dim); margin: 0 0 2px; }
   .links-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -654,6 +671,14 @@
   .te-panel .tracks-table td:nth-child(2), .te-panel .tracks-table td:nth-child(4) {
     font-size: 12px; color: var(--text-dim);
   }
+  @keyframes modal-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes modal-backdrop-out { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes modal-scale-in { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
+  @keyframes modal-scale-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.97); } }
+  @keyframes modal-sheet-in { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  @keyframes modal-sheet-out { from { transform: translateY(0); } to { transform: translateY(100%); } }
+  @keyframes modal-fade-only-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes modal-fade-only-out { from { opacity: 1; } to { opacity: 0; } }
   .modal-backdrop {
     position: fixed; inset: 0; z-index: 50; background: rgba(31, 29, 26, 0.58);
     padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
@@ -668,11 +693,28 @@
     display: flex; flex-direction: column; overflow: hidden;
     min-height: 0;
   }
+  @media (prefers-reduced-motion: no-preference) {
+    .modal-backdrop { animation: modal-backdrop-in 200ms ease-out both; }
+    .modal-backdrop.closing { animation: modal-backdrop-out 200ms ease-in both; }
+    .modal { animation: modal-scale-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+    .modal.closing { animation: modal-scale-out 160ms ease-in both; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .modal-backdrop { animation: modal-fade-only-in 120ms ease-out both; }
+    .modal-backdrop.closing { animation: modal-fade-only-out 120ms ease-in both; }
+    .modal { animation: modal-fade-only-in 120ms ease-out both; }
+    .modal.closing { animation: modal-fade-only-out 120ms ease-in both; }
+  }
+  /* Dragging/snapping-back the sheet drives transform via inline style — the open/close
+     keyframe animation (which has its own opinion about transform, and would otherwise keep
+     re-asserting it via fill-forwards) is switched off while that's happening. */
+  .modal.interactive { animation: none !important; }
   .modal-header {
     padding: 10px 12px; border-bottom: 1px solid var(--border);
     display: flex; align-items: center; gap: 10px; flex-shrink: 0;
     background: var(--card); position: relative; z-index: 1;
   }
+  .modal-drag-handle { display: none; }
   .modal-title {
     font-weight: 700; font-size: 11px;
     text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); white-space: nowrap;
@@ -691,7 +733,15 @@
       width: 100%; height: 100dvh; max-height: 100dvh;
       border-radius: 0; border-left: 0; border-right: 0;
     }
-    .modal-header { padding-top: max(10px, env(safe-area-inset-top)); }
+    @media (prefers-reduced-motion: no-preference) {
+      .modal { animation: modal-sheet-in 280ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+      .modal.closing { animation: modal-sheet-out 220ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+    }
+    .modal-header { padding-top: max(18px, calc(env(safe-area-inset-top) + 8px)); touch-action: none; }
+    .modal-drag-handle {
+      display: block; position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+      width: 36px; height: 4px; border-radius: 999px; background: var(--border);
+    }
     .modal-actions .link-chip { display: none; }
   }
 
@@ -756,8 +806,13 @@
   .explore-suggest-wrap { position: relative; flex: 1; min-width: 0; }
   .explore-input {
     width: 100%; border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px;
-    font-size: 14px; background: var(--bg); color: var(--text); font-family: inherit;
+    font-size: 16px; background: var(--bg); color: var(--text); font-family: inherit;
     min-width: 0;
+  }
+  /* iOS Safari zooms the viewport on focus when a field's font-size is under 16px — keep the
+     tighter desktop size only where there's no touch keyboard to trigger it. */
+  @media (hover: hover) and (min-width: 761px) {
+    .explore-input { font-size: 14px; }
   }
   .explore-input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
   .explore-suggestions {
@@ -1021,7 +1076,10 @@
   .settings-row label { font-size: .9rem; color: var(--text); }
   .settings-row select {
     border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px;
-    background: var(--card); color: var(--text); font-size: .875rem;
+    background: var(--card); color: var(--text); font-size: 16px;
+  }
+  @media (hover: hover) and (min-width: 761px) {
+    .settings-row select { font-size: .875rem; }
   }
   .theme-picker { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
   .theme-option {

@@ -8,7 +8,7 @@ import {
 } from '../lib/hub.js';
 import { useFavoriteTracks, favoriteTrackId } from '../lib/favorites.js';
 import {
-  ratingTier, formatRating, formatNotifTime, formatNotification, formatDurationMs,
+  ratingTier, formatRating, formatNotifTime, formatNotification, formatDurationMs, onImgLoad, imgLoadRef,
 } from '../lib/format.js';
 import { navigateForward, navigateBack, navigateTo, routePath, memberRoutePath, pairRoutePath } from '../lib/routing.js';
 import { SiteModalLink, LankyMascot, LoadingNote } from './common.js';
@@ -135,10 +135,10 @@ export function GroupView({ group, members, projectName }) {
         <h2>All Rated Albums (${albumSearchTerm ? `${filteredAlbums.length}/${sortedAlbums.length}` : sortedAlbums.length})</h2>
         <input
           type="search"
+          class="filter-input"
           placeholder="Filter by album, artist, genre, or year…"
           value=${albumQuery}
           onInput=${(e) => { setAlbumQuery(e.target.value); setShowAllAlbums(false); }}
-          style=${{ width: '100%', padding: '7px 10px', marginBottom: '10px', border: '1px solid var(--border)', borderRadius: '6px', font: 'inherit', fontSize: '13px', background: 'var(--bg)', color: 'var(--text)', boxSizing: 'border-box' }}
         />
         <div class="sort-controls">
           <button
@@ -158,7 +158,7 @@ export function GroupView({ group, members, projectName }) {
             return html`
               <button class="data-card" onClick=${() => navigateForward(routePath(projectName, 'album', r.album.uuid, 'group'))}>
                 ${thumbUrl
-                  ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" />`
+                  ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" ref=${imgLoadRef} onLoad=${onImgLoad} />`
                   : html`<div class="explore-album-thumb"></div>`
                 }
                 <div class="data-card-main">
@@ -287,7 +287,7 @@ export function ActivityView({ members, projectName, group, notifications }) {
                     <button class="data-card" key=${`${item.member}-${item.album.uuid}-${i}`}
                       onClick=${() => navigateForward(routePath(projectName, 'album', item.album.uuid, 'group'))}>
                       ${thumbUrl
-                        ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" />`
+                        ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" ref=${imgLoadRef} onLoad=${onImgLoad} />`
                         : html`<div class="explore-album-thumb"></div>`}
                       <div class="data-card-main">
                         <div class="data-card-title">${item.album.name}</div>
@@ -351,7 +351,7 @@ export function PairDetailView({ projectName, members, pairA, pairB }) {
             return html`
               <button class="data-card" onClick=${d.album ? () => navigateForward(routePath(projectName, 'album', d.album.uuid, 'group')) : undefined} style=${!d.album ? { cursor: 'default' } : {}}>
                 ${thumbUrl
-                  ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" />`
+                  ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" ref=${imgLoadRef} onLoad=${onImgLoad} />`
                   : html`<div class="explore-album-thumb"></div>`
                 }
                 <div class="data-card-main">
@@ -415,7 +415,7 @@ export function MemberView({ memberName, project, projectName }) {
               return html`
                 <button class="data-card" style=${{ alignItems: 'flex-start' }} onClick=${() => navigateForward(routePath(projectName, 'album', e.album.uuid, 'group'))}>
                   ${thumbUrl
-                    ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" />`
+                    ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" ref=${imgLoadRef} onLoad=${onImgLoad} />`
                     : html`<div class="explore-album-thumb"></div>`
                   }
                   <div class="data-card-main">
@@ -510,10 +510,10 @@ export function FavoriteTracksSection({ projectName }) {
       ${favorites.errorMessage && html`<p class="muted">${favorites.errorMessage}</p>`}
       <input
         type="search"
+        class="filter-input"
         placeholder="Filter by track, artist, or album…"
         value=${query}
         onInput=${(e) => setQuery(e.target.value)}
-        style=${{ width: '100%', padding: '7px 10px', marginBottom: '10px', border: '1px solid var(--border)', borderRadius: '6px', font: 'inherit', fontSize: '13px', background: 'var(--bg)', color: 'var(--text)', boxSizing: 'border-box' }}
       />
       <div class="data-card-list">
         ${visible.map(track => {
@@ -583,7 +583,7 @@ export function AlbumCardList({ albums, projectName, thumbBySpotifyId }) {
         return html`
           <button class="data-card" onClick=${() => navigateForward(routePath(projectName, 'album', a.album.uuid))}>
             ${thumbUrl
-              ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" />`
+              ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" ref=${imgLoadRef} onLoad=${onImgLoad} />`
               : html`<div class="explore-album-thumb"></div>`
             }
             <div class="data-card-main">
@@ -687,10 +687,10 @@ export function BreakdownStats({ genres, styles, decades, ratings, projectName }
       </div>
       <input
         type="search"
+        class="filter-input"
         placeholder="Filter by album or artist…"
         value=${query}
         onInput=${(e) => { setQuery(e.target.value); setExpanded(null); }}
-        style=${{ width: '100%', padding: '7px 10px', marginBottom: '10px', border: '1px solid var(--border)', borderRadius: '6px', font: 'inherit', fontSize: '13px', background: 'var(--bg)', color: 'var(--text)', boxSizing: 'border-box' }}
       />
       ${body}
     </div>

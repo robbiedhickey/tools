@@ -16,6 +16,12 @@ export function streamingLinks(album) {
   return links;
 }
 
+// Shared fade-in for album art/thumbnails: opacity is 0 until the image reports itself loaded
+// (CSS transition does the fade), but cached images that are already `.complete` by the time the
+// ref fires get marked loaded immediately so there's no flash.
+export function onImgLoad(e) { e.target.classList.add('img-loaded'); }
+export function imgLoadRef(el) { if (el && el.complete) el.classList.add('img-loaded'); }
+
 export function wikipediaTitleFromUrl(url) {
   try {
     const path = new URL(url).pathname;

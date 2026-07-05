@@ -5,7 +5,7 @@ import htm from 'htm';
 import { ALBUM_CATALOG_TTL_MS, DIDDY_GIF_URL } from '../lib/constants.js';
 import { readAlbumCatalog, writeAlbumCatalog } from '../lib/cache.js';
 import { fetchAlbumCatalog, fetchAlbumTrackRecord, searchAlbumsByWord } from '../lib/api.js';
-import { formatCacheAge } from '../lib/format.js';
+import { formatCacheAge, onImgLoad, imgLoadRef } from '../lib/format.js';
 import { useRecommendations } from '../lib/hub.js';
 import {
   navigateSubTab, navigateForward, navigateTo, navigateBack, discoverModeRoutePath,
@@ -68,7 +68,7 @@ export function ExploreAlbumRow({ album, mentionCount, onClick, tags, selectedTa
   return html`
     <button class="explore-album-row" type="button" onClick=${(e) => { if (e.target.closest('.explore-album-tag.clickable')) return; onClick(album); }} role="listitem">
       ${thumb
-        ? html`<img class="explore-album-thumb" src=${thumb.url} alt="" loading="lazy" decoding="async" />`
+        ? html`<img class="explore-album-thumb" src=${thumb.url} alt="" loading="lazy" decoding="async" ref=${imgLoadRef} onLoad=${onImgLoad} />`
         : html`<div class="explore-album-thumb"></div>`
       }
       <div class="explore-album-info">
@@ -335,7 +335,7 @@ export function DiscoverAlbumView({ albumSlug, projectName, source = 'global', h
       <div class="card te-panel">
         <div class="today-layout">
           <div class="today-primary">
-            ${thumb && html`<img class="album-art" src=${thumb.url} alt=${album.name} loading="lazy" decoding="async" />`}
+            ${thumb && html`<img class="album-art" src=${thumb.url} alt=${album.name} loading="lazy" decoding="async" ref=${imgLoadRef} onLoad=${onImgLoad} />`}
             <div class="album-header-row">
               <div class="album-header-text">
                 <p class="album-title">${album.name}</p>

@@ -4,7 +4,7 @@ import htm from 'htm';
 import { saveListeningNote, saveRating } from '../lib/api.js';
 import { routePath, navigateSubTab, navigateTab, navigateBack, navigateForward, haptic } from '../lib/routing.js';
 import { backlogEntryId, deriveGroupAlbumTable } from '../lib/hub.js';
-import { ratingTier, formatRating } from '../lib/format.js';
+import { ratingTier, formatRating, onImgLoad, imgLoadRef } from '../lib/format.js';
 import { AlbumPlayButton } from './player.js';
 import { StreamingLinks, LankyMascot } from './common.js';
 import { AlbumSummaryContext, AlbumInfoTabs } from './album.js';
@@ -110,7 +110,7 @@ export function AlbumSpotlight({ album, projectName, groupSlug = null, compariso
   return html`
     <div class="today-layout">
       <div class="today-primary">
-        ${album.images && album.images[0] && html`<img class="album-art" src=${album.images[0].url} alt=${album.name} loading="lazy" decoding="async" />`}
+        ${album.images && album.images[0] && html`<img class="album-art" src=${album.images[0].url} alt=${album.name} loading="lazy" decoding="async" ref=${imgLoadRef} onLoad=${onImgLoad} />`}
         <div class="album-header-row">
           <div class="album-header-text">
             <p class="album-title">${album.name}</p>
@@ -262,7 +262,7 @@ export function BacklogView({ projectName, backlog, members }) {
             return html`
               <button class="data-card" onClick=${() => navigateForward(href)}>
                 ${thumbUrl
-                  ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" />`
+                  ? html`<img class="explore-album-thumb" src=${thumbUrl} alt="" loading="lazy" decoding="async" ref=${imgLoadRef} onLoad=${onImgLoad} />`
                   : html`<div class="explore-album-thumb"></div>`
                 }
                 <div class="data-card-main">
