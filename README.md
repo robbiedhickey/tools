@@ -1,5 +1,5 @@
 # tools.robbiehickey.com
 
-Personal collection of HTML/JavaScript tools.
+Personal collection misc of HTML/JavaScript tools.
 
 Live at: https://tools.robbiehickey.com
