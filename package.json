@@ -2,6 +2,7 @@
   "name": "tools.robbiehickey.com",
   "private": true,
   "scripts": {
+    "test": "node --test tests/*.test.mjs",
     "dev": "wrangler pages dev",
     "dev:static": "serve .",
     "tracks:fetch": "uv run --with SpotAPI --with pymongo --with redis --with websockets 1001-albums/pipeline/scripts/fetch-1001-tracks.py --catalog book --output 1001-albums/pipeline/data/book-tracks-data.json",

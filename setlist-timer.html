@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setlist Timer</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #101018;
+            --panel: #1b1b28;
+            --panel-2: #242436;
+            --text: #f6f3e8;
+            --muted: #aaa4bd;
+            --accent: #ffb703;
+            --accent-2: #8ecae6;
+            --danger: #fb7185;
+            --ok: #7dd3fc;
+            --border: #37374f;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            background:
+                radial-gradient(circle at top left, rgba(142, 202, 230, 0.18), transparent 28rem),
+                radial-gradient(circle at bottom right, rgba(255, 183, 3, 0.14), transparent 24rem),
+                var(--bg);
+            color: var(--text);
+        }
+
+        main {
+            width: min(1120px, calc(100vw - 32px));
+            margin: 0 auto;
+            padding: 32px 0 48px;
+        }
+
+        a { color: var(--accent-2); }
+
+        header {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 16px;
+            align-items: start;
+            margin-bottom: 24px;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: clamp(2.2rem, 7vw, 5rem);
+            line-height: 0.92;
+            letter-spacing: -0.08em;
+        }
+
+        .lede {
+            max-width: 760px;
+            margin: 0;
+            color: var(--muted);
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+
+        .home-link {
+            display: inline-flex;
+            gap: 8px;
+            align-items: center;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: rgba(27, 27, 40, 0.82);
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
+            gap: 20px;
+        }
+
+        .card {
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            background: rgba(27, 27, 40, 0.88);
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+            overflow: hidden;
+        }
+
+        .card h2 {
+            margin: 0;
+            padding: 18px 20px;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.16em;
+            color: var(--muted);
+            border-bottom: 1px solid var(--border);
+            background: rgba(36, 36, 54, 0.66);
+        }
+
+        .card-body { padding: 20px; }
+
+        .controls {
+            display: grid;
+            grid-template-columns: minmax(160px, 1fr) 92px 92px auto;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: grid;
+            gap: 6px;
+            color: var(--muted);
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+        }
+
+        input, button, textarea {
+            font: inherit;
+        }
+
+        input, textarea {
+            width: 100%;
+            color: var(--text);
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 12px 13px;
+            outline: none;
+        }
+
+        input:focus, textarea:focus {
+            border-color: var(--accent-2);
+            box-shadow: 0 0 0 3px rgba(142, 202, 230, 0.16);
+        }
+
+        button {
+            border: 0;
+            border-radius: 14px;
+            padding: 12px 14px;
+            cursor: pointer;
+            color: #11111a;
+            background: var(--accent);
+            font-weight: 800;
+        }
+
+        button.secondary {
+            color: var(--text);
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+        }
+
+        button.danger {
+            color: #24050a;
+            background: var(--danger);
+        }
+
+        .song-list {
+            display: grid;
+            gap: 10px;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .song {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            gap: 12px;
+            align-items: center;
+            padding: 14px;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background: rgba(16, 16, 24, 0.48);
+        }
+
+        .song strong { display: block; }
+        .song span { color: var(--muted); font-size: 0.85rem; }
+
+        .song-time {
+            color: var(--accent);
+            font-weight: 900;
+            min-width: 5ch;
+            text-align: right;
+        }
+
+        .summary {
+            display: grid;
+            gap: 14px;
+        }
+
+        .total {
+            padding: 26px;
+            border-radius: 22px;
+            background: linear-gradient(135deg, rgba(255, 183, 3, 0.96), rgba(142, 202, 230, 0.96));
+            color: #101018;
+        }
+
+        .total small {
+            display: block;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            font-weight: 800;
+            opacity: 0.72;
+        }
+
+        #total-time {
+            font-size: clamp(2.6rem, 8vw, 4.8rem);
+            line-height: 0.95;
+            font-weight: 950;
+            letter-spacing: -0.08em;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .stat {
+            padding: 14px;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: rgba(36, 36, 54, 0.72);
+        }
+
+        .stat b {
+            display: block;
+            margin-top: 4px;
+            font-size: 1.25rem;
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+            line-height: 1.5;
+        }
+
+        .actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .empty {
+            padding: 24px;
+            border: 1px dashed var(--border);
+            border-radius: 18px;
+            color: var(--muted);
+            text-align: center;
+        }
+
+        @media (max-width: 860px) {
+            header, .layout { grid-template-columns: 1fr; }
+            .controls { grid-template-columns: 1fr 76px 76px; }
+            .controls button { grid-column: 1 / -1; }
+        }
+
+        @media (max-width: 520px) {
+            main { width: min(100vw - 20px, 1120px); padding-top: 18px; }
+            .song { grid-template-columns: 1fr auto; }
+            .song button { grid-column: 1 / -1; }
+            .actions, .stats { grid-template-columns: 1fr; }
+        }
+    </style>
+<!-- Cloudflare Web Analytics (skipped on localhost/dev to avoid CORS noise) -->
+<script>
+if (!/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+  var cfBeacon = document.createElement('script');
+  cfBeacon.defer = true;
+  cfBeacon.src = 'https://static.cloudflareinsights.com/beacon.min.js';
+  cfBeacon.setAttribute('data-cf-beacon', '{"token": "e877c17e959745df9e3a3ada25fffa2d"}');
+  document.head.appendChild(cfBeacon);
+}
+</script>
+<!-- End Cloudflare Web Analytics -->
+</head>
+<body>
+    <main>
+        <header>
+            <div>
+                <h1>Setlist Timer</h1>
+                <p class="lede">Build a setlist, include transition banter, and get a shareable running time before the sound engineer starts pointing at their watch.</p>
+            </div>
+            <a class="home-link" href="index.html">← Robbie's Tools</a>
+        </header>
+
+        <section class="layout" aria-label="Setlist timer workspace">
+            <div class="card">
+                <h2>Add songs</h2>
+                <div class="card-body">
+                    <form class="controls" id="song-form">
+                        <label>
+                            Song
+                            <input id="song-title" name="title" autocomplete="off" placeholder="Opening banger" required>
+                        </label>
+                        <label>
+                            Min
+                            <input id="song-minutes" name="minutes" inputmode="numeric" min="0" max="99" type="number" value="3" required>
+                        </label>
+                        <label>
+                            Sec
+                            <input id="song-seconds" name="seconds" inputmode="numeric" min="0" max="59" type="number" value="30" required>
+                        </label>
+                        <button type="submit">Add</button>
+                    </form>
+
+                    <ul id="song-list" class="song-list" aria-live="polite"></ul>
+                </div>
+            </div>
+
+            <aside class="card">
+                <h2>Runtime</h2>
+                <div class="card-body summary">
+                    <div class="total">
+                        <small>Total set time</small>
+                        <div id="total-time">0:00</div>
+                    </div>
+
+                    <div class="stats">
+                        <div class="stat">Songs <b id="song-count">0</b></div>
+                        <div class="stat">Average <b id="average-time">0:00</b></div>
+                    </div>
+
+                    <label>
+                        Shareable setlist
+                        <textarea id="share-output" readonly placeholder="Add songs to generate a compact share link."></textarea>
+                    </label>
+
+                    <div class="actions">
+                        <button id="copy-link" type="button">Copy link</button>
+                        <button id="clear-list" class="danger" type="button">Clear</button>
+                    </div>
+                </div>
+            </aside>
+        </section>
+    </main>
+
+    <script>
+        const form = document.getElementById('song-form');
+        const titleInput = document.getElementById('song-title');
+        const minutesInput = document.getElementById('song-minutes');
+        const secondsInput = document.getElementById('song-seconds');
+        const songList = document.getElementById('song-list');
+        const totalTime = document.getElementById('total-time');
+        const songCount = document.getElementById('song-count');
+        const averageTime = document.getElementById('average-time');
+        const shareOutput = document.getElementById('share-output');
+        const copyLink = document.getElementById('copy-link');
+        const clearList = document.getElementById('clear-list');
+
+        let songs = readSongsFromUrl();
+
+        function parsePositiveInt(value) {
+            const parsed = Number.parseInt(value, 10);
+            return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+        }
+
+        function formatDuration(totalSeconds) {
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${minutes}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        function encodeSongs() {
+            return btoa(unescape(encodeURIComponent(JSON.stringify(songs))))
+                .replace(/=+$/, '')
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_');
+        }
+
+        function decodeSongs(value) {
+            const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+            const padded = normalized + '='.repeat((4 - normalized.length % 4) % 4);
+            const decoded = decodeURIComponent(escape(atob(padded)));
+            const parsed = JSON.parse(decoded);
+            if (!Array.isArray(parsed)) return [];
+            return parsed
+                .map(song => ({
+                    title: String(song.title || '').trim(),
+                    seconds: parsePositiveInt(song.seconds)
+                }))
+                .filter(song => song.title && song.seconds > 0)
+                .slice(0, 80);
+        }
+
+        function readSongsFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const encoded = params.get('s');
+            if (!encoded) {
+                return [
+                    { title: 'Soundcheck is a song if you believe', seconds: 90 },
+                    { title: 'The One Everyone Knows', seconds: 225 },
+                    { title: 'Tuning / emotionally necessary banter', seconds: 60 }
+                ];
+            }
+
+            try {
+                return decodeSongs(encoded);
+            } catch (error) {
+                console.warn('Could not read setlist from URL', error);
+                return [];
+            }
+        }
+
+        function currentShareUrl() {
+            const url = new URL(window.location.href);
+            if (songs.length) url.searchParams.set('s', encodeSongs());
+            else url.searchParams.delete('s');
+            return url.toString();
+        }
+
+        function syncUrl() {
+            const url = currentShareUrl();
+            window.history.replaceState(null, '', url);
+            shareOutput.value = songs.length ? url : '';
+        }
+
+        function render() {
+            songList.innerHTML = '';
+
+            if (!songs.length) {
+                const empty = document.createElement('li');
+                empty.className = 'empty';
+                empty.textContent = 'No songs yet. Add the first one before the encore gets ideas.';
+                songList.appendChild(empty);
+            }
+
+            songs.forEach((song, index) => {
+                const item = document.createElement('li');
+                item.className = 'song';
+
+                const details = document.createElement('div');
+                const title = document.createElement('strong');
+                title.textContent = song.title;
+                const ordinal = document.createElement('span');
+                ordinal.textContent = `#${index + 1}`;
+                details.append(title, ordinal);
+
+                const time = document.createElement('div');
+                time.className = 'song-time';
+                time.textContent = formatDuration(song.seconds);
+
+                const remove = document.createElement('button');
+                remove.className = 'secondary';
+                remove.type = 'button';
+                remove.textContent = 'Remove';
+                remove.addEventListener('click', () => {
+                    songs.splice(index, 1);
+                    render();
+                });
+
+                item.append(details, time, remove);
+                songList.appendChild(item);
+            });
+
+            const total = songs.reduce((sum, song) => sum + song.seconds, 0);
+            totalTime.textContent = formatDuration(total);
+            songCount.textContent = String(songs.length);
+            averageTime.textContent = songs.length ? formatDuration(Math.round(total / songs.length)) : '0:00';
+            syncUrl();
+        }
+
+        form.addEventListener('submit', event => {
+            event.preventDefault();
+            const title = titleInput.value.trim();
+            const seconds = parsePositiveInt(minutesInput.value) * 60 + parsePositiveInt(secondsInput.value);
+            if (!title || seconds <= 0) return;
+
+            songs.push({ title, seconds });
+            titleInput.value = '';
+            minutesInput.value = '3';
+            secondsInput.value = '30';
+            titleInput.focus();
+            render();
+        });
+
+        clearList.addEventListener('click', () => {
+            songs = [];
+            render();
+        });
+
+        copyLink.addEventListener('click', async () => {
+            const link = currentShareUrl();
+            try {
+                await navigator.clipboard.writeText(link);
+                copyLink.textContent = 'Copied';
+                setTimeout(() => { copyLink.textContent = 'Copy link'; }, 1000);
+            } catch (error) {
+                shareOutput.focus();
+                shareOutput.select();
+            }
+        });
+
+        render();
+    </script>
+</body>
+</html>
