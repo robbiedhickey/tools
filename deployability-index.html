@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deployability Index</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #08111f;
+            --panel: #111c2f;
+            --panel-2: #172640;
+            --blue: #26a8ff;
+            --green: #3ddc84;
+            --yellow: #ffd166;
+            --red: #ff5f7a;
+            --text: #f5f7fb;
+            --muted: #aab6c8;
+            --border: rgba(255, 255, 255, 0.16);
+            --shadow: rgba(0, 0, 0, 0.38);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background:
+                radial-gradient(circle at 18% 12%, rgba(38, 168, 255, 0.28), transparent 25rem),
+                radial-gradient(circle at 82% 8%, rgba(61, 220, 132, 0.22), transparent 25rem),
+                linear-gradient(145deg, #070b14, var(--bg));
+            color: var(--text);
+        }
+
+        main {
+            width: min(1180px, calc(100vw - 28px));
+            margin: 0 auto;
+            padding: 28px 0 56px;
+        }
+
+        a { color: var(--green); }
+
+        header {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 18px;
+            align-items: start;
+            margin-bottom: 24px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(2.8rem, 9vw, 7.5rem);
+            line-height: 0.86;
+            letter-spacing: -0.09em;
+        }
+
+        .gradient {
+            background: linear-gradient(90deg, var(--blue), var(--green));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .lede {
+            max-width: 760px;
+            margin: 16px 0 0;
+            color: var(--muted);
+            font-size: 1.05rem;
+            line-height: 1.65;
+        }
+
+        .home-link {
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 10px 13px;
+            background: rgba(17, 28, 47, 0.8);
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.1fr) minmax(330px, 0.9fr);
+            gap: 18px;
+            align-items: start;
+        }
+
+        .card {
+            border: 1px solid var(--border);
+            border-radius: 26px;
+            background: rgba(17, 28, 47, 0.88);
+            box-shadow: 0 24px 80px var(--shadow);
+            overflow: hidden;
+        }
+
+        .card h2 {
+            margin: 0;
+            padding: 17px 20px;
+            border-bottom: 1px solid var(--border);
+            color: var(--muted);
+            font-size: 0.78rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            background: rgba(255, 255, 255, 0.035);
+        }
+
+        .card-body { padding: 20px; }
+
+        .checklist {
+            display: grid;
+            gap: 12px;
+        }
+
+        .check {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 14px;
+            align-items: center;
+            padding: 14px;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background: rgba(23, 38, 64, 0.78);
+        }
+
+        .check input {
+            width: 22px;
+            height: 22px;
+            accent-color: var(--green);
+        }
+
+        .check strong { display: block; margin-bottom: 3px; }
+        .check span { color: var(--muted); font-size: 0.92rem; line-height: 1.4; }
+        .points { color: var(--yellow); font-weight: 850; }
+
+        .scoreboard {
+            display: grid;
+            gap: 15px;
+        }
+
+        .score {
+            position: relative;
+            min-height: 245px;
+            display: grid;
+            place-items: center;
+            border-radius: 24px;
+            overflow: hidden;
+            background: linear-gradient(135deg, rgba(38, 168, 255, 0.9), rgba(61, 220, 132, 0.9));
+            color: #06101d;
+        }
+
+        .score::before {
+            content: "";
+            position: absolute;
+            inset: 16px;
+            border: 2px dashed rgba(6, 16, 29, 0.34);
+            border-radius: 20px;
+        }
+
+        .score-inner { position: relative; text-align: center; }
+        .score small { display: block; text-transform: uppercase; letter-spacing: 0.16em; font-weight: 900; opacity: 0.72; }
+        #deploy-score { display: block; font-size: clamp(4.4rem, 14vw, 8rem); line-height: 0.9; font-weight: 1000; letter-spacing: -0.1em; }
+        .score-label { font-size: 1.25rem; font-weight: 900; }
+
+        .meter {
+            height: 16px;
+            border-radius: 999px;
+            background: #0a1220;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        #score-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, var(--red), var(--yellow), var(--green));
+            transition: width 180ms ease;
+        }
+
+        .verdict {
+            padding: 16px;
+            border-radius: 18px;
+            border: 1px solid var(--border);
+            background: rgba(23, 38, 64, 0.78);
+            line-height: 1.55;
+        }
+
+        .verdict strong { color: var(--yellow); }
+
+        .traffic {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .env {
+            padding: 16px;
+            border-radius: 18px;
+            border: 1px solid var(--border);
+            background: rgba(23, 38, 64, 0.78);
+        }
+
+        .env b { display: block; margin-bottom: 8px; }
+        .env-blue b { color: var(--blue); }
+        .env-green b { color: var(--green); }
+
+        .toggle-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            border: 0;
+            border-radius: 14px;
+            padding: 12px 14px;
+            cursor: pointer;
+            font: inherit;
+            font-weight: 900;
+            color: #06101d;
+            background: var(--yellow);
+        }
+
+        button.secondary {
+            color: var(--text);
+            border: 1px solid var(--border);
+            background: var(--panel-2);
+        }
+
+        #hundred-deploys {
+            font-size: 0.95rem;
+            color: var(--muted);
+            line-height: 1.55;
+        }
+
+        .costco {
+            border-left: 4px solid var(--yellow);
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: rgba(255, 209, 102, 0.1);
+            color: #ffe9a9;
+            line-height: 1.45;
+        }
+
+        @media (max-width: 880px) {
+            header, .grid { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 560px) {
+            main { width: min(100vw - 18px, 1180px); padding-top: 18px; }
+            .check { grid-template-columns: auto 1fr; }
+            .points { grid-column: 2; }
+            .traffic { grid-template-columns: 1fr; }
+        }
+    </style>
+<!-- Cloudflare Web Analytics (skipped on localhost/dev to avoid CORS noise) -->
+<script>
+if (!/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+  var cfBeacon = document.createElement('script');
+  cfBeacon.defer = true;
+  cfBeacon.src = 'https://static.cloudflareinsights.com/beacon.min.js';
+  cfBeacon.setAttribute('data-cf-beacon', '{"token": "e877c17e959745df9e3a3ada25fffa2d"}');
+  document.head.appendChild(cfBeacon);
+}
+</script>
+<!-- End Cloudflare Web Analytics -->
+</head>
+<body>
+    <main>
+        <header>
+            <div>
+                <h1><span class="gradient">Deployability</span><br>Index</h1>
+                <p class="lede">A release-readiness calculator for teams who want production changes to be boring, reversible, observable, and ideally blue-green. It is part tool, part intervention, part Costco receipt check for your pipeline.</p>
+            </div>
+            <a class="home-link" href="index.html">← Robbie's Tools</a>
+        </header>
+
+        <section class="grid" aria-label="Deployability index workspace">
+            <div class="card">
+                <h2>Release readiness checklist</h2>
+                <div class="card-body checklist" id="checklist">
+                    <label class="check">
+                        <input type="checkbox" data-points="15" data-key="small-batches" checked>
+                        <span><strong>Small batches</strong><span>Change set fits in one human brain and does not require a commemorative binder.</span></span>
+                        <b class="points">+15</b>
+                    </label>
+                    <label class="check">
+                        <input type="checkbox" data-points="15" data-key="tests" checked>
+                        <span><strong>Automated tests</strong><span>The pipeline validates behavior before production gets invited to improv night.</span></span>
+                        <b class="points">+15</b>
+                    </label>
+                    <label class="check">
+                        <input type="checkbox" id="blue-green-toggle" data-points="20" data-key="blue-green" checked>
+                        <span><strong>Blue-green deployment</strong><span>One environment serves traffic while the other warms up. Rollback is a traffic switch, not a group therapy session.</span></span>
+                        <b class="points">+20</b>
+                    </label>
+                    <label class="check">
+                        <input type="checkbox" data-points="12" data-key="observability" checked>
+                        <span><strong>Observability</strong><span>Dashboards and alerts tell you whether the change is healthy or merely confident.</span></span>
+                        <b class="points">+12</b>
+                    </label>
+                    <label class="check">
+                        <input type="checkbox" data-points="10" data-key="feature-flags">
+                        <span><strong>Feature flags</strong><span>Separate deploy from release. The code ships, the behavior waits in the parking lot.</span></span>
+                        <b class="points">+10</b>
+                    </label>
+                    <label class="check">
+                        <input type="checkbox" data-points="10" data-key="rollback">
+                        <span><strong>Rollback rehearsed</strong><span>If nobody has practiced rollback, the runbook is fan fiction.</span></span>
+                        <b class="points">+10</b>
+                    </label>
+                    <label class="check">
+                        <input type="checkbox" data-points="8" data-key="owner">
+                        <span><strong>Clear owner</strong><span>Someone is watching the release and not just spiritually adjacent to the pager.</span></span>
+                        <b class="points">+8</b>
+                    </label>
+                    <label class="check">
+                        <input type="checkbox" data-points="10" data-key="costco">
+                        <span><strong>Costco-grade value</strong><span>The unit economics are defensible and the hot dog SLO remains undefeated.</span></span>
+                        <b class="points">+10</b>
+                    </label>
+                </div>
+            </div>
+
+            <aside class="card">
+                <h2>Operational diagnosis</h2>
+                <div class="card-body scoreboard">
+                    <div class="score" aria-live="polite">
+                        <div class="score-inner">
+                            <small>Deployability</small>
+                            <span id="deploy-score">0</span>
+                            <div class="score-label" id="score-label">Calculating</div>
+                        </div>
+                    </div>
+                    <div class="meter" aria-hidden="true"><div id="score-bar"></div></div>
+                    <div class="verdict" id="verdict"></div>
+                    <div class="traffic">
+                        <div class="env env-blue"><b>Blue</b><span id="blue-status">Idle, warm, judgmental.</span></div>
+                        <div class="env env-green"><b>Green</b><span id="green-status">Live, monitored, snack-adjacent.</span></div>
+                    </div>
+                    <div class="toggle-row">
+                        <button id="preset-safe" type="button">Make it boring</button>
+                        <button id="preset-chaos" type="button" class="secondary">Summon release goblin</button>
+                    </div>
+                    <div id="hundred-deploys">Hundred-deploys-a-day forecast: pending. The value stream is stretching.</div>
+                    <div class="costco">Costco note: if your release cannot survive a receipt check, it should not be promoted to the production food court.</div>
+                </div>
+            </aside>
+        </section>
+    </main>
+
+    <script>
+        const checks = [...document.querySelectorAll('input[type="checkbox"][data-points]')];
+        const scoreEl = document.getElementById('deploy-score');
+        const scoreBar = document.getElementById('score-bar');
+        const scoreLabel = document.getElementById('score-label');
+        const verdict = document.getElementById('verdict');
+        const hundredDeploys = document.getElementById('hundred-deploys');
+        const blueGreenToggle = document.getElementById('blue-green-toggle');
+        const blueStatus = document.getElementById('blue-status');
+        const greenStatus = document.getElementById('green-status');
+        const storageKey = 'deployability-index:v1';
+
+        function loadState() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
+                checks.forEach(check => {
+                    if (Object.prototype.hasOwnProperty.call(saved, check.dataset.key)) {
+                        check.checked = Boolean(saved[check.dataset.key]);
+                    }
+                });
+            } catch (error) {
+                console.warn('Could not load deployability state', error);
+            }
+        }
+
+        function saveState() {
+            const state = Object.fromEntries(checks.map(check => [check.dataset.key, check.checked]));
+            localStorage.setItem(storageKey, JSON.stringify(state));
+        }
+
+        function labelFor(score) {
+            if (score >= 90) return 'Boring excellence';
+            if (score >= 75) return 'Deployable with snacks';
+            if (score >= 55) return 'Needs adult supervision';
+            if (score >= 35) return 'Incident scented';
+            return 'Manual gate goblin';
+        }
+
+        function verdictFor(score) {
+            if (score >= 90) return '<strong>Ship it.</strong> This is the kind of release that could happen during a calm lunch and still leave time to discuss blue-green deployments unprompted.';
+            if (score >= 75) return '<strong>Probably ship.</strong> Watch the dashboards, keep rollback close, and do not let optimism write the runbook.';
+            if (score >= 55) return '<strong>Hold for hardening.</strong> The release has bones, but some of them are load-bearing hopes.';
+            if (score >= 35) return '<strong>Do not promote yet.</strong> Production is not a learning environment, even if finance treats it like one.';
+            return '<strong>Return to sender.</strong> This is less a deployment and more a scheduled outage with branding.';
+        }
+
+        function forecastFor(score) {
+            const deploys = Math.max(1, Math.round(score * 1.17));
+            if (score >= 86) return `Hundred-deploys-a-day forecast: ${deploys}. We are green enough to make the lawn nervous.`;
+            if (score >= 60) return `Hundred-deploys-a-day forecast: ${deploys}. Respectable, but the value stream still has a receipt line.`;
+            return `Hundred-deploys-a-day forecast: ${deploys}. At this rate we should start with one deploy and a chair.`;
+        }
+
+        function updateEnvironmentCopy() {
+            if (blueGreenToggle.checked) {
+                blueStatus.textContent = 'Idle, warm, ready for traffic.';
+                greenStatus.textContent = 'Live, monitored, reversible.';
+            } else {
+                blueStatus.textContent = 'Missing. Someone value-engineered the parachute.';
+                greenStatus.textContent = 'Only environment. Rollback now involves archaeology.';
+            }
+        }
+
+        function calculate() {
+            const score = checks.reduce((sum, check) => sum + (check.checked ? Number(check.dataset.points) : 0), 0);
+            scoreEl.textContent = String(score);
+            scoreBar.style.width = `${score}%`;
+            scoreLabel.textContent = labelFor(score);
+            verdict.innerHTML = verdictFor(score);
+            hundredDeploys.textContent = forecastFor(score);
+            updateEnvironmentCopy();
+            saveState();
+        }
+
+        document.getElementById('preset-safe').addEventListener('click', () => {
+            checks.forEach(check => { check.checked = true; });
+            calculate();
+        });
+
+        document.getElementById('preset-chaos').addEventListener('click', () => {
+            checks.forEach(check => { check.checked = false; });
+            calculate();
+        });
+
+        checks.forEach(check => check.addEventListener('change', calculate));
+        loadState();
+        calculate();
+    </script>
+</body>
+</html>
