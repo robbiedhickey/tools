@@ -14,6 +14,7 @@ Apps typically start as a single static HTML file at the root and grow into some
 | Chord Progressions | `chord-progressions.html` | Static |
 | Drum Patterns | `drum-patterns.html` | Static |
 | Dankcoin Capital Recovery Services | `dankcoin-capital-recovery-services.html` | Static |
+| Restaurant Week Radius | `restaurant-week.html` | Static |
 
 When a static app outgrows a single file, the pattern is:
 1. Move it to its own directory (`my-app/index.html`)
